@@ -5,14 +5,14 @@ default_stages: [commit]
 
 repos:
   - repo: https://github.com/asottile/reorder_python_imports
-    rev: v2.6.0
+    rev: v3.8.2
     hooks:
       - id: reorder-python-imports
         args:
           - --py38-plus
 
   - repo: https://github.com/python/black
-    rev: 21.11b1
+    rev: 22.8.0
     hooks:
       - id: black
 
@@ -31,7 +31,7 @@ repos:
           - flake8-pytest-style==1.5.1
 
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.0.1
+    rev: v4.3.0
     hooks:
       - id: debug-statements
       - id: requirements-txt-fixer # order requirements alphabetically
@@ -52,14 +52,14 @@ repos:
     - id: mypy
 
   - repo: https://github.com/compilerla/conventional-pre-commit
-    rev: v1.2.0
+    rev: v2.0.0
     hooks:
       - id: conventional-pre-commit
         stages:
           - commit-msg
 
   - repo: https://github.com/asottile/pyupgrade
-    rev: v2.29.1
+    rev: v2.38.0
     hooks:
       - id: pyupgrade
         args:

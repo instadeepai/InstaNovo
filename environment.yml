@@ -7,4 +7,4 @@ dependencies:
   - pip
   - pip:
       - -r requirements-dev.txt
-      - pre-commit==2.15.0
+      - -r requirements.txt
