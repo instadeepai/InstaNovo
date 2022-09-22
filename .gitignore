@@ -147,3 +147,7 @@ cython_debug/
 .devcontainer
 .bash_history
 .local/
+
+# data folders
+data/
+ProteomeTools_data/
