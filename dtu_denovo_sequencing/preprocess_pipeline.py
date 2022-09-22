@@ -1,34 +1,42 @@
-# -*- coding: utf-8 -*-
 """
 Created on Fri Sep 16 10:05:46 2022
 
 @author: konka
 """
-
 import os
+import zipfile
+from pathlib import Path
+
 import pandas as pd
 import pyopenms
-import zipfile
 from tqdm import tqdm
 
 # init variables
-path_raw = r"\\ait-pcifs02.win.dtu.dk\bio$\Shares\Protease-Systems-Biology\Kostas\OtherProjects\De_novo\ProteomeTools_data\Converted"
-path_zip = r"\\ait-pcifs02.win.dtu.dk\bio$\Shares\Protease-Systems-Biology\Kostas\OtherProjects\De_novo\ProteomeTools_data\Search_results_all"
-path_temp = r"\\ait-pcifs02.win.dtu.dk\bio$\Shares\Protease-Systems-Biology\Kostas\OtherProjects\De_novo\data\temp"
-path_out = r"\\ait-pcifs02.win.dtu.dk\bio$\Shares\Protease-Systems-Biology\Kostas\OtherProjects\De_novo\data\out"
-path_log = r"\\ait-pcifs02.win.dtu.dk\bio$\Shares\Protease-Systems-Biology\Kostas\OtherProjects\De_novo\ProteomeTools_data\File_lists"
+# root_dir = r"\\ait-pcifs02.win.dtu.dk\bio$\Shares\Protease-Systems-Biology\Kostas\OtherProjects\De_novo" # noqa: E501
+root_dir = Path(__file__).parent.parent
+path_raw = root_dir / "ProteomeTools_data/Converted"
+path_zip = root_dir / "ProteomeTools_data/Search_results_all"
+path_temp = root_dir / "data/temp"
+path_out = root_dir / "data/out"
+path_log = root_dir / "ProteomeTools_data/File_lists"
 failed_log = "Failed.txt"
 completed_log = "Completed.txt"
 result_file = "evidence.txt"
 
-
-completed_df = pd.read_csv(os.path.join(path_log, completed_log), sep="\t", header=None)
-if len(completed_df) > 1:
-    completed_raw = completed_df.iloc[:, 1].to_list()
+completed_path = path_log / completed_log
+if completed_path.is_file():
+    completed_df = pd.read_csv(
+        os.path.join(path_log, completed_log), sep="\t", header=None
+    )
+    if len(completed_df) > 1:
+        completed_raw = completed_df.iloc[:, 1].to_list()
+    else:
+        completed_raw = []
 else:
     completed_raw = []
 
-for filename_mzML in tqdm(os.listdir(path_raw)):
+
+for filename_mzML in tqdm(os.listdir(path_raw)):  # noqa: N816
 
     if filename_mzML in completed_raw:
         print(f"{filename_mzML} already processed, skipping.")
@@ -70,13 +78,13 @@ for filename_mzML in tqdm(os.listdir(path_raw)):
                 print("Found archive result.")
                 path_result = archive.extract(filename, path_temp)
                 break
-        
+
         print("Unpacked search file in temp folder. Loading raw file...")
 
-    except:
+    except:  # noqa: B001, E722 # TODO: use more specific Exception
 
         print(f"Could not unpack search file for {experiment_name}")
-        
+
         with open(os.path.join(path_log, failed_log), "a") as fh:
 
             print(
@@ -97,13 +105,13 @@ for filename_mzML in tqdm(os.listdir(path_raw)):
 
         print("Raw file loaded on disc.")
 
-    except:
+    except:  # noqa: B001, E722 # TODO: use more specific Exception
 
         print(f"Could not read raw file for {experiment_name}")
-        
+
         # clean up after error
         os.remove(path_result)
-        
+
         with open(os.path.join(path_log, failed_log), "a") as fh:
             print(
                 experiment_name,
@@ -113,7 +121,7 @@ for filename_mzML in tqdm(os.listdir(path_raw)):
                 sep="\t",
                 file=fh,
             )
-            
+
         continue
 
     # read evidence dataframe containing all PSMs
@@ -139,7 +147,7 @@ for filename_mzML in tqdm(os.listdir(path_raw)):
 
     # extract relevant features
     for index in peptide_df.index:
-        
+
         # for each PSM
         sequence = peptide_df.loc[index, "Sequence"]
         modified_sequence = peptide_df.loc[index, "Modified sequence"]
@@ -154,7 +162,7 @@ for filename_mzML in tqdm(os.listdir(path_raw)):
         try:
             spectrum = exp.getSpectrum(int(spectrum_index))
             mz, intensity = spectrum.get_peaks()
-            
+
             # write in data structure
             data[index] = [
                 index,
@@ -169,19 +177,19 @@ for filename_mzML in tqdm(os.listdir(path_raw)):
                 mz,
                 intensity,
             ]
-        
+
         except AssertionError as err:
-            
+
             print(err)
             print(index, spectrum_index, sequence, experiment_name)
-            
+
             continue
 
     print("Extracted data, writing to file...")
 
     # write output for the experiment
     out_df = pd.DataFrame.from_dict(data=data, orient="index", columns=header)
-    #out_df.to_excel(f'{experiment_name}.xlsx', index=False)
+    # out_df.to_excel(f'{experiment_name}.xlsx', index=False)
     out_file = os.path.join(path_out, f"{experiment_name}.pkl")
     out_df.to_pickle(out_file, compression="zip")
 
@@ -198,6 +206,6 @@ for filename_mzML in tqdm(os.listdir(path_raw)):
                 os.remove(file_path)
 
     with open(os.path.join(path_log, completed_log), "a") as fh:
-       print(experiment_name, filename_mzML, filename_zip, sep="\t", file=fh)
+        print(experiment_name, filename_mzML, filename_zip, sep="\t", file=fh)
 
     print(f"\nCleaned up, reported success for {experiment_name}.\n")
