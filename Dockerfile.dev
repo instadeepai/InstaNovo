@@ -1,0 +1,68 @@
+FROM nvcr.io/nvidia/tensorflow:21.06-tf2-py3
+
+# When your experiment writes result files into a bind mount (directories mirrored using -v or --volume),
+# your results will (for most containers) be read only, because docker containers run as root by default.
+# This means, to clear up your result files, you need te be a root user.
+# To avoid this, you can modify your Dockerfile to use a non-root user.
+ARG USER=app
+ARG UID=42000
+ARG GID=42001
+ARG HOME_DIRECTORY=/app
+
+ARG VERSION
+ARG LAST_COMMIT
+
+# Ensure ARGs are sets
+RUN test -n "$USER" && \
+        test -n "$UID" && \
+        test -n "$GID" && \
+        test -n "$HOME_DIRECTORY" && \
+        test -n "$VERSION" && \
+        test -n "$LAST_COMMIT"
+
+# Update and upgrade your base image
+RUN apt-get update && \
+        apt-get upgrade -y
+
+# Install required system dependencies
+RUN DEBIAN_FRONTEND=noninteractive apt-get install git \
+        libcusolver10 \
+        ca-certificates -y
+
+# Create group and user
+RUN groupadd --force --gid $GID $USER && \
+        useradd -M --home $HOME_DIRECTORY --base-dir $HOME_DIRECTORY \
+        --system --uid $UID --gid $GID --shell "/bin/bash" $USER
+
+# Copy files into HOME_DIRECTORY
+COPY . $HOME_DIRECTORY
+
+# Makes HOME_DIRECTORY files owned by USER
+RUN chown -R ${USER}:${USER} ${HOME_DIRECTORY}
+
+# Set HOME_DIRECTORY as default
+WORKDIR $HOME_DIRECTORY
+
+# Default user
+USER $USER
+
+# Add Python bin to PATH
+ENV PATH=$PATH:$HOME_DIRECTORY/.local/bin
+
+# Install python requirements
+RUN pip install --upgrade --quiet pip setuptools && \
+        pip install --no-cache-dir -r ./requirements.txt && \
+        pip install --no-cache-dir -r ./requirements-dev.txt
+
+# Set different env variables
+ENV TF_FORCE_GPU_ALLOW_GROWTH=true
+ENV CUDA_DEVICE_ORDER=PCI_BUS_ID
+ENV TF_CPP_MIN_LOG_LEVEL=3
+ENV VERSION=${VERSION}
+ENV LAST_COMMIT=${LAST_COMMIT}
+
+# Append the current directory to your python path
+ENV PYTHONPATH=$PWD:$PYTHONPATH
+
+# Default Tensorboard port
+EXPOSE 6006

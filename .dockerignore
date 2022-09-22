@@ -1,0 +1,14 @@
+# Ignore all by default to reduce build context as much as possible
+*
+
+# Python requirements installed in the docker
+!requirements.txt
+!requirements-dev.txt
+
+# Allow to use the repository as a package
+!setup.py
+!setup.cfg
+!pyproject.toml
+
+# To run the linters in the CI job
+!.pre-commit-config.yaml

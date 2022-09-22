@@ -1,0 +1,120 @@
+stages:
+  - build
+  - lint
+  - test
+  - deploy
+  - publish
+
+variables:
+  PRE_COMMIT_VERSION: "2.15.0"
+  PROJECT_NAME: dtu_denovo_sequencing
+  DOCKER_IMAGE_NAME: gcr.io/instadeep/id-ml-template
+  DOCKER_APP_PATH: "/app"
+  COOKIECUTTER_VERSION: "1.7.3"
+
+
+.pip-job:
+  image: $DOCKER_IMAGE_NAME:$CI_COMMIT_SHORT_SHA
+  variables:
+    PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+  cache:
+    paths:
+      - .cache/pip
+      - venv/
+  before_script:
+    - python -V
+    # this checks whether we are testing the template or not
+    # if we are, then env variable $TEMPLATE_TEST_CI_FOLDER should be set.
+    - if [[ -n "${TEMPLATE_TEST_CI_FOLDER}" ]]; then pip install cookiecutter==$COOKIECUTTER_VERSION; cookiecutter --no-input . repo_group=instadeep/templates; fi
+    - if [[ -n "${TEMPLATE_TEST_CI_FOLDER}" ]]; then cd "${TEMPLATE_TEST_CI_FOLDER}"; fi
+    - pip install --prefix ~/.local -e .
+
+
+.docker_login: &docker_login |
+  docker login -u _json_key --password-stdin https://gcr.io < ${GCP_SERVICE_ACCOUNT}
+
+linters:
+  extends: .pip-job
+  stage: lint
+  script:
+    - cd $DOCKER_APP_PATH
+    - pip install pre-commit==$PRE_COMMIT_VERSION
+    # hack to be able to use pre-commit without all the .git directory available in the docker
+    # cf https://github.com/pre-commit/pre-commit/issues/1152
+    - git init .
+    - pre-commit install -t pre-commit
+    - pre-commit run --all-files
+
+test:
+  extends: .pip-job
+  stage: test
+  script:
+    - pip install -r requirements-dev.txt
+    - pytest --cov=$PROJECT_NAME --cov-report=term-missing --junit-xml=test-results.xml -vv $PROJECT_NAME
+    - coverage html --directory=coverage_html_report
+    - coverage report --fail-under=1
+  coverage: '/TOTAL.+ (\d+\.?\d+)%/'
+  artifacts:
+    name: "Test Results"
+    when: always
+    paths:
+      - ./test-results.xml
+      - ./coverage_html_report
+    reports:
+      junit: ./test-results.xml
+    expire_in: 1 day
+
+
+build_image:
+  image: registry.kao.instadeep.io/library/docker:pydoc
+  stage: build
+  script:
+    - *docker_login
+    - apk add --no-cache make
+    # this checks whether we are testing the template or not
+    # if we are, then env variable $TEMPLATE_TEST_CI_FOLDER should be set.
+    - if [[ -n "${TEMPLATE_TEST_CI_FOLDER}" ]]; then pip install cookiecutter==$COOKIECUTTER_VERSION; cookiecutter --no-input . repo_group=instadeep/templates; fi
+    - if [[ -n "${TEMPLATE_TEST_CI_FOLDER}" ]]; then cd "${TEMPLATE_TEST_CI_FOLDER}"; fi
+    - make build-ci
+    - make push-ci
+
+test_docs:
+  extends: .pip-job
+  stage: test
+  script:
+    - pip install -r requirements-dev.txt
+    - git config --global --add safe.directory "$(dirname "$(pwd)")"
+    - mkdocs build --verbose --site-dir docs_public
+  artifacts:
+    paths:
+      - docs_public
+
+pages:
+  extends: .pip-job
+  stage: deploy
+  script:
+    - pip install -r requirements-dev.txt
+    - git config --global --add safe.directory "$(dirname "$(pwd)")"
+    - mkdocs build --verbose
+  artifacts:
+    paths:
+      - public
+  only:
+    - main
+
+publish:
+  extends: .pip-job
+  stage: publish
+  only:
+    variables:
+      - $PUBLISH == "true"
+  script:
+    - cd $DOCKER_APP_PATH
+    - pip install python-semantic-release twine
+    - rm -rf .git/hooks
+    - git config --global user.email $GITLAB_USER_EMAIL
+    - git config --global user.name "python-semantic-release"
+    - git tag -d $(git tag -l)
+    - semantic-release publish
+    - python setup.py sdist bdist_wheel
+    - TWINE_PASSWORD=${CI_JOB_TOKEN} TWINE_USERNAME=gitlab-ci-token python -m twine upload --repository-url ${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/pypi dist/*

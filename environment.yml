@@ -1,0 +1,10 @@
+# This is an environment for running git commands and other tools locally.
+name: dtu-denovo-sequencing
+channels:
+  - default
+dependencies:
+  - python=3.8.3
+  - pip
+  - pip:
+      - -r requirements-dev.txt
+      - pre-commit==2.15.0
