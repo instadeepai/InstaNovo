@@ -40,7 +40,8 @@ class TransNovo(nn.Module):
         self, x: Tensor, x_pad: Tensor, y: Tensor, y_pad: Optional[Tensor] = None
     ) -> Tensor:
         x = self.input_embed(x)
-        y = self.pos_enc(self.seq_embed(y))
+        # FiX THIS POSITIONAL ENCODING
+        y = self.pos_enc(self.seq_embed(y).transpose(0, 1)).transpose(0, 1)
 
         out = self.transformer(
             x,
@@ -176,7 +177,9 @@ class CausalTransformerDecoderLayer(nn.TransformerDecoderLayer):
             return super().forward(
                 tgt,
                 memory,
-                tgt_mask=generate_square_subsequent_mask(tgt.size(0), tgt.device),
+                tgt_mask=generate_square_subsequent_mask(tgt.size(0), tgt.device).to(
+                    tgt.dtype
+                ),
                 memory_mask=memory_mask,
                 tgt_key_padding_mask=tgt_key_padding_mask,
                 memory_key_padding_mask=memory_key_padding_mask,

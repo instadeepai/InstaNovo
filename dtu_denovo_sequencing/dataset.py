@@ -36,6 +36,12 @@ class SpecDataset(Dataset):
         self.SOS = i2s.index("SOS")
         self.EOS = i2s.index("EOS")
 
+        self.df["Sequence"] = self.df["Modified sequence"].map(
+            lambda x: [self.s2i(y) for y in x[1:-1].replace("M(ox)", "#")]
+        )
+        if self.force_eos:
+            self.df["Sequence"] = self.df["Sequence"].map(lambda x: x + [self.EOS])
+
     def seq_to_aa(self, seq: Tensor) -> str:
         aa = []
         for p in seq:
@@ -59,11 +65,12 @@ class SpecDataset(Dataset):
             intensity /= intensity.max()
         x = torch.stack([mass, intensity, mz, rt]).T
 
-        seq = row["Modified sequence"][1:-1]
-        seq = seq.replace("(ox)", "#")
-        seq = [self.s2i(x) for x in seq]
-        if self.force_eos:
-            seq += [self.EOS]
+        # seq = row["Modified sequence"][1:-1]
+        # seq = seq.replace("M(ox)", "#")
+        # seq = [self.s2i(x) for x in seq]
+        seq = row["Sequence"]
+        # if self.force_eos:
+        #     seq += [self.EOS]
         y = torch.tensor(seq)
 
         return x, y
@@ -89,7 +96,7 @@ def collate_batch(
 def load_all(path: str, verbose: bool = True) -> pd.DataFrame:
     df_list = []
 
-    enum = os.listdir(path)
+    enum = os.listdir(path)[:]
     if verbose:
         enum = tqdm(enum)
 
