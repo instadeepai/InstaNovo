@@ -1,4 +1,6 @@
 """Define functions for common I/O operations."""
+from __future__ import annotations
+
 import io
 import json
 import os
@@ -7,7 +9,6 @@ from pathlib import Path
 from typing import Any
 from typing import Callable
 from typing import Iterable
-from typing import List
 from typing import Union
 
 import yaml
@@ -36,7 +37,7 @@ def save_as_txt(iterable: Iterable, file_path: Openable, force: bool = False) ->
     _save(obj=iterable, file_path=file_path, force=force, save_fn=save_fn)
 
 
-def load_txt(file_path: Openable) -> List[str]:
+def load_txt(file_path: Openable) -> list[str]:
     """Load a .txt file and store it in a list.
 
     Each line corresponds to an item in the returned list.
@@ -47,15 +48,12 @@ def load_txt(file_path: Openable) -> List[str]:
     Raises:
         FileNotFoundError: if the 'file_path' does not exist.
     """
-
     return _load(  # type: ignore
         file_path=file_path, load_fn=lambda f: [item.strip() for item in f]
     )
 
 
-def save_as_json(
-    dict_: dict, file_path: Openable, force: bool = False, **save_kwargs: Any
-) -> None:
+def save_as_json(dict_: dict, file_path: Openable, force: bool = False, **save_kwargs: Any) -> None:
     """Save a dictionary to a .json file thanks to 'json' package.
 
     By default the 'indent' in 'save_kwargs' is set to 4 for a better display.
@@ -87,9 +85,7 @@ def load_json(file_path: Openable, **load_kwargs: Any) -> dict:
     return _load(file_path=file_path, load_fn=json.load, **load_kwargs)  # type: ignore
 
 
-def save_as_yml(
-    dict_: dict, file_path: Openable, force: bool = False, **save_kwargs: Any
-) -> None:
+def save_as_yml(dict_: dict, file_path: Openable, force: bool = False, **save_kwargs: Any) -> None:
     """Save a dictionary to a .yml file thanks to 'yaml' package.
 
     By default 'default_flow_style' and 'sort_keys' are set to False in 'save_kwargs'.
@@ -119,14 +115,10 @@ def load_yml(file_path: Openable, **load_kwargs: Any) -> dict:
     Raises:
         FileNotFoundError: if the 'file_path' does not exist.
     """
-    return _load(  # type: ignore
-        file_path=file_path, load_fn=yaml.full_load, **load_kwargs
-    )
+    return _load(file_path=file_path, load_fn=yaml.full_load, **load_kwargs)  # type: ignore
 
 
-def save_as_pkl(
-    obj: Any, file_path: Openable, force: bool = False, **save_kwargs: Any
-) -> None:
+def save_as_pkl(obj: Any, file_path: Openable, force: bool = False, **save_kwargs: Any) -> None:
     """Save an object into a .pkl file.
 
     Args:
@@ -158,9 +150,7 @@ def load_pkl(file_path: Openable, **load_kwargs: Any) -> Any:
     Raises:
         FileNotFoundError: if the 'file_path' does not exist.
     """
-    return _load(
-        file_path=file_path, load_fn=pickle.load, file_mode="rb", **load_kwargs
-    )
+    return _load(file_path=file_path, load_fn=pickle.load, file_mode="rb", **load_kwargs)
 
 
 def _save(
@@ -196,9 +186,7 @@ def _save(
         save_fn(obj, f, **save_kwargs)
 
 
-def _load(
-    file_path: Openable, load_fn: Callable, file_mode: str = "r", **load_kwargs: Any
-) -> Any:
+def _load(file_path: Openable, load_fn: Callable, file_mode: str = "r", **load_kwargs: Any) -> Any:
     """Main function to load a python object thanks to the provided load_fn.
 
     Args:

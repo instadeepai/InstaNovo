@@ -1,11 +1,10 @@
+from __future__ import annotations
+
 import os
 import pickle
 import zipfile
 from typing import Any
 from typing import Callable
-from typing import Dict
-from typing import List
-from typing import Tuple
 
 import pandas as pd
 import torch
@@ -15,10 +14,12 @@ from tqdm import tqdm
 
 
 class SpecDataset(Dataset):
+    """Dataset of Mass-spectometry data."""
+
     def __init__(
         self,
         df: pd.DataFrame,
-        s2i: Dict[str, int],
+        s2i: dict[str, int],
         i2s: list,
         normalise_intensity: bool = True,
         force_eos: bool = True,
@@ -36,13 +37,20 @@ class SpecDataset(Dataset):
         self.SOS = i2s.index("SOS")
         self.EOS = i2s.index("EOS")
 
+        # TODO: the line below gives a SettingWithCopyWarning
+        # A value is trying to be set on a copy of a slice from a DataFrame.
+        # Try using .loc[row_indexer,col_indexer] = value instead
+        # See the caveats in the documentation:
+        # https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
         self.df["Sequence"] = self.df["Modified sequence"].map(
             lambda x: [self.s2i(y) for y in x[1:-1].replace("M(ox)", "#")]
         )
         if self.force_eos:
+            # TODO: Same SettingWithCopyWarning here
             self.df["Sequence"] = self.df["Sequence"].map(lambda x: x + [self.EOS])
 
     def seq_to_aa(self, seq: Tensor) -> str:
+        """Convert a sequence to amino acids."""
         aa = []
         for p in seq:
             if p == self.EOS:
@@ -53,7 +61,7 @@ class SpecDataset(Dataset):
     def __len__(self) -> int:
         return len(self.df)
 
-    def __getitem__(self, index: int) -> Tuple[Tensor, Tensor]:
+    def __getitem__(self, index: int) -> tuple[Tensor, Tensor]:
         row = self.df.iloc[index]
 
         mass = torch.from_numpy(row["Mass values"])
@@ -76,9 +84,8 @@ class SpecDataset(Dataset):
         return x, y
 
 
-def collate_batch(
-    batch: List[Tuple[Tensor, Tensor]]
-) -> Tuple[Tensor, Tensor, Tensor, Tensor]:
+def collate_batch(batch: list[tuple[Tensor, Tensor]]) -> tuple[Tensor, Tensor, Tensor, Tensor]:
+    """Collate lists of samples into batches."""
     x, y = zip(*batch)
 
     llx = torch.tensor([z.shape[0] for z in x], dtype=torch.long)
@@ -94,6 +101,7 @@ def collate_batch(
 
 
 def load_all(path: str, verbose: bool = True) -> pd.DataFrame:
+    """Load all zipped pickle files."""
     df_list = []
 
     enum = os.listdir(path)[:]
@@ -101,6 +109,9 @@ def load_all(path: str, verbose: bool = True) -> pd.DataFrame:
         enum = tqdm(enum)
 
     for filename in enum:
-        with zipfile.ZipFile(f"{path}{filename}", "r") as f:
+        dst = f"{path}{filename}"
+        if verbose:
+            print(dst)
+        with zipfile.ZipFile(dst, "r") as f:
             df_list.append(pickle.loads(f.read(f.namelist()[0])))
     return pd.concat(df_list)

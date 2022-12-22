@@ -5,6 +5,7 @@ channels:
 dependencies:
   - python=3.8.3
   - pip
+  - setuptools
   - pip:
       - -r requirements-dev.txt
       - -r requirements.txt

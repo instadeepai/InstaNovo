@@ -1,23 +1,32 @@
+from __future__ import annotations
+
 import argparse
+import json
 import logging
 import math
 import os
 import random
 import time
+from argparse import Namespace
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
 import deepspeed
 import jiwer
 import numpy as np
+import s3fs
 import torch
 import torch.nn as nn
+from dotenv import load_dotenv
 from fastprogress.fastprogress import master_bar
 from fastprogress.fastprogress import progress_bar
 from omegaconf import MISSING
 from omegaconf import OmegaConf
 from sklearn.model_selection import train_test_split
+from tensorboard.compat.tensorflow_stub.io.gfile import _REGISTERED_FILESYSTEMS
+from tensorboard.compat.tensorflow_stub.io.gfile import register_filesystem
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
@@ -29,12 +38,20 @@ from dtu_denovo_sequencing.dataset import load_all
 from dtu_denovo_sequencing.dataset import SpecDataset
 from dtu_denovo_sequencing.model import TransNovo
 
+
+load_dotenv()
+
 # DS2 train command:
 # deepspeed --num_nodes 1 ./dtu_denovo_sequencing/train.py checkpoint_path=runs/trans-debug/ train_data_path=./data/denovo_dataset_v1/ batch_size=12 --deepspeed --deepspeed_config=deepspeed_cfg.json
+
+# For debugging NCCL failures, print an explicit warning message as well as basic NCCL initialization information.
+os.environ["NCCL_DEBUG"] = "INFO"
 
 
 @dataclass
 class DistributedConfig:
+    """Configuration settings for distributes training."""
+
     dist_backend: str = "nccl"
     dist_url: str = "tcp://localhost:54321"
     # n_nodes: int = 1 # Handled by deepspeed
@@ -43,6 +60,8 @@ class DistributedConfig:
 
 @dataclass
 class TrainConfig:
+    """Configuration settings for training."""
+
     # Distributed settings
     distributed: DistributedConfig = DistributedConfig()
     # Model settings
@@ -57,15 +76,15 @@ class TrainConfig:
     num_workers: int = 16
 
     summary_interval: int = 25
-    checkpoint_interval: int = 160_000
+    checkpoint_interval: int = 20
     stdout_interval: int = 100
-    validation_interval: int = 40_000
+    validation_interval: int = 10
 
     # Learning settings -- managed by deepspeed cfg
     max_steps: int = 100_000_000  # 500_000 #1_000_000
 
     # Data settings
-    checkpoint_path: str = MISSING
+    checkpoint_path: str = "/runs"
     train_data_path: str = MISSING
     resume_checkpoint: str = ""
 
@@ -73,21 +92,47 @@ class TrainConfig:
     test_split_seed: int = 100  # seed for splitting test set
     test_split: float = 0.1  # test split proportion of full dataset
     valid_split: float = 0.1  # valid split proportion of full dataset
-    valid_proportion: float = (
-        0.1  # Validate only on a portion of the full validation set
-    )
+    valid_proportion: float = 0.1  # Validate only on a portion of the full validation set
 
 
 # flake8: noqa: CR001
 def train(rank: int, cfg: TrainConfig, deepspeed_cfg: argparse.Namespace) -> None:
-    print(f"[RANK {rank}] Deepspeed cfg: {deepspeed_cfg}")
+    """Launch the training."""
+    # If running on AIchor, set monitors to use output paths created by AIchor
+    if "AICHOR_LOGS_PATH" in os.environ:
+        assert "S3_ENDPOINT" in os.environ
+
+        fs = _REGISTERED_FILESYSTEMS["s3"]
+        if fs._s3_endpoint is None:
+            # Set custom S3 endpoint explicitly. Not sure why this isn't picked up here:
+            # https://github.com/tensorflow/tensorboard/blob/153cc747fdbeca3545c81947d4880d139a185c52/tensorboard/compat/tensorflow_stub/io/gfile.py#L227
+            fs._s3_endpoint = os.environ["S3_ENDPOINT"]
+        register_filesystem("s3", fs)
+
+        deepspeed_cfg_dict = vars(deepspeed_cfg)
+        deepspeed_cfg_path = Path(deepspeed_cfg_dict["deepspeed_config"])
+        with open(deepspeed_cfg_path) as f:
+            ds_config = json.load(f)
+
+        ds_config["tensorboard"]["output_path"] = os.environ["AICHOR_LOGS_PATH"]
+
+        logging.info(f"Updated ds_config: {ds_config}")
+        new_deepspeed_cfg_path = deepspeed_cfg_path.with_name(
+            f"{deepspeed_cfg_path.stem}_aichor{deepspeed_cfg_path.suffix}"
+        )
+        with open(new_deepspeed_cfg_path, "w") as f:
+            json.dump(ds_config, f, indent=4)
+            logging.info(f"Written updated config to {new_deepspeed_cfg_path}")
+
+        deepspeed_cfg_dict["deepspeed_config"] = str(new_deepspeed_cfg_path)
+        deepspeed_cfg = Namespace(**deepspeed_cfg_dict)
+
+    logging.info(f"[RANK {rank}] Deepspeed cfg: {deepspeed_cfg}")
 
     # -------------------
     # Setup distributed
     if cfg.distributed.n_gpus_per_node > 1:
-        deepspeed.init_distributed(
-            backend=cfg.distributed.dist_backend, init_method=cfg.distributed.dist_url
-        )
+        deepspeed.init_distributed(dist_backend=cfg.distributed.dist_backend)
 
     device = torch.device(f"cuda:{rank:d}")
 
@@ -101,7 +146,7 @@ def train(rank: int, cfg: TrainConfig, deepspeed_cfg: argparse.Namespace) -> Non
         logging.info(f"Model initialized as:\n {model}")
         logging.info(f"checkpoints directory : {cfg.checkpoint_path}")
         os.makedirs(cfg.checkpoint_path, exist_ok=True)
-    print(
+    logging.info(
         f"[RANK {rank}] Model has {sum([p.numel() for p in model.parameters()]):,d} parameters."
     )
 
@@ -112,7 +157,7 @@ def train(rank: int, cfg: TrainConfig, deepspeed_cfg: argparse.Namespace) -> Non
 
     # Load dataset
     # logging.info(f"Loading train dataset from {cfg.train_data_path}")
-    data_df = load_all(cfg.train_data_path)
+    data_df = load_all(cfg.train_data_path, verbose=True)
 
     # Split dataset
     seq_unique = data_df["Sequence"].unique()
@@ -152,21 +197,8 @@ def train(rank: int, cfg: TrainConfig, deepspeed_cfg: argparse.Namespace) -> Non
     real_train_len = len(train_dl.data_sampler) // train_dl.batch_size
     train_dl.len = real_train_len
 
-    try:
-        ds_log_path = (
-            Path(model_engine.tensorboard_output_path())
-            / model_engine.tensorboard_job_name()
-        )
-    except Exception as e:
-        ds_log_path = (
-            Path(model_engine.monitor.tb_monitor.output_path)
-            / model_engine.monitor.tb_monitor.job_name
-        )
-
     if cfg.resume_checkpoint != "":
-        _, client_sd = model_engine.load_checkpoint(
-            cfg.checkpoint_path, cfg.resume_checkpoint
-        )
+        _, client_sd = model_engine.load_checkpoint(cfg.checkpoint_path, cfg.resume_checkpoint)
         steps = client_sd["steps"] + 1
         last_epoch = client_sd["last_epoch"]
     else:
@@ -181,19 +213,27 @@ def train(rank: int, cfg: TrainConfig, deepspeed_cfg: argparse.Namespace) -> Non
     # --------------------------
     # Logging init
     max_epochs = math.ceil(cfg.max_steps / len(train_dl))
-    print(f"[RANK {rank}] deepspeed fp16={fp16} | max epochs: {max_epochs}")
+    logging.info(f"[RANK {rank}] deepspeed fp16={fp16} | max epochs: {max_epochs}")
 
     if rank == 0:
-        print(f"[RANK {rank}] deepspeed logging to {ds_log_path}")
+        try:
+            ds_log_path = f"{model_engine.monitor.tb_monitor.output_path}{model_engine.monitor.tb_monitor.job_name}"
+        except AttributeError as err:
+            logging.warning(f"AttributeError: {err}")
+            ds_log_path = "<NOT SET>"
+
+        logging.info(
+            f"[RANK {rank}] cfg.checkpoint_path: '{cfg.checkpoint_path}', cfg.resume_checkpoint: '{cfg.resume_checkpoint}'"
+        )
+
+        logging.info(f"[RANK {rank}] deepspeed logging to {ds_log_path}")
         try:
             sw = model_engine.get_summary_writer()
         except Exception as e:
             sw = model_engine.monitor.tb_monitor.summary_writer
 
         mb = master_bar(range(max(0, last_epoch), max_epochs))
-        sw.add_text(
-            "config", "```\n" + OmegaConf.to_yaml(cfg) + "\n```", global_step=steps
-        )
+        sw.add_text("config", "```\n" + OmegaConf.to_yaml(cfg) + "\n```", global_step=steps)
         smooth_loss = None
         valid_dl = DataLoader(
             valid_ds,
@@ -235,9 +275,7 @@ def train(rank: int, cfg: TrainConfig, deepspeed_cfg: argparse.Namespace) -> Non
                 x = x.to(torch.float16)
 
             # add SOS to y
-            y_sos = torch.cat(
-                [torch.ones((y.shape[0], 1)).to(y.device).long(), y[:, :-1]], dim=-1
-            )
+            y_sos = torch.cat([torch.ones((y.shape[0], 1)).to(y.device).long(), y[:, :-1]], dim=-1)
 
             preds = model_engine(x, x_pad, y_sos)
 
@@ -251,19 +289,60 @@ def train(rank: int, cfg: TrainConfig, deepspeed_cfg: argparse.Namespace) -> Non
 
             # checkpointing
             if steps % cfg.checkpoint_interval == 0 and steps != 0:
-                checkpoint_path = f"{cfg.checkpoint_path}/ckpt_{steps:08d}.pt"
+                checkpoint_tag = f"ckpt_{steps:08d}"
 
                 client_sd["steps"] = steps
                 client_sd["last_epoch"] = epoch
                 client_sd["cfg_yaml"] = OmegaConf.to_yaml(cfg)
 
+                local_dir = os.path.join(cfg.checkpoint_path, checkpoint_tag)
+                logging.info(
+                    f"[RANK {rank}] Saving checkpoint locally to {local_dir} with client_sd: {client_sd}"
+                )
+                if not os.path.exists(local_dir):
+                    logging.info(f"[RANK {rank}] Creating {local_dir}")
+                    os.makedirs(local_dir, exist_ok=True)
+
+                # first save checkpoint locally
                 model_engine.save_checkpoint(
-                    cfg.checkpoint_path,
-                    Path(checkpoint_path).stem,
+                    save_dir=cfg.checkpoint_path,
+                    tag=checkpoint_tag,
                     client_state=client_sd,
                 )
+                logging.info(f"[RANK {rank}] Saved checkpoint locally to {local_dir}")
 
-                print(f"[RANK {rank}] Saved checkpoint to {checkpoint_path}")
+                if rank == 0:
+                    # now upload to S3
+                    logging.info(f"[RANK {rank}] Creating s3fs.core.S3FileSystem")
+                    s3 = s3fs.core.S3FileSystem(
+                        client_kwargs={"endpoint_url": os.environ.get("S3_ENDPOINT")}
+                    )
+                    logging.info(f" [RANK {rank}] Created s3fs.core.S3FileSystem: {s3}")
+
+                    # Prepare for checkpoint load by ensuring all parameters are partitioned
+                    # https://github.com/microsoft/DeepSpeed/blob/6273dffc2f192275a08268b683c309a328b52191/deepspeed/runtime/engine.py#L2752
+                    if model_engine.zero_optimization_partition_weights():
+                        logging.info("model_engine.optimizer.checkpoint_event_prologue()")
+                        model_engine.optimizer.checkpoint_event_prologue()
+                        logging.info("model_engine.optimizer.checkpoint_event_prologue() done")
+
+                    # https://github.com/microsoft/DeepSpeed/blob/6273dffc2f192275a08268b683c309a328b52191/deepspeed/runtime/engine.py#L2789
+                    ckpt_list = model_engine._get_all_ckpt_names(
+                        cfg.checkpoint_path, checkpoint_tag
+                    )
+                    logging.info(f"ckpt_list: {ckpt_list}")
+                    for local_chkpt_path in ckpt_list:
+                        logging.info(f"local_chkpt_path: {local_chkpt_path}")
+                        relative_path = Path(local_chkpt_path).relative_to(cfg.checkpoint_path)
+                        logging.info(f"relative_path: {relative_path}")
+                        s3_chkpt_path = f"{os.environ['AICHOR_OUTPUT_PATH']}{relative_path}"
+                        logging.info(f"s3_chkpt_path: {s3_chkpt_path}")
+
+                        with open(local_chkpt_path, "rb") as local_fp, s3.open(
+                            s3_chkpt_path, "wb"
+                        ) as remote_fp:
+                            remote_fp.write(local_fp.read())
+                            logging.info(f"Wrote {local_chkpt_path} to {s3_chkpt_path}")
 
             # ----------------------
             # Validation & logging
@@ -284,10 +363,8 @@ def train(rank: int, cfg: TrainConfig, deepspeed_cfg: argparse.Namespace) -> Non
                         )
                     )
                 if steps % (cfg.stdout_interval // 5) == 0:
-                    mb.child.comment = (
-                        "steps : {:,d}, loss : {:4.3f}, sec/batch : {:4.3f}".format(
-                            steps, loss.item(), time.time() - start_b
-                        )
+                    mb.child.comment = "steps : {:,d}, loss : {:4.3f}, sec/batch : {:4.3f}".format(
+                        steps, loss.item(), time.time() - start_b
                     )
 
                 # Tensorboard summary logging
@@ -330,32 +407,24 @@ def train(rank: int, cfg: TrainConfig, deepspeed_cfg: argparse.Namespace) -> Non
 
                             preds = model(x, x_pad, y_sos)
 
-                            loss = loss_fn(
-                                preds.reshape(-1, preds.shape[-1]), y.reshape(-1)
-                            )
+                            loss = loss_fn(preds.reshape(-1, preds.shape[-1]), y.reshape(-1))
 
-                            seq = (
-                                (torch.ones((x.shape[0], 1)) * valid_ds.SOS)
-                                .long()
-                                .to(device)
-                            )
+                            seq = (torch.ones((x.shape[0], 1)) * valid_ds.SOS).long().to(device)
 
                             x = model.input_embed(x)
                             x = model.transformer.encoder(x, src_key_padding_mask=x_pad)
 
                             for _ in range(cfg.model_cfg.max_len):
                                 # y_hat = model(x.float(), x_pad, seq)
-                                yy = model.pos_enc(
-                                    model.seq_embed(seq).transpose(0, 1)
-                                ).transpose(0, 1)
+                                yy = model.pos_enc(model.seq_embed(seq).transpose(0, 1)).transpose(
+                                    0, 1
+                                )
                                 yy = model.transformer.decoder(
                                     yy,
                                     memory=x,
                                     tgt_mask=model.transformer.generate_square_subsequent_mask(
                                         seq.shape[1]
-                                    ).to(
-                                        x.device
-                                    ),
+                                    ).to(x.device),
                                     memory_key_padding_mask=x_pad,
                                 )
                                 y_hat = model.head(yy)
@@ -394,20 +463,17 @@ def train(rank: int, cfg: TrainConfig, deepspeed_cfg: argparse.Namespace) -> Non
 
             steps += 1
             if steps > cfg.max_steps:
-                print(f"[RANK {rank}] FINISHED TRAINING")
+                logging.info(f"[RANK {rank}] FINISHED TRAINING")
                 break
 
         if rank == 0:
-            print(
-                "Time taken for epoch {} is {} sec\n".format(
-                    epoch + 1, int(time.time() - start)
-                )
-            )
-    print("Training completed!")
+            logging.info(f"Time taken for epoch {epoch + 1} is {int(time.time() - start)} sec\n")
+    logging.info("Training completed!")
 
 
 def main() -> None:
-    print("Initializing Training Process..")
+    """Train the model."""
+    logging.info("Initializing Training Process..")
     logging.getLogger().setLevel(logging.INFO)
 
     # Setup CLI args
@@ -429,12 +495,12 @@ def main() -> None:
     )
 
     # Parse args
-    a, _ = parser.parse_known_args()
+    deepspeed_cfg, _ = parser.parse_known_args()
     override_cfg = OmegaConf.from_cli()
 
     # We must remove any config arguments deepspeed injected,
     # otherwise we will have duplicate deepspeed keys in `override_cfg`
-    # and cli args `a`.
+    # and cli args `deepspeed_cfg`.
     keys_to_drop = []
     for key in override_cfg:
         if key.startswith("--"):
@@ -443,19 +509,19 @@ def main() -> None:
         delattr(override_cfg, key)
 
     base_cfg = OmegaConf.structured(TrainConfig)
-    cfg: TrainConfig = OmegaConf.merge(base_cfg, override_cfg)
-    logging.info(f"Running with config:\n {OmegaConf.to_yaml(cfg)}")
+    train_cfg: TrainConfig = OmegaConf.merge(base_cfg, override_cfg)
 
+    logging.info(f"Running with config:\n {OmegaConf.to_yaml(train_cfg)}")
     # Set seeds
     torch.backends.cudnn.benchmark = True
-    torch.manual_seed(cfg.seed)
-    np.random.seed(cfg.seed)
-    random.seed(cfg.seed)
+    torch.manual_seed(train_cfg.seed)
+    np.random.seed(train_cfg.seed)
+    random.seed(train_cfg.seed)
     if torch.cuda.is_available():
-        torch.cuda.manual_seed(cfg.seed)
+        torch.cuda.manual_seed(train_cfg.seed)
 
     # Launch training
-    train(a.local_rank, cfg, a)
+    train(deepspeed_cfg.local_rank, train_cfg, deepspeed_cfg)
 
 
 if __name__ == "__main__":
