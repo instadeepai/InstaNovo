@@ -1,9 +1,12 @@
+from __future__ import annotations
+
 from dataclasses import dataclass
-from typing import List
 
 
 @dataclass
 class ModelConfig:
+    """Configuration of the model."""
+
     # general params
     vocab_size: int = 24
     max_len: int = 20
@@ -16,7 +19,7 @@ class ModelConfig:
     dropout: float = 0.1
 
 
-i2s: List[str] = [
+i2s: list[str] = [
     "PAD",
     "SOS",
     "EOS",

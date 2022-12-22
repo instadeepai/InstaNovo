@@ -1,0 +1,22 @@
+# yaml-language-server: $schema=https://prod.instadeep.ichorai.io/schema/latest/manifest.schema.json
+kind: "IchorManifest"
+version: "0.0.2"
+docker:
+  image: dtu-denovo-sequencing
+  dockerfile: Dockerfile
+spec:
+  operator: tf
+  image: dtu-denovo-sequencing
+  command: make set-gcp-credentials && make download_dataset_v1 && make train
+  types:
+    Worker:
+      replicas: 1
+      cpus: 32
+      # optional: number of GPUs wanted
+      gpus: 1
+      # gpuType: mig-3g.20gb
+      gpuType: gpu
+      # gpuProduct: A100-SXM4-40GB
+      gpuProduct: NVIDIA-A100-SXM-80GB
+      # mandatory (must be >= 2): RAM to CPU ratio (in GB)
+      ramRatio: 16

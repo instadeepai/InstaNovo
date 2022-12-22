@@ -1,5 +1,7 @@
+"""TransNovo model."""
+from __future__ import annotations
+
 import math
-from typing import Optional
 
 import torch
 import torch.nn as nn
@@ -9,10 +11,13 @@ from dtu_denovo_sequencing.config import ModelConfig
 
 
 class TransNovo(nn.Module):
+    """TransNovo model."""
+
     def __init__(
         self,
         cfg: ModelConfig,
     ) -> None:
+        """Initialize the model."""
         super().__init__()
 
         # Encoder
@@ -31,9 +36,8 @@ class TransNovo(nn.Module):
 
         self.head = nn.Linear(cfg.dim, cfg.vocab_size)
 
-    def forward(
-        self, x: Tensor, x_pad: Tensor, y: Tensor, y_pad: Optional[Tensor] = None
-    ) -> Tensor:
+    def forward(self, x: Tensor, x_pad: Tensor, y: Tensor, y_pad: Tensor | None = None) -> Tensor:
+        """Defines the computation performed at every call."""
         x = self.input_embed(x)  # /10 is fp16 fix
         # FiX THIS POSITIONAL ENCODING
         y = self.pos_enc(self.seq_embed(y).transpose(0, 1)).transpose(0, 1)
@@ -41,9 +45,7 @@ class TransNovo(nn.Module):
         out = self.transformer(
             x,
             y,
-            tgt_mask=self.transformer.generate_square_subsequent_mask(y.shape[1]).to(
-                y.device
-            ),
+            tgt_mask=self.transformer.generate_square_subsequent_mask(y.shape[1]).to(y.device),
             src_key_padding_mask=x_pad,
             tgt_key_padding_mask=y_pad,
             memory_key_padding_mask=x_pad,
@@ -54,23 +56,34 @@ class TransNovo(nn.Module):
 
 
 class PositionalEncoding(nn.Module):
+    """PositionalEncoding module."""
+
     def __init__(self, d_model: int, dropout: float = 0.1, max_len: int = 100):
+        """Initialize the model.
+
+        Args:
+            d_model (int):
+            dropout (float, optional): Defaults to 0.1.
+            max_len (int, optional): Defaults to 100.
+        """
         super().__init__()
         self.dropout = nn.Dropout(p=dropout)
 
         position = torch.arange(max_len).unsqueeze(1)
-        div_term = torch.exp(
-            torch.arange(0, d_model, 2) * (-math.log(10000.0) / d_model)
-        )
+        div_term = torch.exp(torch.arange(0, d_model, 2) * (-math.log(10000.0) / d_model))
         pe = torch.zeros(max_len, 1, d_model)
         pe[:, 0, 0::2] = torch.sin(position * div_term)
         pe[:, 0, 1::2] = torch.cos(position * div_term)
         self.register_buffer("pe", pe)
 
     def forward(self, x: Tensor) -> Tensor:
-        """
+        """Defines the computation performed at every call.
+
         Args:
-            x: Tensor, shape [seq_len, batch_size, embedding_dim]
+            x (Tensor): shape [seq_len, batch_size, embedding_dim]
+
+        Returns:
+            Tensor
         """
         x = x + self.pe[: x.size(0)]
         return self.dropout(x)

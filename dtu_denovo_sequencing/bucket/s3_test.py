@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import contextlib
 import os
 from pathlib import Path
@@ -39,9 +41,7 @@ def monkey_module() -> Generator:
 
 
 @pytest.fixture(scope="module", autouse=True)
-def _bucket_client_mock(
-    monkey_module: pytest.MonkeyPatch, local_s3_directory: Path
-) -> None:
+def _bucket_client_mock(monkey_module: pytest.MonkeyPatch, local_s3_directory: Path) -> None:
     """Fixture to mock the bucket clients for all tests.
 
     We mock the cloudpath advised in:
@@ -137,9 +137,7 @@ def test_upload_local_directory_bucket_directory(tmp_directory: Path) -> None:
     assert (LocalS3Path(s3_path) / local_file1.name).exists()
     assert (LocalS3Path(s3_path) / local_file2.name).exists()
     assert (
-        LocalS3Path(s3_path)
-        / local_sub_directory_file.parent.name
-        / local_sub_directory_file.name
+        LocalS3Path(s3_path) / local_sub_directory_file.parent.name / local_sub_directory_file.name
     ).exists()
 
 
@@ -152,9 +150,7 @@ def test_download_local_file_bucket_file(tmp_directory: Path) -> None:
 
     with s3_ctx():
         s3 = S3BucketManager()
-        output_local_path = s3.download(
-            local_path=local_path, bucket_path=str(bucket_path)
-        )
+        output_local_path = s3.download(local_path=local_path, bucket_path=str(bucket_path))
 
     assert expected_local_path == output_local_path
     assert Path(expected_local_path).exists()
@@ -172,9 +168,7 @@ def test_download_local_directory_bucket_file(tmp_directory: Path) -> None:
 
     with s3_ctx():
         s3 = S3BucketManager()
-        output_local_path = s3.download(
-            local_path=local_path, bucket_path=str(bucket_path)
-        )
+        output_local_path = s3.download(local_path=local_path, bucket_path=str(bucket_path))
 
     assert expected_local_path == output_local_path
     assert Path(expected_local_path).exists()
@@ -204,9 +198,7 @@ def test_download_local_directory_bucket_directory(tmp_directory: Path) -> None:
 
     with s3_ctx():
         s3 = S3BucketManager()
-        output_local_path = s3.download(
-            local_path=local_path, bucket_path=str(bucket_path)
-        )
+        output_local_path = s3.download(local_path=local_path, bucket_path=str(bucket_path))
 
     assert expected_local_path == output_local_path
     assert (Path(output_local_path) / bucket_file1.name).exists()
