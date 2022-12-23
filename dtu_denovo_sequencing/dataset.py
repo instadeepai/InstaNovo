@@ -37,16 +37,10 @@ class SpecDataset(Dataset):
         self.SOS = i2s.index("SOS")
         self.EOS = i2s.index("EOS")
 
-        # TODO: the line below gives a SettingWithCopyWarning
-        # A value is trying to be set on a copy of a slice from a DataFrame.
-        # Try using .loc[row_indexer,col_indexer] = value instead
-        # See the caveats in the documentation:
-        # https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
         self.df["Sequence"] = self.df["Modified sequence"].map(
             lambda x: [self.s2i(y) for y in x[1:-1].replace("M(ox)", "#")]
         )
         if self.force_eos:
-            # TODO: Same SettingWithCopyWarning here
             self.df["Sequence"] = self.df["Sequence"].map(lambda x: x + [self.EOS])
 
     def seq_to_aa(self, seq: Tensor) -> str:
