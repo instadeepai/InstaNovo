@@ -76,9 +76,9 @@ class TrainConfig:
     num_workers: int = 16
 
     summary_interval: int = 25
-    checkpoint_interval: int = 20
+    checkpoint_interval: int = 20_000
     stdout_interval: int = 100
-    validation_interval: int = 10
+    validation_interval: int = 10_000
 
     # Learning settings -- managed by deepspeed cfg
     max_steps: int = 100_000_000  # 500_000 #1_000_000
@@ -181,8 +181,11 @@ def train(rank: int, cfg: TrainConfig, deepspeed_cfg: argparse.Namespace) -> Non
     train_df = data_df[data_df["Sequence"].isin(train)]
     valid_df = data_df[data_df["Sequence"].isin(valid)]
 
-    train_ds = SpecDataset(train_df, s2i, i2s)
-    valid_ds = SpecDataset(valid_df, s2i, i2s)
+    train_ds = SpecDataset(train_df.copy(), s2i, i2s)
+    valid_ds = SpecDataset(valid_df.copy(), s2i, i2s)
+
+    # remove all references to original dataframes to save memory
+    del train_df, valid_df, data_df
 
     # ------------------------
     # Initialize deepspeed wrapper
@@ -287,6 +290,7 @@ def train(rank: int, cfg: TrainConfig, deepspeed_cfg: argparse.Namespace) -> Non
                 gnorm = model_engine.get_global_grad_norm()
             model_engine.step()
 
+            # ----------------------
             # checkpointing
             if steps % cfg.checkpoint_interval == 0 and steps != 0:
                 checkpoint_tag = f"ckpt_{steps:08d}"
@@ -303,7 +307,10 @@ def train(rank: int, cfg: TrainConfig, deepspeed_cfg: argparse.Namespace) -> Non
                     logging.info(f"[RANK {rank}] Creating {local_dir}")
                     os.makedirs(local_dir, exist_ok=True)
 
-                # first save checkpoint locally
+                # First save checkpoint locally, must be done on all ranks
+                # Hangs to synchronise all threads.
+                # Also calls .barrier() at the end to ensure all threads are done writing.
+                logging.info(f"[RANK {rank}] Saving checkpoint locally to {local_dir}")
                 model_engine.save_checkpoint(
                     save_dir=cfg.checkpoint_path,
                     tag=checkpoint_tag,
