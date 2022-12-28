@@ -72,7 +72,7 @@ class TrainConfig:
 
     # Note: while a higher batch size may work, some samples are very long
     # This causes significant GPU bottlenecking at max VRAM as it tries to process the sequence
-    batch_size: int = 8
+    batch_size: int = 16
     num_workers: int = 16
 
     summary_interval: int = 25
@@ -393,9 +393,12 @@ def train(rank: int, cfg: TrainConfig, deepspeed_cfg: argparse.Namespace) -> Non
                     text_preds = []
                     text_targets = []
                     with torch.no_grad():
-                        for _, batch in progress_bar(
-                            enumerate(valid_dl), total=len(valid_dl), parent=mb
-                        ):
+                        logging.info(f"[RANK {rank}] Total validation steps : {len(valid_dl):d}")
+                        # for i, batch in progress_bar(
+                        #     enumerate(valid_dl), total=len(valid_dl), parent=mb
+                        # ):
+                        for i , batch in enumerate(valid_dl):
+                            logging.info(f"[RANK {rank}] Validaton step : {i:d}")
                             (x, y, x_pad, y_pad) = batch
                             x = x.to(device).float()
                             y = y.to(device).to(torch.long)
@@ -444,6 +447,7 @@ def train(rank: int, cfg: TrainConfig, deepspeed_cfg: argparse.Namespace) -> Non
                             text_targets += [valid_ds.seq_to_aa(s) for s in y]
 
                             valid_loss += loss.item() / len(valid_dl)
+                            logging.info(f"[RANK {rank}] valid_loss : {valid_loss:.3f}")
                         cer = jiwer.cer(text_preds, text_targets)
 
                         logging.info(
@@ -454,8 +458,8 @@ def train(rank: int, cfg: TrainConfig, deepspeed_cfg: argparse.Namespace) -> Non
                         sw.add_scalar("validation/loss", valid_loss, steps)
                         sw.add_scalar("validation/cer", cer, steps)
 
-                    model_engine.train()
-                    # loss_fn.train()
+                        model_engine.train()
+                        # loss_fn.train()
                     sw.add_scalar(
                         "memory/max_allocated_gb",
                         torch.cuda.max_memory_allocated() / 1e9,
@@ -468,7 +472,7 @@ def train(rank: int, cfg: TrainConfig, deepspeed_cfg: argparse.Namespace) -> Non
                     )
                     torch.cuda.reset_peak_memory_stats()
                     torch.cuda.reset_accumulated_memory_stats()
-                    
+
                     logging.info(f"[RANK {rank}] Validation complete")
 
             steps += 1
