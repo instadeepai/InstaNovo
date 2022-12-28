@@ -73,7 +73,7 @@ class TrainConfig:
     # Note: while a higher batch size may work, some samples are very long
     # This causes significant GPU bottlenecking at max VRAM as it tries to process the sequence
     batch_size: int = 16
-    num_workers: int = 16
+    num_workers: int = 0
 
     summary_interval: int = 25
     checkpoint_interval: int = 20_000
