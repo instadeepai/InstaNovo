@@ -384,6 +384,7 @@ def train(rank: int, cfg: TrainConfig, deepspeed_cfg: argparse.Namespace) -> Non
 
                 # Validation
                 if steps % cfg.validation_interval == 0 and steps != 0:
+                    logging.info(f"[RANK {rank}] Starting validation at steps : {steps:d}")
                     model_engine.eval()
                     # loss_fn.eval()
 
@@ -467,6 +468,8 @@ def train(rank: int, cfg: TrainConfig, deepspeed_cfg: argparse.Namespace) -> Non
                     )
                     torch.cuda.reset_peak_memory_stats()
                     torch.cuda.reset_accumulated_memory_stats()
+                    
+                    logging.info(f"[RANK {rank}] Validation complete")
 
             steps += 1
             if steps > cfg.max_steps:
