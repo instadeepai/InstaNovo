@@ -39,11 +39,11 @@ class TransNovo(nn.Module):
 
     def forward(self, x: Tensor, x_pad: Tensor, y: Tensor, y_pad: Tensor | None = None) -> Tensor:
         """Defines the computation performed at every call."""
-        x = self.input_embed(x)
-        y = self.pos_enc(self.seq_embed(y))
-
         # x.shape: (batch, peaks, dim)
         bias = x[:, :, 0]
+
+        x = self.input_embed(x)
+        y = self.pos_enc(self.seq_embed(y))
 
         out = self.transformer(
             x,
