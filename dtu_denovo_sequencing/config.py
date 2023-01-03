@@ -9,12 +9,12 @@ class ModelConfig:
 
     # general params
     vocab_size: int = 24
-    max_len: int = 20
+    max_len: int = 15
 
     # main transformer params
-    dim: int = 768  # 768
+    dim: int = 512  # 768 512 256
     nheads: int = 16  # 16
-    layers: int = 12  # 12
+    layers: int = 6  # 12 6
     input_size: int = 4
     dropout: float = 0.1
 

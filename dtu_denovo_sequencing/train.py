@@ -70,9 +70,9 @@ class TrainConfig:
     device: str = "cuda"
     seed: int = 1775
 
-    # Note: while a higher batch size may work, some samples are very long
-    # This causes significant GPU bottlenecking at max VRAM as it tries to process the sequence
-    batch_size: int = 16
+    # Validation set batch_size
+    batch_size: int = 4
+    # num_workers > 0 causes occasional dataloader freeze
     num_workers: int = 0
 
     summary_interval: int = 25
@@ -92,7 +92,7 @@ class TrainConfig:
     test_split_seed: int = 100  # seed for splitting test set
     test_split: float = 0.1  # test split proportion of full dataset
     valid_split: float = 0.1  # valid split proportion of full dataset
-    valid_proportion: float = 0.1  # Validate only on a portion of the full validation set
+    valid_proportion: float = 0.1  # validate only on a portion of the full validation set
 
 
 # flake8: noqa: CR001
@@ -394,11 +394,11 @@ def train(rank: int, cfg: TrainConfig, deepspeed_cfg: argparse.Namespace) -> Non
                     text_targets = []
                     with torch.no_grad():
                         logging.info(f"[RANK {rank}] Total validation steps : {len(valid_dl):d}")
-                        # for i, batch in progress_bar(
-                        #     enumerate(valid_dl), total=len(valid_dl), parent=mb
-                        # ):
-                        for i , batch in enumerate(valid_dl):
-                            logging.info(f"[RANK {rank}] Validaton step : {i:d}")
+                        for i, batch in progress_bar(
+                            enumerate(valid_dl), total=len(valid_dl), parent=mb
+                        ):
+                            # for i , batch in enumerate(valid_dl):
+                            # logging.info(f"[RANK {rank}] Validaton step : {i:d}")
                             (x, y, x_pad, y_pad) = batch
                             x = x.to(device).float()
                             y = y.to(device).to(torch.long)

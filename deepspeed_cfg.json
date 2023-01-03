@@ -1,6 +1,6 @@
 {
   "train_batch_size": 256,
-  "gradient_accumulation_steps": 32,
+  "gradient_accumulation_steps": 8,
   "fp16": {
     "enabled": false,
     "initial_scale_power": 24,
@@ -19,7 +19,7 @@
     "type": "WarmupLR",
     "params": {
       "warmup_min_lr": 0,
-      "warmup_max_lr": 1e-4,
+      "warmup_max_lr": 3e-4,
       "warmup_num_steps": 10000,
       "warmup_type": "linear"
     }
