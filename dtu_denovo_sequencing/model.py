@@ -37,9 +37,7 @@ class TransNovo(nn.Module):
 
         self.head = nn.Linear(cfg.dim, cfg.vocab_size)
 
-    def forward(
-        self, x: Tensor, bias: Tensor, x_pad: Tensor, y: Tensor, y_pad: Tensor | None = None
-    ) -> Tensor:
+    def forward(self, x: Tensor, x_pad: Tensor, y: Tensor, y_pad: Tensor | None = None) -> Tensor:
         """Defines the computation performed at every call."""
         x = self.input_embed(x)
         y = self.pos_enc(self.seq_embed(y))
