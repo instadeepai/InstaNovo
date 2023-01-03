@@ -584,13 +584,13 @@ class TransformerEncoderLayer(nn.TransformerEncoderLayer):
             # here we have to do each self-attention block individually, can this be batched..?
             # does the src_mask still work correctly?
             for idx in range(x.shape[1]):
-                x_enc = x + self.pos_enc((bias - bias[:, idx]).unsqueeze(-1))
+                x_enc = x + self.pos_enc((bias - bias[:, [idx]]).unsqueeze(-1))
                 x_q = x_enc[:, [idx]]
 
                 x_q = self.norm1(x_q + self._sa_block(x_q, x_enc, src_mask, src_key_padding_mask))
                 x_q = self.norm2(x_q + self._ff_block(x_q))
 
-                y[:, idx] = x_q
+                y[:, idx] = x_q[:,0]
 
         else:
             x = self.norm1(x + self._sa_block(x, x, src_mask, src_key_padding_mask))
