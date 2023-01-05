@@ -1,6 +1,6 @@
 {
   "train_batch_size": 256,
-  "gradient_accumulation_steps": 16,
+  "gradient_accumulation_steps": 8,
   "fp16": {
     "enabled": false,
     "initial_scale_power": 24,
