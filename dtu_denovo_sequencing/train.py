@@ -422,6 +422,7 @@ def train(rank: int, cfg: TrainConfig, deepspeed_cfg: argparse.Namespace) -> Non
 
                             seq = (torch.ones((x.shape[0], 1)) * valid_ds.SOS).long().to(device)
 
+                            bias = x[:, :, 0]
                             x = model.input_embed(x)
                             x = model.transformer.encoder(x, src_key_padding_mask=x_pad)
 
@@ -433,6 +434,7 @@ def train(rank: int, cfg: TrainConfig, deepspeed_cfg: argparse.Namespace) -> Non
                                 yy = model.transformer.decoder(
                                     yy,
                                     memory=x,
+                                    bias=bias,
                                     tgt_mask=model.transformer.generate_square_subsequent_mask(
                                         seq.shape[1]
                                     ).to(x.device),
