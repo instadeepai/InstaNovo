@@ -37,6 +37,7 @@ from dtu_denovo_sequencing.dataset import collate_batch
 from dtu_denovo_sequencing.dataset import load_all
 from dtu_denovo_sequencing.dataset import SpecDataset
 from dtu_denovo_sequencing.model import TransNovo
+from dtu_denovo_sequencing.utils import evaluation
 
 
 load_dotenv()
@@ -448,16 +449,25 @@ def train(rank: int, cfg: TrainConfig, deepspeed_cfg: argparse.Namespace) -> Non
                             text_targets += [valid_ds.seq_to_aa(s) for s in y]
 
                             valid_loss += loss.item() / len(valid_dl)
-                            logging.info(f"[RANK {rank}] valid_loss : {valid_loss:.3f}")
+                            # logging.info(f"[RANK {rank}] valid_loss : {valid_loss:.3f}")
                         cer = jiwer.cer(text_preds, text_targets)
+                        aa_precision, aa_recall, pep_recall = evaluation.aa_match_metrics(
+                            evaluation.aa_match_batch(text_preds, text_targets, s2i)
+                        )
 
                         logging.info(
                             f"step {steps+1:4d}/{cfg.max_steps}: train_loss={smooth_loss:.4f}, \
-                                    valid_loss={valid_loss:.4f}, valid_cer={cer:.3f}"
+                                    valid_loss={valid_loss:.4f}, valid_cer={cer:.3f}, \
+                                    valid_aa_precision={aa_precision:.3f}, \
+                                    valid_aa_recall={aa_recall:.3f}, \
+                                    valid_pep_recall={pep_recall:.3f}"
                         )
 
                         sw.add_scalar("validation/loss", valid_loss, steps)
                         sw.add_scalar("validation/cer", cer, steps)
+                        sw.add_scalar("validation/aa_precision", aa_precision, steps)
+                        sw.add_scalar("validation/aa_recall", aa_recall, steps)
+                        sw.add_scalar("validation/pep_recall", pep_recall, steps)
 
                         model_engine.train()
                         # loss_fn.train()
