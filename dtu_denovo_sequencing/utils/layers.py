@@ -96,6 +96,7 @@ class Transformer(nn.Transformer):
                 batch_first,
                 norm_first,
                 pos_enc=MassEncoder(d_model),
+                relative_pos_enc=False,
                 **factory_kwargs,
             )
             encoder_norm = nn.LayerNorm(d_model, eps=layer_norm_eps, **factory_kwargs)
@@ -455,6 +456,7 @@ class TransformerEncoderLayer(nn.TransformerEncoderLayer):
         device: str | None = None,
         dtype: torch.dtype | None = None,
         pos_enc: nn.Module = None,
+        relative_pos_enc: bool = False,
     ) -> None:
         # factory_kwargs = {"device": device, "dtype": dtype}
         super().__init__(
@@ -471,6 +473,7 @@ class TransformerEncoderLayer(nn.TransformerEncoderLayer):
         )
 
         self.pos_enc = pos_enc
+        self.relative_pos_enc = relative_pos_enc
 
     def forward(
         self,
@@ -580,7 +583,7 @@ class TransformerEncoderLayer(nn.TransformerEncoderLayer):
         if self.norm_first:
             x = x + self._sa_block(self.norm1(x), self.norm1(x), src_mask, src_key_padding_mask)
             y = x + self._ff_block(self.norm2(x))
-        elif bias is not None:
+        elif bias is not None and self.relative_pos_enc:
             # here we have to do each self-attention block individually, can this be batched..?
             # does the src_mask still work correctly?
             for idx in range(x.shape[1]):
@@ -597,7 +600,11 @@ class TransformerEncoderLayer(nn.TransformerEncoderLayer):
 
             y = self.norm1(y)
             y = self.norm2(y + self._ff_block(y))
-
+        elif bias is not None:
+            # Casanovo style positional encoding
+            x = x + self.pos_enc(bias.unsqueeze(-1))
+            x = self.norm1(x + self._sa_block(x, x, src_mask, src_key_padding_mask))
+            y = self.norm2(x + self._ff_block(x))
         else:
             x = self.norm1(x + self._sa_block(x, x, src_mask, src_key_padding_mask))
             y = self.norm2(x + self._ff_block(x))
