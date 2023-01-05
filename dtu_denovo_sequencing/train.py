@@ -77,9 +77,9 @@ class TrainConfig:
     num_workers: int = 0
 
     summary_interval: int = 25
-    checkpoint_interval: int = 20_000
+    checkpoint_interval: int = 20_000 # 20_000
     stdout_interval: int = 100
-    validation_interval: int = 10_000
+    validation_interval: int = 100 # 10_000
 
     # Learning settings -- managed by deepspeed cfg
     max_steps: int = 100_000_000  # 500_000 #1_000_000
@@ -452,7 +452,7 @@ def train(rank: int, cfg: TrainConfig, deepspeed_cfg: argparse.Namespace) -> Non
                             # logging.info(f"[RANK {rank}] valid_loss : {valid_loss:.3f}")
                         cer = jiwer.cer(text_preds, text_targets)
                         aa_precision, aa_recall, pep_recall = evaluation.aa_match_metrics(
-                            evaluation.aa_match_batch(text_preds, text_targets, s2i)
+                            *evaluation.aa_match_batch(text_preds, text_targets, s2i)
                         )
 
                         logging.info(
