@@ -79,7 +79,7 @@ class TrainConfig:
     summary_interval: int = 25
     checkpoint_interval: int = 20_000 # 20_000
     stdout_interval: int = 100
-    validation_interval: int = 100 # 10_000
+    validation_interval: int = 10_000 # 10_000
 
     # Learning settings -- managed by deepspeed cfg
     max_steps: int = 100_000_000  # 500_000 #1_000_000
