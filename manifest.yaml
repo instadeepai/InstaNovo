@@ -13,11 +13,11 @@ spec:
       replicas: 1
       cpus: 32
       # optional: number of GPUs wanted
-      gpus: 8
+      gpus: 2
       # gpuType: mig-3g.20gb
       gpuType: gpu
       # gpuProduct: A100-SXM4-40GB
-      # gpuProduct: NVIDIA-A100-SXM-80GB
-      gpuProduct: Tesla-V100-SXM3-32GB
+      gpuProduct: NVIDIA-A100-SXM-80GB
+      # gpuProduct: Tesla-V100-SXM3-32GB
       # mandatory (must be >= 2): RAM to CPU ratio (in GB)
       ramRatio: 16
