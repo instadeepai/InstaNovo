@@ -63,6 +63,8 @@ class Transformer(nn.Transformer):
         norm_first: bool = False,
         device: str | None = None,
         dtype: torch.dtype | None = None,
+        pos_encoding_type: str | None = None,
+        pos_encoding_freq: int = 0,
     ) -> None:
         factory_kwargs = {"device": device, "dtype": dtype}
         super().__init__(
@@ -86,6 +88,18 @@ class Transformer(nn.Transformer):
         if custom_encoder is not None:
             self.encoder = custom_encoder
         else:
+            if pos_encoding_type == None:
+                pos_enc = None
+                relative_pos_enc = False
+            elif pos_encoding_type == "casanovo":
+                pos_enc = MassEncoder(d_model)
+                relative_pos_enc = False
+            elif pos_encoding_type == "transnovo":
+                pos_enc = MassEncoder(d_model)
+                relative_pos_enc = True
+            else:
+                raise NotImplementedError(f"Unknown positional encoding '{pos_encoding_type}'")
+
             encoder_layer = TransformerEncoderLayer(
                 d_model,
                 nhead,
@@ -95,12 +109,17 @@ class Transformer(nn.Transformer):
                 layer_norm_eps,
                 batch_first,
                 norm_first,
-                pos_enc=MassEncoder(d_model),
-                relative_pos_enc=False,
+                pos_enc=pos_enc,
+                relative_pos_enc=relative_pos_enc,
                 **factory_kwargs,
             )
             encoder_norm = nn.LayerNorm(d_model, eps=layer_norm_eps, **factory_kwargs)
-            self.encoder = TransformerEncoder(encoder_layer, num_encoder_layers, encoder_norm)
+            self.encoder = TransformerEncoder(
+                encoder_layer,
+                num_encoder_layers,
+                encoder_norm,
+                pos_encoding_frequency=pos_encoding_freq,
+            )
 
         if custom_decoder is not None:
             self.decoder = custom_decoder
@@ -231,6 +250,7 @@ class TransformerEncoder(nn.Module):
         norm: Any = None,
         enable_nested_tensor: bool = True,
         mask_check: bool = True,
+        pos_encoding_frequency: int = 0,
     ) -> None:
         super().__init__()
         torch._C._log_api_usage_once(f"torch.nn.modules.{self.__class__.__name__}")
@@ -239,6 +259,7 @@ class TransformerEncoder(nn.Module):
         self.norm = norm
         self.enable_nested_tensor = enable_nested_tensor
         self.mask_check = mask_check
+        self.pos_encoding_frequency = pos_encoding_frequency
 
     def forward(
         self,
@@ -365,7 +386,17 @@ class TransformerEncoder(nn.Module):
         is_causal = make_causal
 
         for i, mod in enumerate(self.layers):
-            if i == 0:
+            if self.pos_encoding_frequency == i == 0:
+                # Apply at first layer only
+                output = mod(
+                    output,
+                    bias=bias,
+                    src_mask=mask,
+                    is_causal=is_causal,
+                    src_key_padding_mask=src_key_padding_mask_for_layers,
+                )
+            elif self.pos_encoding_frequency > 0 and i % self.pos_encoding_frequency == 0:
+                # Apply at other layers
                 output = mod(
                     output,
                     bias=bias,
@@ -610,7 +641,7 @@ class TransformerEncoderLayer(nn.TransformerEncoderLayer):
 
             y = self.norm1(y)
             y = self.norm2(y + self._ff_block(y))
-        elif bias is not None:
+        elif bias is not None and self.pos_enc:
             # Casanovo style positional encoding
             x = x + self.pos_enc(bias.unsqueeze(-1))
             x = self.norm1(x + self._sa_block(x, x, src_mask, src_key_padding_mask))

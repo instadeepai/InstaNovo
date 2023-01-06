@@ -33,6 +33,8 @@ class TransNovo(nn.Module):
             cfg.nheads,
             cfg.layers,
             batch_first=True,
+            pos_encoding_type=cfg.encoder_positional_embedding,
+            pos_encoding_freq=cfg.positional_embedding_frequency,
         )
 
         self.head = nn.Linear(cfg.dim, cfg.vocab_size)
