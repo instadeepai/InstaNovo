@@ -630,7 +630,7 @@ class TransformerEncoderLayer(nn.TransformerEncoderLayer):
         x = src
         y = torch.zeros_like(x)
         if self.norm_first:
-            x = x + self._sa_block(self.norm1(x), self.norm1(x), src_mask, src_key_padding_mask)
+            x = x + self._sa_block(self.norm1(x), src_mask, src_key_padding_mask)
             y = x + self._ff_block(self.norm2(x))
         elif bias is not None and self.relative_pos_enc:
             # here we have to do each self-attention block individually, can this be batched..?
@@ -648,21 +648,21 @@ class TransformerEncoderLayer(nn.TransformerEncoderLayer):
             #     y[:, idx] = x_q[:, 0]
 
             # y = self.norm1(y)
-            x = self.norm1(x + self._sa_block(x, bias, src_mask, src_key_padding_mask))
+            x = self.norm1(x + self._sa_block_bias(x, bias, src_mask, src_key_padding_mask))
 
             y = self.norm2(y + self._ff_block(y))
         elif bias is not None and self.pos_enc:
             # Casanovo style positional encoding
             x = x + self.pos_enc(bias.unsqueeze(-1))
-            x = self.norm1(x + self._sa_block(x, None, src_mask, src_key_padding_mask))
+            x = self.norm1(x + self._sa_block_bias(x, None, src_mask, src_key_padding_mask))
             y = self.norm2(x + self._ff_block(x))
         else:
-            x = self.norm1(x + self._sa_block(x, None, src_mask, src_key_padding_mask))
+            x = self.norm1(x + self._sa_block(x, src_mask, src_key_padding_mask))
             y = self.norm2(x + self._ff_block(x))
 
         return y
 
-    def _sa_block(
+    def _sa_block_bias(
         self,
         x: Tensor,
         bias: Tensor | None,
@@ -677,6 +677,14 @@ class TransformerEncoderLayer(nn.TransformerEncoderLayer):
             attn_mask=attn_mask,
             key_padding_mask=key_padding_mask,
             need_weights=False,
+        )[0]
+        return self.dropout1(x)
+
+    def _sa_block(
+        self, x: Tensor, attn_mask: Tensor | None, key_padding_mask: Tensor | None
+    ) -> Tensor:
+        x = self.self_attn(
+            x, x, x, attn_mask=attn_mask, key_padding_mask=key_padding_mask, need_weights=False
         )[0]
         return self.dropout1(x)
 
