@@ -425,7 +425,8 @@ def train(rank: int, cfg: TrainConfig, deepspeed_cfg: argparse.Namespace) -> Non
 
                             bias = x[:, :, 0]
                             x = model.input_embed(x)
-                            x = model.transformer.encoder(x, bias=bias, src_key_padding_mask=x_pad)
+                            # x = model.transformer.encoder(x, bias=bias, src_key_padding_mask=x_pad)
+                            x = model.transformer.encoder(x, src_key_padding_mask=x_pad)
 
                             for _ in range(cfg.model_cfg.max_len):
                                 # y_hat = model(x.float(), x_pad, seq)
