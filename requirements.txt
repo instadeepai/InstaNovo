@@ -16,6 +16,6 @@ seaborn==0.12.0
 spectrum_utils==0.4.1
 tensorboard==2.10.1
 tensorflow-io==0.28.0
-torch==1.13.0
+torch==1.12.0a0+8a1a93a
 tqdm==4.64.1
 triton==1.0.0
