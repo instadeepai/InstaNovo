@@ -28,13 +28,20 @@ class TransNovo(nn.Module):
         self.seq_embed = nn.Embedding(cfg.vocab_size, cfg.dim)
         self.pos_enc = PositionalEncoding(cfg.dim)
 
-        self.transformer = Transformer(
+        # self.transformer = Transformer(
+        #     cfg.dim,
+        #     cfg.nheads,
+        #     cfg.layers,
+        #     batch_first=True,
+        #     pos_encoding_type=cfg.encoder_positional_embedding,
+        #     pos_encoding_freq=cfg.positional_embedding_frequency,
+        # )
+
+        self.transformer = nn.Transformer(
             cfg.dim,
             cfg.nheads,
             cfg.layers,
             batch_first=True,
-            pos_encoding_type=cfg.encoder_positional_embedding,
-            pos_encoding_freq=cfg.positional_embedding_frequency,
         )
 
         self.head = nn.Linear(cfg.dim, cfg.vocab_size)
@@ -42,7 +49,7 @@ class TransNovo(nn.Module):
     def forward(self, x: Tensor, x_pad: Tensor, y: Tensor, y_pad: Tensor | None = None) -> Tensor:
         """Defines the computation performed at every call."""
         # x.shape: (batch, peaks, dim)
-        bias = x[:, :, 0]
+        # bias = x[:, :, 0]
 
         x = self.input_embed(x)
         y = self.pos_enc(self.seq_embed(y))
@@ -50,7 +57,7 @@ class TransNovo(nn.Module):
         out = self.transformer(
             x,
             y,
-            bias=bias,
+            # bias=bias,
             tgt_mask=self.transformer.generate_square_subsequent_mask(y.shape[1]).to(y.device),
             src_key_padding_mask=x_pad,
             tgt_key_padding_mask=y_pad,
