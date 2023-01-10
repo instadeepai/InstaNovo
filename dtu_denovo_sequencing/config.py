@@ -19,7 +19,7 @@ class ModelConfig:
     dropout: float = 0.1
 
     # which positional encoding to use ["none", "transnovo", "casanovo"]
-    encoder_positional_embedding: str = "none"
+    encoder_positional_embedding: str = "casanovo"
     # at which encoder layers should we apply positional embeddings
     positional_embedding_frequency: int = 0  # 0 only applies to first layer
 
