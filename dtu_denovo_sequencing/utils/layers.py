@@ -684,7 +684,7 @@ class TransformerEncoderLayer(nn.TransformerEncoderLayer):
         self, x: Tensor, attn_mask: Tensor | None, key_padding_mask: Tensor | None
     ) -> Tensor:
         x = self.self_attn(
-            x, x, x, attn_mask=attn_mask, key_padding_mask=key_padding_mask, need_weights=False
+            x, x, x, bias=None, attn_mask=attn_mask, key_padding_mask=key_padding_mask, need_weights=False
         )[0]
         return self.dropout1(x)
 
