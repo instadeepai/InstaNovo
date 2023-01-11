@@ -684,7 +684,7 @@ class TransformerEncoderLayer(nn.TransformerEncoderLayer):
         self, x: Tensor, attn_mask: Tensor | None, key_padding_mask: Tensor | None
     ) -> Tensor:
         x = self.self_attn(
-            x, x, x, bias=None, attn_mask=attn_mask, key_padding_mask=key_padding_mask, need_weights=False
+            x, x, x, attn_mask=attn_mask, key_padding_mask=key_padding_mask, need_weights=False
         )[0]
         return self.dropout1(x)
 
@@ -747,7 +747,7 @@ class MultiheadAttentionBias(nn.MultiheadAttention):
         query: Tensor,
         key: Tensor,
         value: Tensor,
-        bias: Tensor,
+        bias: Tensor | None = None,
         key_padding_mask: Tensor | None = None,
         need_weights: bool = True,
         attn_mask: Tensor | None = None,
