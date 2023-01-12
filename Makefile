@@ -136,7 +136,7 @@ train:
 	deepspeed \
 		--num_nodes=$(NUM_NODES) \
 		--num_gpus=$(NUM_GPUS) \
-		./dtu_denovo_sequencing/train.py \
+		./dtu_denovo_sequencing/transnovo/train.py \
 		train_data_path=./data/denovo_dataset_v1/ \
 		batch_size=$(BATCH_SIZE) \
 		distributed.n_gpus_per_node=$(NUM_GPUS) \

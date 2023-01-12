@@ -7,7 +7,7 @@ import torch
 import torch.nn as nn
 from torch import Tensor
 
-from dtu_denovo_sequencing.config import ModelConfig
+from dtu_denovo_sequencing.transnovo.config import ModelConfig
 from dtu_denovo_sequencing.utils.layers import Transformer
 
 

@@ -31,13 +31,13 @@ from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
-from dtu_denovo_sequencing.config import i2s
-from dtu_denovo_sequencing.config import ModelConfig
-from dtu_denovo_sequencing.dataset import collate_batch
-from dtu_denovo_sequencing.dataset import load_all
-from dtu_denovo_sequencing.dataset import SpecDataset
-from dtu_denovo_sequencing.model import TransNovo
+from dtu_denovo_sequencing.transnovo.config import i2s
+from dtu_denovo_sequencing.transnovo.config import ModelConfig
+from dtu_denovo_sequencing.transnovo.model import TransNovo
 from dtu_denovo_sequencing.utils import evaluation
+from dtu_denovo_sequencing.utils.dataset import collate_batch
+from dtu_denovo_sequencing.utils.dataset import load_all
+from dtu_denovo_sequencing.utils.dataset import SpecDataset
 
 
 load_dotenv()
