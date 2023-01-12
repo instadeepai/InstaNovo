@@ -88,7 +88,7 @@ class Transformer(nn.Transformer):
         if custom_encoder is not None:
             self.encoder = custom_encoder
         else:
-            if pos_encoding_type == "none":
+            if pos_encoding_type is None:
                 pos_enc = None
                 relative_pos_enc = False
             elif pos_encoding_type == "casanovo":

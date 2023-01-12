@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Optional
 
 
 @dataclass
@@ -18,8 +19,8 @@ class ModelConfig:
     input_size: int = 4
     dropout: float = 0.1
 
-    # which positional encoding to use ["none", "transnovo", "casanovo"]
-    encoder_positional_embedding: str = "none"
+    # which positional encoding to use [None, "transnovo", "casanovo"]
+    encoder_positional_embedding: Optional[str] = None
     # at which encoder layers should we apply positional embeddings
     positional_embedding_frequency: int = 0  # 0 only applies to first layer
 
