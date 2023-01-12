@@ -39,6 +39,7 @@ from dtu_denovo_sequencing.dataset import SpecDataset
 from dtu_denovo_sequencing.model import TransNovo
 from dtu_denovo_sequencing.utils import evaluation
 
+
 load_dotenv()
 
 # DS2 train command:
@@ -76,9 +77,9 @@ class TrainConfig:
     num_workers: int = 0
 
     summary_interval: int = 25
-    checkpoint_interval: int = 20_000
+    checkpoint_interval: int = 40_000  # 20_000
     stdout_interval: int = 100
-    validation_interval: int = 10_000
+    validation_interval: int = 20_000  # 10_000
 
     # Learning settings -- managed by deepspeed cfg
     max_steps: int = 100_000_000  # 500_000 #1_000_000
@@ -422,8 +423,10 @@ def train(rank: int, cfg: TrainConfig, deepspeed_cfg: argparse.Namespace) -> Non
 
                             seq = (torch.ones((x.shape[0], 1)) * valid_ds.SOS).long().to(device)
 
+                            bias = x[:, :, 0]
                             x = model.input_embed(x)
-                            x = model.transformer.encoder(x, src_key_padding_mask=x_pad)
+                            x = model.transformer.encoder(x, bias=bias, src_key_padding_mask=x_pad)
+                            # x = model.transformer.encoder(x, src_key_padding_mask=x_pad)
 
                             for _ in range(cfg.model_cfg.max_len):
                                 # y_hat = model(x.float(), x_pad, seq)
@@ -445,7 +448,7 @@ def train(rank: int, cfg: TrainConfig, deepspeed_cfg: argparse.Namespace) -> Non
                             text_targets += [valid_ds.seq_to_aa(s) for s in y]
 
                             valid_loss += loss.item() / len(valid_dl)
-                            logging.info(f"[RANK {rank}] valid_loss : {valid_loss:.3f}")
+                            # logging.info(f"[RANK {rank}] valid_loss : {valid_loss:.3f}")
                         cer = jiwer.cer(text_preds, text_targets)
                         aa_precision, aa_recall, pep_recall = evaluation.aa_match_metrics(
                             *evaluation.aa_match_batch(text_preds, text_targets, s2i)

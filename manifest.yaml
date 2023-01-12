@@ -18,5 +18,6 @@ spec:
       gpuType: gpu
       # gpuProduct: A100-SXM4-40GB
       gpuProduct: NVIDIA-A100-SXM-80GB
+      # gpuProduct: Tesla-V100-SXM3-32GB
       # mandatory (must be >= 2): RAM to CPU ratio (in GB)
       ramRatio: 16
