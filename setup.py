@@ -1,5 +1,6 @@
+from __future__ import annotations
+
 from codecs import open
-from typing import List
 
 import setuptools
 from setuptools import setup
@@ -7,13 +8,9 @@ from setuptools import setup
 __version__ = "0.1.0"
 
 
-def read_requirements(file: str) -> List[str]:
+def read_requirements(file: str) -> list[str]:
     """Returns content of given requirements file."""
-    return [
-        line
-        for line in open(file)
-        if not (line.startswith("#") or line.startswith("--"))
-    ]
+    return [line for line in open(file) if not (line.startswith("#") or line.startswith("--"))]
 
 
 setup(

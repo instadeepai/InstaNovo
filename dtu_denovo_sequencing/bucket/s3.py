@@ -1,6 +1,8 @@
+"""Download / upload files and directories from / to s3 bucket."""
+from __future__ import annotations
+
 import os
 from pathlib import Path
-from typing import Optional
 
 from cloudpathlib import S3Client
 from cloudpathlib import S3Path
@@ -9,13 +11,10 @@ from dtu_denovo_sequencing.utils.io import Openable
 
 
 class S3BucketManager:
-    """Python interface to download / upload files and directories from / to s3 bucket.
+    """Python interface to download / upload files and directories from / to s3 bucket."""
 
-    Attributes:
-        default_bucket: name of the default bucket to use.
-    """
-
-    def __init__(self, default_bucket: Optional[str] = None) -> None:
+    def __init__(self, default_bucket: str | None = None) -> None:
+        """Initialize the S3BucketManager."""
         self.default_bucket = default_bucket
         self.set_client()
 
@@ -51,7 +50,7 @@ class S3BucketManager:
         local_path: Openable,
         bucket_path: str,
         force: bool = False,
-        bucket_name: Optional[str] = None,
+        bucket_name: str | None = None,
     ) -> str:
         """Upload a file or a directory to the bucket path provided.
 
@@ -75,9 +74,7 @@ class S3BucketManager:
         local_path = Path(local_path)
 
         if not local_path.exists():
-            raise FileNotFoundError(
-                f"The local file / directory {local_path} does not exist."
-            )
+            raise FileNotFoundError(f"The local file / directory {local_path} does not exist.")
 
         s3_path = self._build_s3_path(bucket_path, bucket_name)
 
@@ -95,7 +92,7 @@ class S3BucketManager:
         local_path: Openable,
         bucket_path: str,
         force: bool = False,
-        bucket_name: Optional[str] = None,
+        bucket_name: str | None = None,
     ) -> str:
         """Download a file or a directory to the local path provided.
 
@@ -139,11 +136,11 @@ class S3BucketManager:
 
         return str(local_path)
 
-    def remove(self, bucket_path: str, bucket_name: Optional[str] = None) -> None:
+    def remove(self, bucket_path: str, bucket_name: str | None = None) -> None:
         """Remove a file / directory from the bucket.
 
         Args:
-            bucket_file_path: path to the file / directory to delete on the bucket.
+            bucket_path: path to the file / directory to delete on the bucket.
             bucket_name: name of the bucket to use.
         """
         s3_path = self._build_s3_path(bucket_path, bucket_name)
@@ -154,7 +151,7 @@ class S3BucketManager:
         elif s3_path.is_file():
             s3_path.unlink()
 
-    def _build_s3_path(self, bucket_path: str, bucket_name: Optional[str]) -> S3Path:
+    def _build_s3_path(self, bucket_path: str, bucket_name: str | None) -> S3Path:
         """Build the S3Path to use."""
         if bucket_path.startswith(S3Path.cloud_prefix):
             return S3Path(bucket_path)

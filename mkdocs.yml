@@ -23,9 +23,6 @@ theme:
     - navigation.tracking
 
 markdown_extensions:
-  - pymdownx.emoji:
-      emoji_generator: !!python/name:pymdownx.emoji.to_svg
-      emoji_index: !!python/name:pymdownx.emoji.gemoji
   - pymdownx.snippets:
       base_path: dtu_denovo_sequencing
   - toc:
@@ -46,6 +43,6 @@ plugins:
             show_source: true
           selection:
             filters:
-              - '!^test'
+              - "!^test"
 nav:
   - Home: index.md

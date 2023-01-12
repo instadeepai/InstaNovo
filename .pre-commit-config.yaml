@@ -5,36 +5,44 @@ default_stages: [commit]
 
 repos:
   - repo: https://github.com/asottile/reorder_python_imports
-    rev: v3.8.2
+    rev: v3.9.0
     hooks:
       - id: reorder-python-imports
         args:
           - --py38-plus
+          - --add-import=from __future__ import annotations
 
-  - repo: https://github.com/python/black
-    rev: 22.8.0
+  - repo: https://github.com/psf/black
+    rev: 22.12.0
     hooks:
       - id: black
+        args:
+          - --line-length=100
+          - --target-version=py38
 
-  - repo: https://github.com/pycqa/flake8
-    rev: 4.0.1
+  - repo: https://github.com/PyCQA/flake8
+    rev: 6.0.0
     hooks:
       - id: flake8
+        args:
+          - --max-line-length=100
+          - --max-cognitive-complexity=15
+          - --ignore=E203,E266,E501,W503
         additional_dependencies:
-          - pep8-naming==0.12.1
-          - flake8-absolute-import==1.0
-          - flake8-bugbear==21.11.29
-          - flake8-builtins==1.5.3
-          - flake8-class-attributes-order==0.1.2
+          - pep8-naming==0.13.3
+          - flake8-absolute-import==1.0.0.1
+          - flake8-bugbear==22.12.6
+          - flake8-builtins==2.0.1
+          - flake8-class-attributes-order==0.1.3
           - flake8-cognitive-complexity==0.1.0
-          - flake8-comprehensions==3.7.0
-          - flake8-pytest-style==1.5.1
+          - flake8-comprehensions==3.10.1
+          - flake8-pytest-style==1.6.0
 
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.3.0
+    rev: v4.4.0
     hooks:
-      - id: debug-statements
-      - id: requirements-txt-fixer # order requirements alphabetically
+      - id: debug-statements # Check for debugger imports
+      - id: requirements-txt-fixer # Order requirements alphabetically
       - id: check-ast # Simply check whether the files parse as valid python
       - id: check-case-conflict # Check for files that would conflict in case-insensitive filesystems
       - id: check-builtin-literals # Require literal syntax when initializing empty or zero Python builtin types
@@ -47,20 +55,61 @@ repos:
       - id: trailing-whitespace # This hook trims trailing whitespace
 
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v0.910-1
+    rev: v0.991
     hooks:
-    - id: mypy
+      - id: mypy
 
   - repo: https://github.com/compilerla/conventional-pre-commit
-    rev: v2.0.0
+    rev: v2.1.1
     hooks:
       - id: conventional-pre-commit
         stages:
           - commit-msg
 
+  - repo: https://github.com/pre-commit/mirrors-prettier
+    rev: v3.0.0-alpha.4
+    hooks:
+      - id: prettier
+        args:
+          - --print-width=100
+          - --prose-wrap=always
+          - --tab-width=2
+
   - repo: https://github.com/asottile/pyupgrade
-    rev: v2.38.0
+    rev: v3.3.1
     hooks:
       - id: pyupgrade
         args:
           - --py38-plus
+        exclude: ^dtu_denovo_sequencing/config.py
+
+  - repo: https://github.com/pycqa/pydocstyle
+    rev: 6.1.1
+    hooks:
+      - id: pydocstyle
+        additional_dependencies: ["toml"]
+        args:
+          - --convention=google
+          - --add-ignore=D100,D104,D105,D107,D417
+
+  - repo: https://github.com/alessandrojcm/commitlint-pre-commit-hook
+    rev: v9.3.0
+    hooks:
+      - id: commitlint
+        stages: [commit-msg]
+        additional_dependencies: ["@commitlint/config-conventional"]
+
+  - repo: https://github.com/codespell-project/codespell
+    rev: v2.2.2
+    hooks:
+      - id: codespell
+        name: codespell
+        description: Checks for common misspellings in text files.
+        entry: codespell --skip="*.js,*.html,*.css, *.svg" --ignore-words=.codespell-ignore.txt
+        language: python
+        types: [text]
+
+  - repo: https://github.com/kynan/nbstripout
+    rev: 0.6.1
+    hooks:
+      - id: nbstripout

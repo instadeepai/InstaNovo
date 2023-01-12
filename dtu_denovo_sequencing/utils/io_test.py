@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 from pathlib import Path
 from typing import Iterable
-from typing import List
 
 import pytest
 
@@ -34,7 +35,7 @@ def test_save_load_txt(
     request: pytest.FixtureRequest,
     tmp_directory: Path,
     iterable: Iterable,
-    expected_loaded_list: List[str],
+    expected_loaded_list: list[str],
 ) -> None:
     """Ensure the loaded iterable contains the items of the saved iterable (as string)."""
     file_path = tmp_directory / f"{request.node.name}.txt"
@@ -47,7 +48,7 @@ def test_save_load_txt(
 
 
 def test_save_load_json(tmp_directory: Path) -> None:
-    """Ensure a dictonary is not altered by 'save_as_json' / 'load_json'."""
+    """Ensure a dictionary is not altered by 'save_as_json' / 'load_json'."""
     file_path = tmp_directory / "test_save_load_json.json"
     dict_ = {
         "key1": list(range(10)),
@@ -62,7 +63,7 @@ def test_save_load_json(tmp_directory: Path) -> None:
 
 
 def test_save_load_yml(tmp_directory: Path) -> None:
-    """Ensure a dictonary is not altered by 'save_as_yml' / 'load_yml'."""
+    """Ensure a dictionary is not altered by 'save_as_yml' / 'load_yml'."""
     file_path = tmp_directory / "test_save_load_yml.yml"
     dict_ = {
         "key1": list(range(10)),
@@ -77,7 +78,7 @@ def test_save_load_yml(tmp_directory: Path) -> None:
 
 
 def test_save_load_pkl(tmp_directory: Path) -> None:
-    """Ensure a dictonary is not altered by 'save_as_pkl' / 'load_pkl'."""
+    """Ensure a dictionary is not altered by 'save_as_pkl' / 'load_pkl'."""
     file_path = tmp_directory / "test_save_load_pkl.pkl"
     dict_ = {"key1": range(10), "key2": ["test"] * 20, "key3": {"key1": range(10)}}
 
