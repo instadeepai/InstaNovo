@@ -151,3 +151,6 @@ cython_debug/
 # data folders
 data/
 ProteomeTools_data/
+
+# GCP credentials
+ext-dtu-denovo-sequencing-gcp*.json

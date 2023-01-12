@@ -1,18 +1,24 @@
 # This Makefile provides shortcut commands to facilitate local development.
 
 # Common variables
-TEST = dtu_denovo_sequencing
+PACKAGE_NAME = dtu_denovo_sequencing
 
-# LAST_COMMIT returns the curent HEAD commit
+# Train variables
+NUM_NODES = 1
+BATCH_SIZE = 12
+NUM_GPUS:= $(shell python -m dtu_denovo_sequencing.utils.parse_nr_gpus)
+
+
+# LAST_COMMIT returns the current HEAD commit
 LAST_COMMIT = $(shell git rev-parse --short HEAD)
 
 # VERSION represents a clear statement of which tag based version of the repository you're actually running.
 # If you run a tag based version, it returns the according HEAD tag, otherwise it returns:
 # * `LAST_COMMIT-staging` if no tags exist
 # * `BASED_TAG-SHORT_SHA_COMMIT-staging` if a previous tag exist
-VERSION := $(shell git describe --exact-match --abbrev=0 --tags $(LAST_COMMIT) 2> /dev/null)
+VERSION := $(shell git describe --always --exact-match --abbrev=0 --tags $(LAST_COMMIT) 2> /dev/null)
 ifndef VERSION
-	BASED_VERSION := $(shell git describe --abbrev=3 --tags $(git rev-list --tags --max-count=1))
+	BASED_VERSION := $(shell git describe --always --abbrev=3 --tags $(git rev-list --tags --max-count=1))
 	ifndef BASED_VERSION
 	VERSION = $(LAST_COMMIT)-staging
 	else
@@ -22,19 +28,25 @@ endif
 
 # Docker variables
 DOCKER_HOME_DIRECTORY = "/app"
-
-DOCKER_IMAGE_NAME = gcr.io/instadeep/id-ml-template
-DOCKER_IMAGE_TAG = $(VERSION)
-DOCKER_IMAGE = $(DOCKER_IMAGE_NAME):$(DOCKER_IMAGE_TAG)
-DOCKER_IMAGE_DEV = $(DOCKER_IMAGE_NAME):$(DOCKER_IMAGE_TAG)-dev
-DOCKER_IMAGE_CI = $(DOCKER_IMAGE_NAME):$(CI_COMMIT_SHORT_SHA)
-DOCKER_IMAGE_CI_DEV = $(DOCKER_IMAGE_NAME):$(CI_COMMIT_SHORT_SHA)-dev
-
-DOCKER_RUN_FLAGS = --rm --volume $(PWD):$(DOCKER_HOME_DIRECTORY)
-DOCKER_RUN = docker run $(DOCKER_RUN_FLAGS) $(IMAGE_NAME)
+DOCKER_RUNS_DIRECTORY = "/runs"
 
 DOCKERFILE := Dockerfile
 DOCKERFILE_DEV := Dockerfile.dev
+DOCKERFILE_CI := Dockerfile.ci
+
+DOCKER_IMAGE_NAME = registry.gitlab.com/instadeep/dtu-denovo-sequencing
+DOCKER_IMAGE_TAG = $(VERSION)
+DOCKER_IMAGE = $(DOCKER_IMAGE_NAME):$(DOCKER_IMAGE_TAG)
+DOCKER_IMAGE_DEV = $(DOCKER_IMAGE_NAME):$(DOCKER_IMAGE_TAG)-dev
+DOCKER_IMAGE_CI = $(DOCKER_IMAGE_NAME):$(DOCKER_IMAGE_TAG)
+DOCKER_IMAGE_CI_DEV = $(DOCKER_IMAGE_NAME):$(DOCKER_IMAGE_TAG)-dev
+
+DOCKER_RUN_FLAGS = --rm --gpus all --ipc=host --ulimit memlock=-1 --ulimit stack=67108864
+DOCKER_RUN_FLAGS_VOLUME_MOUNT_HOME = $(DOCKER_RUN_FLAGS) --volume $(PWD):$(DOCKER_HOME_DIRECTORY)
+DOCKER_RUN_FLAGS_VOLUME_MOUNT_RUNS = $(DOCKER_RUN_FLAGS) --volume $(PWD)/runs:$(DOCKER_RUNS_DIRECTORY)
+DOCKER_RUN = docker run $(DOCKER_RUN_FLAGS) $(IMAGE_NAME)
+
+
 
 # Build commands
 
@@ -42,15 +54,18 @@ DOCKERFILE_DEV := Dockerfile.dev
 
 define docker_buildx_dev_template
 	docker buildx build --platform=$(1) --progress=plain . \
-		-f $(DOCKERFILE_DEV) -t $(2) --build-arg HOST_GID=$(shell id -g) \
-		--build-arg HOST_UID=$(shell id -u) --build-arg LAST_COMMIT=$(LAST_COMMIT) \
-		--build-arg VERSION=$(VERSION) --build-arg HOME_DIRECTORY=$(DOCKER_HOME_DIRECTORY)
+		-f $(DOCKERFILE_DEV) -t $(2) --build-arg GID=$(shell id -g) \
+		--build-arg UID=$(shell id -u) --build-arg LAST_COMMIT=$(LAST_COMMIT) \
+		--build-arg VERSION=$(VERSION) --build-arg HOME_DIRECTORY=$(DOCKER_HOME_DIRECTORY) \
+		--build-arg RUNS_DIRECTORY=$(DOCKER_RUNS_DIRECTORY)
 endef
 
 define docker_buildx_template
 	docker buildx build --platform=$(1) --progress=plain . \
-		-f $(DOCKERFILE) -t $(2) --build-arg LAST_COMMIT=$(LAST_COMMIT) \
-		--build-arg VERSION=$(VERSION)
+		-f $(DOCKERFILE) -t $(2) --build-arg GID=$(shell id -g) \
+		--build-arg UID=$(shell id -u)  --build-arg LAST_COMMIT=$(LAST_COMMIT) \
+		--build-arg VERSION=$(VERSION) --build-arg HOME_DIRECTORY=$(DOCKER_HOME_DIRECTORY) \
+		--build-arg RUNS_DIRECTORY=$(DOCKER_RUNS_DIRECTORY)
 endef
 
 define docker_build_ci_template
@@ -90,15 +105,77 @@ push-ci-dev:
 	docker push $(DOCKER_IMAGE_DEV)
 	docker push $(DOCKER_IMAGE_CI_DEV)
 
+push-ci-gitlab:
+	docker push $(DOCKER_IMAGE_CI)
+
 # Dev commands
 
 .PHONY: test bash-dev docs-build
 
 test: build-dev
-	docker run --rm $(DOCKER_IMAGE_DEV) pytest --verbose $(TEST)
+	docker run --rm $(DOCKER_IMAGE_DEV) pytest --verbose $(PACKAGE_NAME)
+
+bash:
+	docker run -it $(DOCKER_RUN_FLAGS) $(DOCKER_IMAGE) /bin/bash
 
 bash-dev: build-dev
 	docker run -it $(DOCKER_RUN_FLAGS) $(DOCKER_IMAGE_DEV) /bin/bash
 
 docs: build-dev
 	docker run $(DOCKER_RUN_FLAGS) -p 8000:8000 $(DOCKER_IMAGE) mkdocs serve
+
+set-gcp-credentials:
+	python3 -m dtu_denovo_sequencing.utils.set_gcp_credentials
+	gcloud auth activate-service-account dtu-denovo-sa@ext-dtu-denovo-sequencing-gcp.iam.gserviceaccount.com --key-file=ext-dtu-denovo-sequencing-gcp.json --project=ext-dtu-denovo-sequencing-gcp
+
+# Train commands
+
+.PHONY: train train-dev
+
+train:
+	deepspeed \
+		--num_nodes=$(NUM_NODES) \
+		--num_gpus=$(NUM_GPUS) \
+		./dtu_denovo_sequencing/train.py \
+		train_data_path=./data/denovo_dataset_v1/ \
+		batch_size=$(BATCH_SIZE) \
+		distributed.n_gpus_per_node=$(NUM_GPUS) \
+		--deepspeed \
+		--deepspeed_config=deepspeed_cfg.json
+
+
+
+train-docker:
+	time docker run -it $(DOCKER_RUN_FLAGS_VOLUME_MOUNT_RUNS) $(DOCKER_IMAGE) \
+		deepspeed \
+			--num_nodes=$(NUM_NODES) \
+			--num_gpus=$(NUM_GPUS) \
+			./dtu_denovo_sequencing/train.py \
+			train_data_path=./data/denovo_dataset_v1/ \
+			batch_size=$(BATCH_SIZE) \
+			distributed.n_gpus_per_node=$(NUM_GPUS) \
+			--deepspeed \
+			--deepspeed_config=deepspeed_cfg.json
+
+train-docker-dev:
+	time docker run -it $(DOCKER_RUN_FLAGS_VOLUME_MOUNT_RUNS) $(DOCKER_IMAGE_DEV) \
+		deepspeed \
+		--num_nodes=$(NUM_NODES) \
+		./dtu_denovo_sequencing/train.py \
+		checkpoint_path=$(DOCKER_RUNS_DIRECTORY) \
+		train_data_path=./data/denovo_dataset_v1/ \
+		batch_size=$(BATCH_SIZE) \
+		--deepspeed \
+		--deepspeed_config=deepspeed_cfg.json
+
+# Download dataset commands
+
+.PHONY: download_dataset_v1 download_dataset_v2
+
+download_dataset_v1:
+	mkdir -p ./data/denovo_dataset_v1
+	gsutil -m cp -R gs://denovo_dataset_v1/ ./data
+
+download_dataset_v2:
+	mkdir -p ./data/denovo_dataset_v2
+	gsutil -m cp -R gs://denovo_dataset_v2/ ./data

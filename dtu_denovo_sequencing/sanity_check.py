@@ -1,8 +1,9 @@
-"""
-Created on Sun Sep 18 17:37:34 2022
+"""Created on Sun Sep 18 17:37:34 2022.
 
 @author: kosta
 """
+from __future__ import annotations
+
 import os
 from pathlib import Path
 
@@ -86,9 +87,7 @@ for m, i in zip(mz, intensity):
     ypos = i / top
     if flag_ion:
         plt.axvline(m, 0, ypos, c=colors[1])
-        plt.text(
-            m, 1.12 * ypos, ion_name, fontsize=9, rotation=90, ha="center", va="bottom"
-        )
+        plt.text(m, 1.12 * ypos, ion_name, fontsize=9, rotation=90, ha="center", va="bottom")
     else:
         plt.axvline(m, 0, ypos, c=colors[0])
 

@@ -1,10 +1,7 @@
-
-
 ## Type of Change
 
 - [x] Breaking change
 - [ ] Non-breaking change
-
 
 ## Review Checklist
 
@@ -12,6 +9,5 @@
 - [ ] Sufficient test coverage for new functionality is present.
 - [ ] CI pipeline is successful
 - [ ] Changes are documented
-
 
 ## Additional Notes

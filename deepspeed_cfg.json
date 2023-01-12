@@ -1,0 +1,35 @@
+{
+  "train_batch_size": 256,
+  "gradient_accumulation_steps": 16,
+  "fp16": {
+    "enabled": false,
+    "initial_scale_power": 24,
+    "min_loss_scale": 0.001
+  },
+  "zero_optimization": {
+    "stage": 0
+  },
+  "tensorboard": {
+    "enabled": true,
+    "output_path": "runs/",
+    "job_name": "transnovo-1.4"
+  },
+  "gradient_clipping": 10.0,
+  "scheduler": {
+    "type": "WarmupLR",
+    "params": {
+      "warmup_min_lr": 0,
+      "warmup_max_lr": 3e-4,
+      "warmup_num_steps": 10000,
+      "warmup_type": "linear"
+    }
+  },
+  "optimizer": {
+    "type": "Adam",
+    "params": {
+      "lr": 0,
+      "betas": [0.9, 0.999],
+      "eps": 1e-8
+    }
+  }
+}

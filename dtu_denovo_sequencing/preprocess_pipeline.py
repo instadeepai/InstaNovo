@@ -1,8 +1,9 @@
-"""
-Created on Fri Sep 16 10:05:46 2022
+"""Created on Fri Sep 16 10:05:46 2022.
 
 @author: konka
 """
+from __future__ import annotations
+
 import os
 import zipfile
 from pathlib import Path
@@ -25,9 +26,7 @@ result_file = "evidence.txt"
 
 completed_path = path_log / completed_log
 if completed_path.is_file():
-    completed_df = pd.read_csv(
-        os.path.join(path_log, completed_log), sep="\t", header=None
-    )
+    completed_df = pd.read_csv(os.path.join(path_log, completed_log), sep="\t", header=None)
     if len(completed_df) > 1:
         completed_raw = completed_df.iloc[:, 1].to_list()
     else:
