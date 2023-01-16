@@ -81,7 +81,7 @@ repos:
       - id: pyupgrade
         args:
           - --py38-plus
-        exclude: ^dtu_denovo_sequencing/config.py
+        exclude: ^dtu_denovo_sequencing/transnovo/config.py
 
   - repo: https://github.com/pycqa/pydocstyle
     rev: 6.1.1
