@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import re
 from typing import Iterable
+from typing import Mapping
 
 import numpy as np
 from spectrum_utils.utils import mass_diff
@@ -11,7 +12,7 @@ from spectrum_utils.utils import mass_diff
 def aa_match_prefix(
     peptide1: list[str],
     peptide2: list[str],
-    aa_dict: dict[str, float],
+    aa_dict: Mapping[str, float],
     cum_mass_threshold: float = 0.5,
     ind_mass_threshold: float = 0.1,
 ) -> tuple[np.ndarray, bool]:
@@ -61,7 +62,7 @@ def aa_match_prefix(
 def aa_match_prefix_suffix(
     peptide1: list[str],
     peptide2: list[str],
-    aa_dict: dict[str, float],
+    aa_dict: Mapping[str, float],
     cum_mass_threshold: float = 0.5,
     ind_mass_threshold: float = 0.1,
 ) -> tuple[np.ndarray, bool]:
@@ -117,7 +118,7 @@ def aa_match_prefix_suffix(
 def aa_match(
     peptide1: list[str],
     peptide2: list[str],
-    aa_dict: dict[str, float],
+    aa_dict: Mapping[str, float],
     cum_mass_threshold: float = 0.5,
     ind_mass_threshold: float = 0.1,
     mode: str = "best",
@@ -170,7 +171,7 @@ def aa_match(
 def aa_match_batch(
     peptides1: Iterable,
     peptides2: Iterable,
-    aa_dict: dict[str, float],
+    aa_dict: Mapping[str, float],
     cum_mass_threshold: float = 0.5,
     ind_mass_threshold: float = 0.1,
     mode: str = "best",

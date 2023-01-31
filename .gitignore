@@ -154,3 +154,6 @@ ProteomeTools_data/
 
 # GCP credentials
 ext-dtu-denovo-sequencing-gcp*.json
+
+# Allure test results
+allure_results/
