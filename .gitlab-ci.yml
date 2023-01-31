@@ -5,7 +5,7 @@
 # Note that environment variables can be set in several places
 # See https://docs.gitlab.com/ee/ci/variables/#cicd-variable-precedence
 default:
-  image: python:3.9
+  image: python:3.8
 
 stages:
   - sast
