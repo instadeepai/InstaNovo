@@ -1,7 +1,7 @@
 site_name: DE NOVO SEQUENCING
 site_description: Documentation for De novo sequencing
 site_author: InstaDeep Developers
-site_url: https://instadeep.gitlab.io/mkdocs
+site_url: https://instadeep.gitlab.io/dtu-denovo-sequencing/
 site_dir: public
 repo_name: instadeep/dtu-denovo-sequencing
 repo_url: https://gitlab.com/instadeep/dtu-denovo-sequencing
@@ -11,38 +11,76 @@ theme:
   name: material
   language: en
   palette:
-    primary: light blue
-    accent: indigo
-  logo: PATH_TO_LOGO
-  favicon: PATH_TO_FAVICON
+    - scheme: default
+      primary: white
+      accent: purple
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to dark mode
+    - scheme: slate
+      primary: black
+      accent: lime
+      toggle:
+        icon: material/weather-night
+        name: Switch to light mode
+  logo: assets/instadeep-logo.png
+  favicon: assets/instadeep-logo.png
   icon:
     repo: fontawesome/brands/gitlab
   font:
     text: Avenir Next
   features:
-    - navigation.tracking
+    - navigation.tracking # the URL is automatically updated with the active anchor
+    - navigation.sections # top-level sections are rendered as groups in the sidebar
+    - navigation.tabs # horizontal tabs at the top of the page
+    - navigation.tabs.sticky # navigation tabs will lock below the header and always remain visible when scrolling
+    - navigation.indexes # documents can be directly attached to sections
+    - search.highlight # highlight search result
+    - search.share # share button
+    - search.suggest # smart suggestion
+    - toc.integrate
+    - toc.follow
+    - content.code.annotate
+    - navigation.tabs
+    - navigation.top
 
 markdown_extensions:
-  - pymdownx.snippets:
-      base_path: dtu_denovo_sequencing
-  - toc:
-      permalink: "#"
   - pymdownx.highlight:
-      linenums: true
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
   - pymdownx.superfences
-  - def_list
 
 plugins:
   - search
-  - git-revision-date
+  - autorefs
+  # - git-revision-date
+  - include-markdown
+  - gen-files:
+      scripts:
+        - docs/gen_ref_nav.py
   - mkdocstrings:
       default_handler: python
       handlers:
         python:
-          rendering:
-            show_source: true
+          paths: [dtu_denovo_sequencing]
+          options:
+            docstring_style: google
+            merge_init_into_class: yes
+            show_submodules: no
           selection:
-            filters:
-              - "!^test"
+            inherited_members: false
+          rendering:
+            show_source: false
+            members_order: source
+            show_if_no_docstring: true
+            show_signature: true
+            show_signature_annotations: true
+            show_root_full_path: false
+            show_root_heading: true
+            merge_init_into_class: true
+            docstring_section_style: spacy
+
 nav:
   - Home: index.md
+  - Code reference: reference/SUMMARY.md
