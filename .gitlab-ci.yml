@@ -1,120 +1,153 @@
+# You can override the included template(s) by including variable overrides
+# SAST customization: https://docs.gitlab.com/ee/user/application_security/sast/#customizing-the-sast-settings
+# Secret Detection customization: https://docs.gitlab.com/ee/user/application_security/secret_detection/#customizing-settings
+# Dependency Scanning customization: https://docs.gitlab.com/ee/user/application_security/dependency_scanning/#customizing-the-dependency-scanning-settings
+# Note that environment variables can be set in several places
+# See https://docs.gitlab.com/ee/ci/variables/#cicd-variable-precedence
+default:
+  image: python:3.8
+
 stages:
-  - build
-  - lint
+  - sast
+  - precommit
   - test
+  - minimum_coverage
+  - history_copy
+  - generate_report
+  - make_docs
   - deploy
-  - publish
 
 variables:
-  PRE_COMMIT_VERSION: "2.15.0"
-  PROJECT_NAME: dtu_denovo_sequencing
-  DOCKER_IMAGE_NAME: gcr.io/instadeep/id-ml-template
-  DOCKER_APP_PATH: "/app"
-  COOKIECUTTER_VERSION: "1.7.3"
+  MIN_COVERAGE: 80
 
+sast:
+  stage: sast
+  tags:
+    - kao-k8s-runner
+include:
+  - template: Security/SAST.gitlab-ci.yml
 
-.pip-job:
-  image: $DOCKER_IMAGE_NAME:$CI_COMMIT_SHORT_SHA
-  variables:
-    PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
-  cache:
-    paths:
-      - .cache/pip
-      - venv/
+precommit:
+  stage: precommit
+  tags:
+    - kao-k8s-runner
   before_script:
-    - python -V
-    # this checks whether we are testing the template or not
-    # if we are, then env variable $TEMPLATE_TEST_CI_FOLDER should be set.
-    - if [[ -n "${TEMPLATE_TEST_CI_FOLDER}" ]]; then pip install cookiecutter==$COOKIECUTTER_VERSION; cookiecutter --no-input . repo_group=instadeep/templates; fi
-    - if [[ -n "${TEMPLATE_TEST_CI_FOLDER}" ]]; then cd "${TEMPLATE_TEST_CI_FOLDER}"; fi
-    - pip install --prefix ~/.local -e .
-
-
-.docker_login: &docker_login |
-  docker login -u _json_key --password-stdin https://gcr.io < ${GCP_SERVICE_ACCOUNT}
-
-linters:
-  extends: .pip-job
-  stage: lint
-  script:
-    - cd $DOCKER_APP_PATH
-    - pip install pre-commit==$PRE_COMMIT_VERSION
-    # hack to be able to use pre-commit without all the .git directory available in the docker
-    # cf https://github.com/pre-commit/pre-commit/issues/1152
-    - git init .
-    - pre-commit install -t pre-commit
-    - pre-commit run --all-files
-
-test:
-  extends: .pip-job
-  stage: test
-  script:
+    - /usr/local/bin/python -m pip install --upgrade pip
+    - pip install -r requirements.txt
     - pip install -r requirements-dev.txt
-    - pytest --cov=$PROJECT_NAME --cov-report=term-missing --junit-xml=test-results.xml -vv $PROJECT_NAME
-    - coverage html --directory=coverage_html_report
-    - coverage report --fail-under=1
-  coverage: '/TOTAL.+ (\d+\.?\d+)%/'
+  script:
+    - pre-commit run --all-files -c .pre-commit-config.yaml # This won't run the check on commit msg, we need to add one step
+    # - echo $(git log -1 --pretty=%s --no-merges) > current_commit_msg
+    # - pre-commit run --hook-stage commit-msg --commit-msg-filename current_commit_msg -c
+    #   .pre-commit-config.yaml
+
+run_tests:
+  stage: test
+  tags:
+    - kao-k8s-runner
   artifacts:
-    name: "Test Results"
     when: always
     paths:
-      - ./test-results.xml
-      - ./coverage_html_report
-    reports:
-      junit: ./test-results.xml
+      - allure_results
+      - coverage
+      - coverage.json
     expire_in: 1 day
-
-
-build_image:
-  image: registry.kao.instadeep.io/library/docker:pydoc
-  stage: build
+  before_script:
+    - pip install -r requirements.txt
+    - pip install -r requirements-dev.txt
   script:
-    - *docker_login
-    - apk add --no-cache make
-    # this checks whether we are testing the template or not
-    # if we are, then env variable $TEMPLATE_TEST_CI_FOLDER should be set.
-    - if [[ -n "${TEMPLATE_TEST_CI_FOLDER}" ]]; then pip install cookiecutter==$COOKIECUTTER_VERSION; cookiecutter --no-input . repo_group=instadeep/templates; fi
-    - if [[ -n "${TEMPLATE_TEST_CI_FOLDER}" ]]; then cd "${TEMPLATE_TEST_CI_FOLDER}"; fi
-    - make build-ci
-    - make push-ci
+    - pytest -v --alluredir=allure_results  --cov-report=html --cov  --cov-config=.coveragerc
+      --random-order
+  after_script:
+    - coverage report -m
+    - coverage json
+  coverage: "/TOTAL.+ ([0-9]{1,3}%)/"
+  allow_failure: false
 
-test_docs:
-  extends: .pip-job
-  stage: test
+minimum_coverage:
+  stage: minimum_coverage
+  tags:
+    - kao-k8s-runner
+  before_script:
+    - apt-get update && apt-get install jq -y
   script:
+    - jsonStr="$(cat $CI_PROJECT_DIR/coverage.json)"
+    - coverage="$(echo $jsonStr | jq .totals.percent_covered)"
+    - if [[ $coverage < $MIN_COVERAGE ]] ; then echo "$coverage% of code coverage below threshold of
+      $MIN_COVERAGE%" && exit 1 ; else exit 0 ; fi
+  needs:
+    - job: run_tests
+  allow_failure: true
+
+history_copy:
+  stage: history_copy
+  tags:
+    - kao-k8s-runner
+  artifacts:
+    when: always
+    paths:
+      - allure_results
+    expire_in: 1 day
+  script:
+    - curl -L -o artifacts.zip -H "PRIVATE-TOKEN:$DTU_DENOVO_SEQUENCING_CI_TOKEN"
+      "https://gitlab.com/api/v4/projects/$CI_PROJECT_ID/jobs/artifacts/$CI_COMMIT_BRANCH/download?job=pages"
+    - unzip -o artifacts.zip -d artifacts
+    - chmod -R 777 artifacts
+    - mkdir ./allure_results/history
+    - cp ./artifacts/public/allure/history/* ./allure_results/history
+  allow_failure: true
+  needs:
+    - job: run_tests
+
+generate_report:
+  stage: generate_report
+  tags:
+    - kao-k8s-runner
+  image: frankescobar/allure-docker-service
+  script:
+    - allure generate -c allure_results -o allure-report
+  artifacts:
+    paths:
+      - ./allure-results
+      - ./allure-report
+    expire_in: 1 day
+  needs:
+    - job: run_tests
+
+make_docs:
+  stage: make_docs
+  tags:
+    - kao-k8s-runner
+  before_script:
+    - /usr/local/bin/python -m pip install --upgrade pip
     - pip install -r requirements-dev.txt
     - git config --global --add safe.directory "$(dirname "$(pwd)")"
+  script:
+    - rm -rf docs/reference
+    - python ./docs/gen_ref_nav.py
     - mkdocs build --verbose --site-dir docs_public
   artifacts:
     paths:
       - docs_public
 
 pages:
-  extends: .pip-job
   stage: deploy
-  script:
+  tags:
+    - kao-k8s-runner
+  before_script:
+    - /usr/local/bin/python -m pip install --upgrade pip
     - pip install -r requirements-dev.txt
     - git config --global --add safe.directory "$(dirname "$(pwd)")"
+  script:
     - mkdocs build --verbose
+    - mkdir -p public/allure
+    - cp -r ./allure-report/* public/allure
+    - mkdir -p public/coverage
+    - cp -r ./coverage/* public/coverage
   artifacts:
     paths:
       - public
-  only:
-    - main
-
-publish:
-  extends: .pip-job
-  stage: publish
-  only:
-    variables:
-      - $PUBLISH == "true"
-  script:
-    - cd $DOCKER_APP_PATH
-    - pip install python-semantic-release twine
-    - rm -rf .git/hooks
-    - git config --global user.email $GITLAB_USER_EMAIL
-    - git config --global user.name "python-semantic-release"
-    - git tag -d $(git tag -l)
-    - semantic-release publish
-    - python setup.py sdist bdist_wheel
-    - TWINE_PASSWORD=${CI_JOB_TOKEN} TWINE_USERNAME=gitlab-ci-token python -m twine upload --repository-url ${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/pypi dist/*
+    expire_in: never
+  needs:
+    - job: generate_report
+    - job: run_tests
