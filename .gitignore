@@ -157,3 +157,7 @@ ext-dtu-denovo-sequencing-gcp*.json
 
 # Allure test results
 allure_results/
+
+# mkdocs stuff
+public/
+docs/reference
