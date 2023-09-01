@@ -41,8 +41,8 @@ optional arguments:
 
 Note: data is expected to be saved as Polars `.ipc` format. See section on data conversion.
 
-To update the model config, modify the config file under
-[instanovo/transformer/configs/base.yaml](instanovo/transformer/configs/base.yaml)
+To update the InstaNovo model config, modify the config file under
+[configs/instanovo/base.yaml](configs/instanovo/base.yaml)
 
 ### Prediction
 
