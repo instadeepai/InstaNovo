@@ -93,6 +93,7 @@ This code repo is currently under construction.
 **ToDo:**
 
 - Add diffusion model code
+- Add data preprocessing pipeline
 - Add model checkpoints to releases and HuggingFace
 - Add datasets to HuggingFace
 - Multi-GPU support
