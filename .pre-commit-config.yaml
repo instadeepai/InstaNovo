@@ -58,7 +58,6 @@ repos:
     rev: v0.991
     hooks:
       - id: mypy
-        exclude: ^(dtu_denovo_sequencing/casanovo/|dtu_denovo_sequencing/utils/hdf5.py|dtu_denovo_sequencing/instanovo/evaluation.py)
 
   - repo: https://github.com/compilerla/conventional-pre-commit
     rev: v2.1.1
@@ -83,7 +82,6 @@ repos:
       - id: pyupgrade
         args:
           - --py38-plus
-        exclude: ^dtu_denovo_sequencing/transnovo/config.py
 
   - repo: https://github.com/pycqa/pydocstyle
     rev: 6.1.1
@@ -93,7 +91,6 @@ repos:
         args:
           - --convention=google
           - --add-ignore=D100,D104,D105,D107,D417
-        exclude: ^(dtu_denovo_sequencing/casanovo/|dtu_denovo_sequencing/inference/)
 
   - repo: https://github.com/codespell-project/codespell
     rev: v2.2.2
