@@ -9,19 +9,20 @@ Links:
 
 ![Graphical Abstract](./graphical_abstract.jpeg)
 
-Developed by: InstaDeep, Department of Biotechnology and Biomedicine - Technical University of
+Developed by: InstaDeep and the Department of Biotechnology and Biomedicine - Technical University of
 Denmark
 
 ## Usage
 
 ### Installation
 
-To use InstaNovo, we need to install the module via `pip`. First clone the repository, navigate to
-the relevant folder and run the following command:
+To use InstaNovo, we need to install the module via `pip`:
 
 ```bash
 pip install instanovo
 ```
+
+Note: InstaNovo is built for Python >= 3.8
 
 ### Training
 
