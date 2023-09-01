@@ -5,7 +5,7 @@ from codecs import open
 import setuptools
 from setuptools import setup
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 
 
 def read_requirements(file: str) -> list[str]:
