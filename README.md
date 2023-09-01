@@ -41,6 +41,9 @@ optional arguments:
 
 Note: data is expected to be saved as Polars `.ipc` format. See section on data conversion.
 
+To update the model config, modify the config file under
+[instanovo/transformer/configs/base.yaml](instanovo/transformer/configs/base.yaml)
+
 ### Prediction
 
 To evaluate InstaNovo:
@@ -67,7 +70,21 @@ optional arguments:
 
 ### Converting datasets to Polars
 
-ToDo
+To convert a dataset to polars `.ipc`:
+
+```bash
+usage: python -m instanovo.utils.convert_ipc source target [-h] [--source_type SOURCE_TYPE] [--max_charge MAX_CHARGE]
+
+required arguments:
+  source            source data
+  target            target ipc file
+
+optional arguments:
+  --source_type SOURCE_TYPE
+                    type of input data. currently supports [mgf, csv]
+  --max_charge MAX_CHARGE
+                    maximum charge to filter
+```
 
 ## Roadmap
 
