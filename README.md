@@ -115,7 +115,7 @@ The model checkpoints are licensed under Creative Commons Non-Commercial
 	year = {2023},
 	doi = {10.1101/2023.08.30.555055},
 	publisher = {Cold Spring Harbor Laboratory},
-	URL = {https://www.biorxiv.org/content/early/2023/08/31/2023.08.30.555055},
+	URL = {https://www.biorxiv.org/content/10.1101/2023.08.30.555055v1},
 	journal = {bioRxiv}
 }
 ```
