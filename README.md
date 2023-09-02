@@ -7,10 +7,10 @@ Links:
 
 - bioRxiv: https://www.biorxiv.org/content/10.1101/2023.08.30.555055v1
 
-![Graphical Abstract](./graphical_abstract.jpeg)
+![Graphical Abstract](https://raw.githubusercontent.com/instadeepai/InstaNovo/main/graphical_abstract.jpeg)
 
-Developed by: InstaDeep and the Department of Biotechnology and Biomedicine - Technical University
-of Denmark
+Developed by: [InstaDeep](https://www.instadeep.com/) and the [Department of Biotechnology and Biomedicine](https://orbit.dtu.dk/en/organisations/department-of-biotechnology-and-biomedicine) - [Technical University
+of Denmark](https://www.dtu.dk/)
 
 ## Usage
 
@@ -43,7 +43,7 @@ optional arguments:
 Note: data is expected to be saved as Polars `.ipc` format. See section on data conversion.
 
 To update the InstaNovo model config, modify the config file under
-[configs/instanovo/base.yaml](configs/instanovo/base.yaml)
+[configs/instanovo/base.yaml](https://github.com/instadeepai/InstaNovo/blob/main/configs/instanovo/base.yaml)
 
 ### Prediction
 
