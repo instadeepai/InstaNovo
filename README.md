@@ -60,8 +60,6 @@ optional arguments:
   --denovo          evaluate in de novo mode, will not try to compute metrics
   --output_path OUTPUT_PATH
                     Save predictions to a csv file (required in de novo mode)
-  --config CONFIG
-                    file in configs folder
   --subset SUBSET
                     portion of set to evaluate
   --knapsack_path KNAPSACK_PATH
@@ -95,8 +93,6 @@ This code repo is currently under construction.
 
 - Add diffusion model code
 - Add data preprocessing pipeline
-- Add model checkpoints to releases and HuggingFace
-- Add datasets to HuggingFace
 - Multi-GPU support
 
 ## License
