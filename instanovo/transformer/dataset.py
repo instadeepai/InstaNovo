@@ -2,12 +2,16 @@ from __future__ import annotations
 
 import re
 
+import datasets
+import numpy as np
 import pandas as pd
 import polars as pl
+import spectrum_utils.spectrum as sus
 import torch
 from torch import nn
 from torch import Tensor
 from torch.utils.data import Dataset
+
 
 PROTON_MASS_AMU = 1.007276
 
@@ -50,6 +54,8 @@ class SpectrumDataset(Dataset):
             self.data_type = "pd"
         elif type(df) == pl.DataFrame:
             self.data_type = "pl"
+        elif type(df) == datasets.Dataset:
+            self.data_type = "hf"
         else:
             raise Exception(f"Unsupported data type {type(df)}")
 
@@ -74,6 +80,14 @@ class SpectrumDataset(Dataset):
             precursor_charge = row["Charge"]
             if self.annotated:
                 peptide = row["Modified sequence"][1:-1]
+        elif self.data_type == "hf":
+            row = self.df[idx]
+            mz_array = torch.Tensor(row["mz_array"])
+            int_array = torch.Tensor(row["intensity_array"])
+            precursor_mz = float(row["precursor_mz"])
+            precursor_charge = float(row["precursor_charge"])
+            if self.annotated:
+                peptide = row["modified_sequence"]
 
         # Split on amino acids allowing for modifications eg. AM(ox)Z -> [A, M(ox), Z]
         # Groups A-Z with any suffix
@@ -94,6 +108,7 @@ class SpectrumDataset(Dataset):
         int_array: Tensor,
         precursor_mz: Tensor,
         precursor_charge: Tensor,
+        use_sus_preprocess: bool = True,
     ) -> Tensor:
         """Preprocess the spectrum by removing noise peaks and scaling the peak intensities.
 
@@ -109,7 +124,32 @@ class SpectrumDataset(Dataset):
         torch.Tensor of shape (n_peaks, 2)
             A tensor of the spectrum with the m/z and intensity peak values.
         """
-        # # Intensity norm
+        if use_sus_preprocess:
+            spectrum = sus.MsmsSpectrum(
+                "",
+                precursor_mz,
+                precursor_charge,
+                np.array(mz_array).astype(np.float32),
+                np.array(int_array).astype(np.float32),
+            )
+            try:
+                spectrum.set_mz_range(self.min_mz, self.max_mz)
+                if len(spectrum.mz) == 0:
+                    raise ValueError
+                spectrum.remove_precursor_peak(self.remove_precursor_tol, "Da")
+                if len(spectrum.mz) == 0:
+                    raise ValueError
+                spectrum.filter_intensity(self.min_intensity, self.n_peaks)
+                if len(spectrum.mz) == 0:
+                    raise ValueError
+                spectrum.scale_intensity("root", 1)
+                intensities = spectrum.intensity / np.linalg.norm(spectrum.intensity)
+                return torch.tensor(np.array([spectrum.mz, intensities])).T.float()
+            except ValueError:
+                # Replace invalid spectra by a dummy spectrum.
+                return torch.tensor([[0, 1]]).float()
+
+        # Intensity norm
         int_array = int_array / int_array.max()
 
         # filters

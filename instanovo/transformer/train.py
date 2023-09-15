@@ -187,6 +187,14 @@ class PTModule(ptl.LightningModule):
 
         self._reset_valid_metrics()
 
+    def on_save_checkpoint(self, checkpoint: dict[str, Any]) -> None:
+        """Save config with checkpoint."""
+        checkpoint["config"] = self.config
+
+    def on_load_checkpoint(self, checkpoint: dict[str, Any]) -> None:
+        """Attempt to load config with checkpoint."""
+        self.config = checkpoint["config"]
+
     def configure_optimizers(
         self,
     ) -> tuple[torch.optim.Optimizer, dict[str, Any]]:
@@ -307,7 +315,12 @@ def train(
             [x not in list(model_state.keys()) for x in list(model.state_dict().keys())]
         )
         if k_missing > 0:
-            logging.warn(f"Model checkpoint is missing {k_missing} keys!")
+            logging.warning(f"Model checkpoint is missing {k_missing} keys!")
+        k_missing = np.sum(
+            [x not in list(model.state_dict().keys()) for x in list(model_state.keys())]
+        )
+        if k_missing > 0:
+            logging.warning(f"Model state is missing {k_missing} keys!")
         model.load_state_dict(model_state, strict=False)
 
     logging.info(

@@ -86,9 +86,6 @@ class InstaNovo(nn.Module):
                 enable_nested_tensor=False,
             )
 
-            self.head = nn.Linear(dim_model, self.n_vocab)
-            self.charge_encoder = nn.Embedding(max_charge, dim_model)
-
         # Decoder
         if dec_type == "depthcharge":
             self.decoder = PeptideDecoder(
@@ -130,6 +127,9 @@ class InstaNovo(nn.Module):
                 num_layers=n_layers,
             )
 
+            self.head = nn.Linear(dim_model, self.n_vocab)
+            self.charge_encoder = nn.Embedding(max_charge, dim_model)
+
         if self.dec_type == "depthcharge":
             self.eos_id = self.decoder._aa2idx["$"]
 
@@ -142,9 +142,13 @@ class InstaNovo(nn.Module):
     @classmethod
     def load(cls, path: str) -> nn.Module:
         """Load model from checkpoint."""
-        ckpt = torch.load(path)
+        ckpt = torch.load(path, map_location="cpu")
 
         config = ckpt["config"]
+
+        # check if PTL checkpoint
+        if all([x.startswith("model") for x in ckpt["state_dict"].keys()]):
+            ckpt["state_dict"] = {k.replace("model.", ""): v for k, v in ckpt["state_dict"].items()}
 
         i2s = {i: v for i, v in enumerate(config["vocab"])}
 
@@ -159,8 +163,11 @@ class InstaNovo(nn.Module):
             max_length=config["max_length"],
             max_charge=config["max_charge"],
             use_depthcharge=config["use_depthcharge"],
+            enc_type=config["enc_type"],
+            dec_type=config["dec_type"],
+            dec_precursor_sos=config["dec_precursor_sos"],
         )
-        model.load_state_dict(ckpt["model"])
+        model.load_state_dict(ckpt["state_dict"])
 
         return model, config
 
@@ -263,20 +270,15 @@ class InstaNovo(nn.Module):
                 x_mask = torch.cat([prec_mask, x_mask], dim=1)
             return x, x_mask
 
+        if x_mask is None:
+            x_mask = ~x.sum(dim=2).bool()
+
         # Peak encoding
         if not self.use_depthcharge:
             x = self.peak_encoder(x[:, :, [0]], x[:, :, [1]])
         else:
             x = self.peak_encoder(x)
         # x = self.peak_norm(x)
-
-        if x_mask is None:
-            x_mask = ~x.sum(dim=2).bool()
-
-        # Prepare precursors
-        masses = self.mass_encoder(p[:, None, [0]])
-        charges = self.charge_encoder(p[:, 1].int() - 1)
-        precursors = masses + charges[:, None, :]
 
         # Self-attention on latent spectra AND peaks
         latent_spectra = self.latent_spectrum.expand(x.shape[0], -1, -1)
@@ -287,6 +289,11 @@ class InstaNovo(nn.Module):
         x = self.encoder(x, src_key_padding_mask=x_mask)
 
         if not self.dec_precursor_sos:
+            # Prepare precursors
+            masses = self.mass_encoder(p[:, None, [0]])
+            charges = self.charge_encoder(p[:, 1].int() - 1)
+            precursors = masses + charges[:, None, :]
+
             # Concatenate precursors
             x = torch.cat([precursors, x], dim=1)
             prec_mask = torch.zeros((x_mask.shape[0], 1), dtype=bool, device=x_mask.device)

@@ -27,7 +27,7 @@ logger.setLevel(logging.INFO)
 # flake8: noqa: CR001
 def get_preds(
     data_path: str,
-    model_path: str,
+    model: InstaNovo,
     config: dict[str, Any],
     denovo: bool = False,
     output_path: str | None = None,
@@ -59,30 +59,6 @@ def get_preds(
         shuffle=False,
         collate_fn=collate_batch,
     )
-
-    logging.info(f"Loading model {model_path}")
-    model = InstaNovo(
-        i2s=i2s,
-        residues=config["residues"],
-        dim_model=config["dim_model"],
-        n_head=config["n_head"],
-        dim_feedforward=config["dim_feedforward"],
-        n_layers=config["n_layers"],
-        dropout=config["dropout"],
-        max_length=config["max_length"],
-        max_charge=config["max_charge"],
-        use_depthcharge=config["use_depthcharge"],
-        enc_type=config["enc_type"],
-        dec_type=config["dec_type"],
-        dec_precursor_sos=config["dec_precursor_sos"],
-    )
-
-    model_state = torch.load(model_path, map_location="cpu")
-    # check if PTL checkpoint
-    if "state_dict" in model_state:
-        model_state = {k.replace("model.", ""): v for k, v in model_state["state_dict"].items()}
-
-    model.load_state_dict(model_state)
 
     model = model.to(device)
     model = model.eval()
@@ -143,12 +119,12 @@ def get_preds(
         f"Average time per batch (bs={config['predict_batch_size']}): {delta/len(dl):.1f} seconds"
     )
 
-    if output_path is not None:
-        if not denovo:
-            pred_df["targets"] = targs
-        pred_df["preds"] = preds
-        pred_df["log_probs"] = probs
+    if not denovo:
+        pred_df["targets"] = targs
+    pred_df["preds"] = preds
+    pred_df["log_probs"] = probs
 
+    if output_path is not None:
         pred_df.to_csv(output_path, index=False)
         logging.info(f"Predictions saved to {output_path}")
 
@@ -180,7 +156,6 @@ def main() -> None:
     parser.add_argument("data_path")
     parser.add_argument("model_path")
     parser.add_argument("--denovo", action="store_true")
-    parser.add_argument("--config", default="base.yaml")
     parser.add_argument("--output_path", default=None)
     parser.add_argument("--subset", default=1.0)
     parser.add_argument("--knapsack_path", default=None)
@@ -188,22 +163,16 @@ def main() -> None:
 
     args = parser.parse_args()
 
-    config_path = os.path.join(
-        os.path.dirname(os.path.realpath(__file__)), f"../../configs/instanovo/{args.config}"
-    )
-
-    with open(config_path) as f_in:
-        config = yaml.safe_load(f_in)
+    model, config = InstaNovo.load(args.model_path)
 
     config["n_workers"] = int(args.n_workers)
     config["subset"] = float(args.subset)
     data_path = args.data_path
-    model_path = args.model_path
     denovo = args.denovo
     output_path = args.output_path
     knapsack_path = args.knapsack_path
 
-    get_preds(data_path, model_path, config, denovo, output_path, knapsack_path)
+    get_preds(data_path, model, config, denovo, output_path, knapsack_path)
 
 
 def _setup_knapsack(model: InstaNovo) -> Knapsack:
