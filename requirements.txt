@@ -23,5 +23,7 @@ tensorboard==2.10.1
 tensorboardX==2.5.1
 tensorflow-io==0.28.0
 torch==1.13.1
+torchvision==0.14.1
+torchaudio==0.13.1
 tqdm==4.64.1
-triton==1.0.0
+triton==2.1.0

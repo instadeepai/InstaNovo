@@ -1,15 +1,22 @@
-# De novo peptide sequencing with InstaNovo
+# _De novo_ peptide sequencing with InstaNovo
 
-The official code repository for InstaNovo. This repo contains the code for training and inference
-of InstaNovo and InstaNovo+.
+[![PyPI version](https://badge.fury.io/py/instanovo.svg)](https://badge.fury.io/py/instanovo)
+<a target="_blank" href="https://colab.research.google.com/github/https://colab.research.google.com/github/instadeepai/InstaNovo/blob/main/notebooks/getting_started_with_instanovo.ipynb">
+  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/>
+</a>
 
-Links:
-
-- bioRxiv: https://www.biorxiv.org/content/10.1101/2023.08.30.555055v1
+The official code repository for InstaNovo. This repo contains the code for training and inference of InstaNovo and InstaNovo+. InstaNovo is a transformer neural network with the ability to translate fragment ion peaks into the sequence of amino acids that make up the studied peptide(s). InstaNovo+, inspired by human intuition, is a multinomial diffusion model that further improves performance by iterative refinement of predicted sequences.
 
 ![Graphical Abstract](https://raw.githubusercontent.com/instadeepai/InstaNovo/main/graphical_abstract.jpeg)
 
-Developed by: [InstaDeep](https://www.instadeep.com/) and the [Department of Biotechnology and Biomedicine](https://orbit.dtu.dk/en/organisations/department-of-biotechnology-and-biomedicine) - [Technical University
+
+**Links:**
+
+- bioRxiv: https://www.biorxiv.org/content/10.1101/2023.08.30.555055v1
+
+**Developed by:** 
+- [InstaDeep](https://www.instadeep.com/) 
+- [The Department of Biotechnology and Biomedicine](https://orbit.dtu.dk/en/organisations/department-of-biotechnology-and-biomedicine) - [Technical University
 of Denmark](https://www.dtu.dk/)
 
 ## Usage
@@ -20,6 +27,13 @@ To use InstaNovo, we need to install the module via `pip`:
 
 ```bash
 pip install instanovo
+```
+
+It is recommended to install InstaNovo in a fresh environment, such as Conda or PyEnv. For example, if you have [anaconda](https://www.anaconda.com/)/[miniconda](https://docs.conda.io/projects/miniconda/en/latest/) installed:
+
+```bash
+conda create -n instanovo python=3.8
+conda activate instanovo
 ```
 
 Note: InstaNovo is built for Python >= 3.8
