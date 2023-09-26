@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import os
 
 import click
@@ -66,17 +67,24 @@ def main(
             Device on which to load the model and data. Any device type supported by `Pytorch` (e.g. "cpu", "cuda", "cuda:0").
             Please note this code has only been tested on CPU and CUDA GPUs.
     """
+    logger = logging.Logger(name="diffusion/predict", level=logging.INFO)
     # 1. Load model
+    logger.info("Loading model.")
     model = MultinomialDiffusion.load(path=model_path)
     model = model.to(device=device)
 
     # 2. Initialize decoder
+    logger.info("Initializing decoder.")
     decoder = DiffusionDecoder(model=model)
 
     # 3. Load data
+    logger.info("Loading data.")
+    logger.info("Loading residues.")
     residue_masses = yaml.safe_load(open(os.path.join(model_path, "residues.yaml")))
     residues = ResidueSet(residue_masses=residue_masses)
+    logger.info(f"Loading input data from {input_path}.")
     input_data = polars.read_ipc(input_path)
+    logger.info(f"Loading predictions from {start_predictions_path}.")
     start_predictions = pandas.read_csv(start_predictions_path)
     input_dataset = AnnotatedPolarsSpectrumDataset(
         data_frame=input_data, peptides=start_predictions["Predictions"].tolist()
@@ -94,6 +102,7 @@ def main(
     )
 
     # 4. Elicit predictions
+    logger.info("Performing decoding.")
     results = []
     with torch.no_grad():
         for spectra, spectra_padding_mask, precursors, peptides, _ in tqdm.tqdm(
@@ -114,6 +123,7 @@ def main(
             results.extend(predictions)
 
     # 5. Save predictions
+    logger.info("Saving predictions.")
     output = input_data.to_pandas()
     output["Predictions"] = results
     output.to_csv(output_path)
