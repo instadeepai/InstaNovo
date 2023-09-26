@@ -16,8 +16,6 @@ from instanovo.diffusion.multinomial_diffusion import MultinomialDiffusion
 from instanovo.inference.diffusion import DiffusionDecoder
 from instanovo.utils.residues import ResidueSet
 
-# from torch.utils.data import DataLoader
-
 
 DIFFUSION_START_STEP = 15
 
