@@ -105,7 +105,6 @@ This code repo is currently under construction.
 
 **ToDo:**
 
-- Add diffusion model code
 - Add data preprocessing pipeline
 - Multi-GPU support
 
