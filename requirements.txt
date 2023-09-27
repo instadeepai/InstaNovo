@@ -26,4 +26,4 @@ torch==1.13.1
 torchaudio==0.13.1
 torchvision==0.14.1
 tqdm==4.64.1
-transfusion@git+https://github.com/RF5/transfusion-asr@v1.1
+transfusion-asr==0.1.0
