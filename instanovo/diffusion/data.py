@@ -9,7 +9,7 @@ from instanovo.utils.residues import ResidueSet
 
 
 class PolarsSpectrumDataset(torch.utils.data.Dataset):
-    """An `polars` data frame index wrapper for `depthcharge`/`casanovo` datasets."""
+    """An Polars data frame index wrapper for `depthcharge`/`casanovo` datasets."""
 
     def __init__(self, data_frame: polars.DataFrame) -> None:
         self.data = data_frame
