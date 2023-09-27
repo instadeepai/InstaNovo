@@ -5,9 +5,7 @@ import re
 import jiwer
 import numpy as np
 
-H2O_MASS = 18.0105647  # 2 * H + O
-PROTON_MASS = 1.00727646688
-CARBON_DELTA_MASS = 1.00335
+from instanovo.constants import PROTON_MASS_AMU, CARBON_MASS_DELTA, H2O_MASS
 
 
 class Metrics:
@@ -165,7 +163,7 @@ class Metrics:
 
         if charge is not None:
             # Neutral mass
-            calc_mass = (calc_mass / charge) + PROTON_MASS
+            calc_mass = (calc_mass / charge) + PROTON_MASS_AMU
 
         return calc_mass
 
@@ -174,7 +172,7 @@ class Metrics:
     ) -> float:
         """Calculate the mass error between theoretical and actual mz in ppm."""
         return (
-            (mz_theoretical - (mz_measured - isotope * CARBON_DELTA_MASS / charge))
+            (mz_theoretical - (mz_measured - isotope * CARBON_MASS_DELTA / charge))
             / mz_measured
             * 10**6
         )

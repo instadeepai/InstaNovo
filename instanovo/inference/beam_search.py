@@ -9,24 +9,9 @@ from torch.nn.functional import one_hot
 
 from instanovo.inference.interfaces import Decodable
 from instanovo.inference.interfaces import Decoder
-
-
-H2O_MASS = 18.0106
-NUCLEON_MASS = 1.00335
-MASS_SCALE = 10000
-
-INTEGER = torch.int64
-
-
-class PrecursorDimension(Enum):
-    """Names corresponding to indices in the precursor tensor."""
-
-    PRECURSOR_MASS = 0
-    PRECURSOR_CHARGE = 1
-    PRECURSOR_MZ = 2
-
-
-PRECURSOR_DIM = 3
+from instanovo.constants import H2O_MASS, CARBON_MASS_DELTA
+from instanovo.constants import MASS_SCALE, INTEGER, PrecursorDimension
+from instanovo.constants import PRECURSOR_DIM 
 
 
 @dataclass
@@ -247,9 +232,9 @@ class BeamSearchDecoder(Decoder):
             for num_nucleons in range(1, max_isotope + 1):
                 isotope_is_complete = (
                     reshaped_mass_buffer
-                    >= remaining_masses - num_nucleons * round(self.mass_scale * NUCLEON_MASS)
+                    >= remaining_masses - num_nucleons * round(self.mass_scale * CARBON_MASS_DELTA)
                 ) & (
-                    remaining_masses - num_nucleons * round(self.mass_scale * NUCLEON_MASS)
+                    remaining_masses - num_nucleons * round(self.mass_scale * CARBON_MASS_DELTA)
                     >= -reshaped_mass_buffer
                 )
                 item_is_complete = item_is_complete | isotope_is_complete

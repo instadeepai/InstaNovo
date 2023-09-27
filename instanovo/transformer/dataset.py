@@ -11,9 +11,7 @@ import torch
 from torch import nn
 from torch import Tensor
 from torch.utils.data import Dataset
-
-
-PROTON_MASS_AMU = 1.007276
+from instanovo.constants import PROTON_MASS_AMU
 
 
 class SpectrumDataset(Dataset):
