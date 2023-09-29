@@ -8,9 +8,8 @@ mkdocs-git-revision-date-plugin==0.3.2
 mkdocs-include-markdown-plugin==3.9.0
 mkdocs-material==8.5.6
 mkdocs-pymdownx-material-extras==2.2.1
-mkdocstrings==0.19.0
-mkdocstrings==0.19.0
-mkdocstrings-python==0.7.1
+mkdocstrings==0.23.0
+mkdocstrings-python==1.7.1
 pre-commit==2.20.0
 promise==2.3
 pymdown-extensions==9.5

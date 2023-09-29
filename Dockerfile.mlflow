@@ -1,0 +1,17 @@
+FROM python:3.8-slim
+
+# displays logs immediately to the stream, they won't be part of the buffer
+ENV PYTHONUNBUFFERED True
+
+WORKDIR /app
+
+COPY ./requirements-mlflow.txt ./requirements-mlflow.txt
+
+RUN pip install -r requirements-mlflow.txt
+
+COPY entry-point.sh /app/entry-point.sh
+COPY mlflow_auth.py /app/mlflow_auth.py
+
+ENTRYPOINT ["/usr/bin/env", "bash", "/app/entry-point.sh"]
+
+EXPOSE 8080
