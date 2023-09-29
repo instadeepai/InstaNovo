@@ -1,0 +1,7 @@
+google-cloud-storage==2.11.0
+gunicorn==21.2.0
+mlflow==2.7.1
+pg8000==1.30.2
+psycopg2-binary==2.9.8
+setuptools==68.2.2
+wsgi-basic-auth==1.1.0

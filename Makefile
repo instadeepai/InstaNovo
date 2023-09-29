@@ -179,3 +179,24 @@ download_dataset_v1:
 download_dataset_v2:
 	mkdir -p ./data/denovo_dataset_v2
 	gsutil -m cp -R gs://denovo_dataset_v2/ ./data
+
+
+# MLFlow commands
+
+MLFLOW_IMAGE_NAME=mlflow-gcp
+GCP_PROJECT=ext-dtu-denovo-sequencing-gcp
+ARTIFACT_REGISTRY=europe-west6-docker.pkg.dev
+VERSION=latest
+
+
+mlflow-auth:
+	gcloud auth login && gcloud config set project ${GCP_PROJECT} && gcloud auth configure-docker ${ARTIFACT_REGISTRY}
+
+mlflow-build:
+	docker build -t "${MLFLOW_IMAGE_NAME}" --file Dockerfile.mlflow .
+
+mlflow-tag:
+	docker tag "${MLFLOW_IMAGE_NAME}" "${ARTIFACT_REGISTRY}/${GCP_PROJECT}/mlflow/${MLFLOW_IMAGE_NAME}:${VERSION}"
+
+mlflow-push:
+	docker push "${ARTIFACT_REGISTRY}/${GCP_PROJECT}/mlflow/${MLFLOW_IMAGE_NAME}:${VERSION}"
