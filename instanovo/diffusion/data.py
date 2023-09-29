@@ -19,11 +19,11 @@ class PolarsSpectrumDataset(torch.utils.data.Dataset):
 
     def __getitem__(self, idx: int) -> tuple[torch.Tensor, float, float]:
         row = self.data[idx]
-        mz_array = torch.FloatTensor(row["Mass values"].to_numpy()[0])
-        int_array = row["Intensity"].to_numpy()[0]
+        mz_array = torch.FloatTensor(row["mz_array"].to_numpy()[0])
+        int_array = row["intensity_array"].to_numpy()[0]
         int_array = torch.FloatTensor(int_array / int_array.max())
-        precursor_mz = row["MS/MS m/z"].to_numpy()[0]
-        precursor_charge = row["Charge"].to_numpy()[0]
+        precursor_mz = row["precursor_mz"].to_numpy()[0]
+        precursor_charge = row["precursor_charge"].to_numpy()[0]
         spectrum = torch.stack([mz_array, int_array]).T
 
         return spectrum, precursor_mz, precursor_charge
