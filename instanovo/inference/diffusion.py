@@ -24,7 +24,7 @@ class DiffusionDecoder:
         precursors: torch.FloatTensor,
         initial_sequence: None | torch.LongTensor = None,
         start_step: int | None = None,
-    ) -> list[list[str]]:
+    ) -> tuple[list[list[str]], list[float]]:
         """Decoding predictions from a diffusion model by forward sampling.
 
         Args:
@@ -46,15 +46,18 @@ class DiffusionDecoder:
                 provided, this must be as well. Defaults to None.
 
         Returns:
-            list[list[str]]: _description_
+            tuple[list[list[str]], list[float]]:
+                The decoded peptides and their log-probabilities for a batch of spectra.
         """
         # Sample uniformly
+        device = spectra.device
+        sequence_length = self.model.config.max_length
         batch_size, num_classes = spectra.size(0), len(self.model.residues)
         if initial_sequence is None:
             initial_distribution = Categorical(
-                torch.ones(batch_size, self.model.config.max_length, num_classes) / num_classes
+                torch.ones(batch_size, sequence_length, num_classes) / num_classes
             )
-            sample = initial_distribution.sample().to(spectra.device)
+            sample = initial_distribution.sample().to(device)
         else:
             sample = initial_sequence
 
@@ -62,12 +65,11 @@ class DiffusionDecoder:
             msg = "`start_step` can only be set if there is an initial sequence"
             assert initial_sequence is not None, msg
 
-        peptide_mask = (
-            torch.zeros(spectra.shape[0], self.model.config.max_length).bool().to(spectra.device)
-        )
+        peptide_mask = torch.zeros(batch_size, sequence_length).bool().to(device)
 
         start_step = self.time_steps - 1 if start_step is None else start_step
 
+        log_probs = torch.zeros((batch_size, sequence_length)).to(device)
         # Sample through reverse process
         for t in range(start_step, -1, -1):
             times = (t * torch.ones((batch_size,))).long().to(spectra.device)
@@ -82,8 +84,11 @@ class DiffusionDecoder:
                 )
             )
             sample = distribution.sample()
+            log_probs += distribution.log_prob(sample)
 
-        return self._extract_predictions(sample)
+        log_probs = log_probs.sum(-1).cpu().tolist()
+        sequences = self._extract_predictions(sample)
+        return sequences, log_probs
 
     def _extract_predictions(self, sample: torch.LongTensor) -> list[list[str]]:
         output = []

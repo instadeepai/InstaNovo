@@ -102,11 +102,12 @@ def main(
     # 4. Elicit predictions
     logger.info("Performing decoding.")
     results = []
+    all_log_probs = []
     with torch.no_grad():
         for spectra, spectra_padding_mask, precursors, peptides, _ in tqdm.tqdm(
             iter(data_loader), total=len(data_loader)
         ):
-            predictions = decoder.decode(
+            predictions, log_probs = decoder.decode(
                 initial_sequence=peptides.to(device),
                 spectra=spectra.to(device),
                 spectra_padding_mask=spectra_padding_mask.to(device),
@@ -119,11 +120,13 @@ def main(
             ]
             predictions = ["".join(prediction) for prediction in predictions]
             results.extend(predictions)
+            all_log_probs.extend(log_probs)
 
     # 5. Save predictions
     logger.info("Saving predictions.")
     output = input_data.to_pandas()
-    output["Predictions"] = results
+    output["diffusion_predictions"] = results
+    output["diffusion_log_probs"] = all_log_probs
     output.to_csv(output_path)
 
 
