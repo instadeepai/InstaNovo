@@ -107,7 +107,10 @@ def collate_batches(
         precursor_masses = (precursor_mz - 1.007276) * precursor_charge
         precursors = torch.stack([precursor_masses, precursor_charge, precursor_mz], -1).float()
         if annotated:
-            peptides = [sequence if isinstance(sequence, str) else "$" for sequence in peptides]
+            peptides = [sequence if isinstance(sequence, str) else "$"
+                        for sequence in peptides]
+            peptides = [sequence if len(sequence) > 0 else "$"
+                        for sequence in peptides]
             peptides = torch.stack(
                 [
                     residues.encode(residues.tokenize(sequence)[:max_length], pad_length=max_length)
