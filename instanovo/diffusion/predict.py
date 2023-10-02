@@ -10,8 +10,8 @@ import torch
 import tqdm
 import yaml
 
-from instanovo.diffusion.data import AnnotatedPolarsSpectrumDataset
-from instanovo.diffusion.data import collate_batches
+from instanovo.diffusion.dataset import AnnotatedPolarsSpectrumDataset
+from instanovo.diffusion.dataset import collate_batches
 from instanovo.diffusion.multinomial_diffusion import MultinomialDiffusion
 from instanovo.inference.diffusion import DiffusionDecoder
 from instanovo.utils.residues import ResidueSet
