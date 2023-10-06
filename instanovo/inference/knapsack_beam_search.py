@@ -6,9 +6,7 @@ import torch
 from instanovo.inference.beam_search import BeamSearchDecoder
 from instanovo.inference.interfaces import Decodable
 from instanovo.inference.knapsack import Knapsack
-
-NUCLEON_MASS = 1.00335
-MASS_SCALE = 10000
+from instanovo.constants import CARBON_MASS_DELTA
 
 
 class KnapsackBeamSearchDecoder(BeamSearchDecoder):
@@ -72,7 +70,7 @@ class KnapsackBeamSearchDecoder(BeamSearchDecoder):
         mass_lower_bound = torch.clamp(beam_masses - mass_buffer.squeeze(-1), min=0)
         mass_upper_bound = beam_masses + mass_buffer.squeeze(-1)
         batch_size, beam_size, num_residues = log_probabilities.shape
-        scaled_nucleon_mass = round(self.mass_scale * NUCLEON_MASS)
+        scaled_nucleon_mass = round(self.mass_scale * CARBON_MASS_DELTA)
         for batch in range(batch_size):
             for beam in range(beam_size):
                 beam_lower_bound = mass_lower_bound[batch, beam].item()

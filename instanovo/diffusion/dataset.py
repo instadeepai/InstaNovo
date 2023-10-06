@@ -9,7 +9,7 @@ from instanovo.utils.residues import ResidueSet
 
 
 class PolarsSpectrumDataset(torch.utils.data.Dataset):
-    """An `polars` data frame index wrapper for `depthcharge`/`casanovo` datasets."""
+    """An Polars data frame index wrapper for `depthcharge`/`casanovo` datasets."""
 
     def __init__(self, data_frame: polars.DataFrame) -> None:
         self.data = data_frame
@@ -19,11 +19,11 @@ class PolarsSpectrumDataset(torch.utils.data.Dataset):
 
     def __getitem__(self, idx: int) -> tuple[torch.Tensor, float, float]:
         row = self.data[idx]
-        mz_array = torch.FloatTensor(row["Mass values"].to_numpy()[0])
-        int_array = row["Intensity"].to_numpy()[0]
+        mz_array = torch.FloatTensor(row["mz_array"].to_numpy()[0])
+        int_array = row["intensity_array"].to_numpy()[0]
         int_array = torch.FloatTensor(int_array / int_array.max())
-        precursor_mz = row["MS/MS m/z"].to_numpy()[0]
-        precursor_charge = row["Charge"].to_numpy()[0]
+        precursor_mz = row["precursor_mz"].to_numpy()[0]
+        precursor_charge = row["precursor_charge"].to_numpy()[0]
         spectrum = torch.stack([mz_array, int_array]).T
 
         return spectrum, precursor_mz, precursor_charge
@@ -107,7 +107,10 @@ def collate_batches(
         precursor_masses = (precursor_mz - 1.007276) * precursor_charge
         precursors = torch.stack([precursor_masses, precursor_charge, precursor_mz], -1).float()
         if annotated:
-            peptides = [sequence if isinstance(sequence, str) else "$" for sequence in peptides]
+            peptides = [sequence if isinstance(sequence, str) else "$"
+                        for sequence in peptides]
+            peptides = [sequence if len(sequence) > 0 else "$"
+                        for sequence in peptides]
             peptides = torch.stack(
                 [
                     residues.encode(residues.tokenize(sequence)[:max_length], pad_length=max_length)

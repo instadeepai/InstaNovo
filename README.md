@@ -150,6 +150,7 @@ This code repo is currently under construction.
 
 **ToDo:**
 
+- Add data preprocessing pipeline
 - Multi-GPU support
 
 ## License
