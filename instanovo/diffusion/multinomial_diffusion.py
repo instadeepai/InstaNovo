@@ -321,30 +321,10 @@ class DiffusionLoss(nn.Module):
         t = torch.randint(0, self.time_steps - 1, (x_0.shape[0],)).to(x_0.device)
 
         # 2. Compute L_t
+        loss = self._compute_loss(t=t, x_0=x_0, **kwargs).mean()
+
+        # 3. Calculate prior KL term
         log_x_0 = torch.log(one_hot(x_0, num_classes=len(self.model.residues)))
-
-        # -- sample x_{t+1}
-        log_probs = self.model.mixture_categorical(
-            log_x=log_x_0,
-            log_alpha=self.model.cumulative_schedule[t].unsqueeze(-1).unsqueeze(-1),
-            log_alpha_complement=self.model.cumulative_schedule_complement[t]
-            .unsqueeze(-1)
-            .unsqueeze(-1),
-        )
-        x_next = Categorical(logits=log_probs).sample()
-
-        # 3. Calculate loss
-        log_dist = self.model.reverse_distribution(x_t=x_next, time=t, **kwargs)
-
-        nll_loss = -(one_hot(x_0, num_classes=len(self.model.residues)) * log_dist).sum(-1).sum(-1)
-
-        log_posterior = self.model(
-            log_x_0=log_x_0, log_x_t=torch.log(one_hot(x_next, log_probs.size(-1))), t=t
-        )
-        denoising_loss = self.kl_divergence(log_posterior, log_dist)
-        loss = torch.where(t == 0, nll_loss, denoising_loss).mean()
-
-        # 4. Calculate prior KL term
         final_log_probs = self.model.mixture_categorical(
             log_x=log_x_0,
             log_alpha=self.model.cumulative_schedule[self.time_steps - 1]
@@ -357,3 +337,27 @@ class DiffusionLoss(nn.Module):
         uniform_log_probs = torch.log(torch.ones_like(final_log_probs) / len(self.model.residues))
         kl_loss = self.kl_divergence(final_log_probs, uniform_log_probs).mean()
         return loss + kl_loss
+
+    def _compute_loss(self, x_0: torch.LongTensor, t: torch.LongTensor, **kwargs) -> torch.FloatTensor:
+        # 1. sample x_{t+1}
+        log_x_0 = torch.log(one_hot(x_0, num_classes=len(self.model.residues)))
+        log_probs = self.model.mixture_categorical(
+            log_x=log_x_0,
+            log_alpha=self.model.cumulative_schedule[t].unsqueeze(-1).unsqueeze(-1),
+            log_alpha_complement=self.model.cumulative_schedule_complement[t]
+            .unsqueeze(-1)
+            .unsqueeze(-1),
+        )
+        x_next = Categorical(logits=log_probs).sample()
+
+        # 2. Calculate loss
+        log_dist = self.model.reverse_distribution(x_t=x_next, time=t, **kwargs)
+
+        nll_loss = -(one_hot(x_0, num_classes=len(self.model.residues)) * log_dist).sum(-1).sum(-1)
+
+        log_posterior = self.model(
+            log_x_0=log_x_0, log_x_t=torch.log(one_hot(x_next, log_probs.size(-1))), t=t
+        )
+        denoising_loss = self.kl_divergence(log_posterior, log_dist)
+        loss = torch.where(t == 0, nll_loss, denoising_loss)
+        return loss
