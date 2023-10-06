@@ -24,7 +24,7 @@ def convert_mgf_ipc(source: str, target: str, max_charge: int = 10) -> pl.DataFr
     """Convert .mgf file to Polars .ipc."""
     if not Path(source).name.endswith(".mgf"):
         raise ValueError(
-            "Attempted to use MGF mode with a non-mgf file. Please specify with --source_type"
+            f"Attempted to use MGF mode with a non-mgf file: '{source}'. Please specify with --source_type"
         )
 
     tmp_dir = tempfile.TemporaryDirectory()
@@ -32,7 +32,7 @@ def convert_mgf_ipc(source: str, target: str, max_charge: int = 10) -> pl.DataFr
     valid_charge = np.arange(1, max_charge + 1)
     index = AnnotatedSpectrumIndex(idx_fn, source, valid_charge=valid_charge)
 
-    print(f"Loaded {index.n_spectra} spectra, converting...")
+    logger.info(f"Loaded {index.n_spectra} spectra, converting...")
 
     data_dict: dict[str, Any] = {
         "Sequence": [],
@@ -114,13 +114,11 @@ def convert_mzml_ipc(
     source = Path(source)
 
     if source.is_file():
-        filenames = [""]
+        filenames = [source]
     else:
-        filenames = os.listdir(source)
+        filenames = source.iterdir()
 
-    for filename in filenames:
-        filepath = source.joinpath(filename)
-
+    for filepath in filenames:
         if verbose:
             logger.info(f"Processing {filepath}...")
 
@@ -153,7 +151,7 @@ def convert_mzml_ipc(
 
             data.append(
                 [
-                    filename[:-5],
+                    filepath.stem,
                     evidence_index,
                     scan_id,
                     "",
@@ -171,7 +169,7 @@ def convert_mzml_ipc(
             evidence_index += 1
         df = pl.concat([df, pl.DataFrame(data, schema=schema)])
 
-    os.makedirs("/".join(target.split("/")[:-1]), exist_ok=True)
+    Path(target).parent.mkdir(parents=True, exist_ok=True)
     df.write_ipc(target)
 
 
@@ -199,7 +197,7 @@ def main() -> None:
     elif args.source_type == "csv":
         df = pd.read_csv(source)
         df = pl.from_pandas(df)
-        os.makedirs("/".join(target.split("/")[:-1]), exist_ok=True)
+        Path(target).parent.mkdir(parents=True, exist_ok=True)
         df.write_ipc(target)
     elif args.source_type == "mzml":
         convert_mzml_ipc(

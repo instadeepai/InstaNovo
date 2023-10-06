@@ -34,7 +34,7 @@ pip install instanovo
 
 It is recommended to install InstaNovo in a fresh environment, such as Conda or PyEnv. For example,
 if you have
-[anaconda](https://www.anaconda.com/)/[miniconda](https://docs.conda.io/projects/miniconda/en/latest/)
+[conda](https://docs.conda.io/en/latest/)/[miniconda](https://docs.conda.io/projects/miniconda/en/latest/)
 installed:
 
 ```bash
