@@ -323,7 +323,7 @@ class DiffusionLoss(nn.Module):
         # 2. Compute L_t
         loss = self._compute_loss(t=t, x_0=x_0, **kwargs).mean()
 
-        # 4. Calculate prior KL term
+        # 3. Calculate prior KL term
         log_x_0 = torch.log(one_hot(x_0, num_classes=len(self.model.residues)))
         final_log_probs = self.model.mixture_categorical(
             log_x=log_x_0,
@@ -339,7 +339,7 @@ class DiffusionLoss(nn.Module):
         return loss + kl_loss
 
     def _compute_loss(self, x_0: torch.LongTensor, t: torch.LongTensor, **kwargs) -> torch.FloatTensor:
-        # -- sample x_{t+1}
+        # 1. sample x_{t+1}
         log_x_0 = torch.log(one_hot(x_0, num_classes=len(self.model.residues)))
         log_probs = self.model.mixture_categorical(
             log_x=log_x_0,
@@ -350,7 +350,7 @@ class DiffusionLoss(nn.Module):
         )
         x_next = Categorical(logits=log_probs).sample()
 
-        # 3. Calculate loss
+        # 2. Calculate loss
         log_dist = self.model.reverse_distribution(x_t=x_next, time=t, **kwargs)
 
         nll_loss = -(one_hot(x_0, num_classes=len(self.model.residues)) * log_dist).sum(-1).sum(-1)
