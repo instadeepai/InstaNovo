@@ -422,6 +422,7 @@ class BeamSearchDecoder(Decoder):
         max_length: int,
         mass_tolerance: float = 5e-5,
         max_isotope: int = 1,
+        return_all_beams: bool = False,
     ) -> list[Any]:
         """Decode predicted residue sequence for a batch of spectra using beam search.
 
@@ -449,6 +450,9 @@ class BeamSearchDecoder(Decoder):
 
                 All additional nucleon numbers from 1 to `max_isotope` inclusive
                 are considered.
+
+            return_all_beams (bool):
+                Optionally return all beam-search results, not only the best beam.
 
         Returns:
             list[list[str]]:
@@ -513,7 +517,11 @@ class BeamSearchDecoder(Decoder):
 
             for items in complete_items:
                 items.sort(key=lambda item: item.log_probability, reverse=True)
-            sequences = [items[0] if len(items) > 0 else [] for items in complete_items]
+
+            if not return_all_beams:
+                sequences = [items[0] if len(items) > 0 else [] for items in complete_items]
+            else:
+                sequences = [items if len(items) > 0 else [] for items in complete_items]
 
             return sequences
 

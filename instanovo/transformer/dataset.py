@@ -64,18 +64,18 @@ class SpectrumDataset(Dataset):
         peptide = ""
 
         if self.data_type == "pl":
-            mz_array = torch.Tensor(self.df[idx, "Mass values"])
-            int_array = torch.Tensor(self.df[idx, "Intensity"])
-            precursor_mz = self.df[idx, "MS/MS m/z"]
-            precursor_charge = self.df[idx, "Charge"]
+            mz_array = torch.Tensor(self.df[idx, "mz_array"])
+            int_array = torch.Tensor(self.df[idx, "intensity_array"])
+            precursor_mz = self.df[idx, "precursor_mz"]
+            precursor_charge = self.df[idx, "precursor_charge"]
             if self.annotated:
                 peptide = self.df[idx, "Modified sequence"][1:-1]
         elif self.data_type == "pd":
             row = self.df.iloc[idx]
-            mz_array = torch.Tensor(row["Mass values"])
-            int_array = torch.Tensor(row["Intensity"])
-            precursor_mz = row["MS/MS m/z"]
-            precursor_charge = row["Charge"]
+            mz_array = torch.Tensor(row["mz_array"])
+            int_array = torch.Tensor(row["intensity_array"])
+            precursor_mz = row["precursor_mz"]
+            precursor_charge = row["precursor_charge"]
             if self.annotated:
                 peptide = row["Modified sequence"][1:-1]
         elif self.data_type == "hf":
