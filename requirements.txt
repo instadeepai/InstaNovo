@@ -8,13 +8,15 @@ deepspeed==0.7.2
 depthcharge-ms==0.1.0
 fastprogress==1.0.3
 jiwer==2.5.1
+matchms==0.22.0
 matplotlib==3.6.0
 numpy==1.23.3
 omegaconf==2.2.3
-pandas==1.5.0
+pandas==2.0.3
 polars==0.17.8
 protobuf==3.19.6
 pyarrow==11.0.0
+pyopenms==2.7.0
 python-dotenv==0.21.0
 pytorch_lightning==1.8.6
 scikit-learn==1.1.2
