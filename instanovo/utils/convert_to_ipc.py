@@ -85,6 +85,7 @@ def convert_mgf_ipc(
             meta = spectrum.metadata
 
             peptide = ""
+            unmod_peptide = ""
             if "peptide_sequence" in meta:
                 peptide = meta["peptide_sequence"]
                 unmod_peptide = "".join([x[0] for x in re.split(r"(?<=.)(?=[A-Z])", peptide)])
@@ -92,7 +93,9 @@ def convert_mgf_ipc(
             if meta["charge"] > max_charge:
                 continue
 
-            scan_id = int(re.findall(r":(\d+)", meta["scans"])[-1]) if "scans" in meta else evidence_index
+            scan_id = (
+                int(re.findall(r":(\d+)", meta["scans"])[-1]) if "scans" in meta else evidence_index
+            )
 
             data.append(
                 [
