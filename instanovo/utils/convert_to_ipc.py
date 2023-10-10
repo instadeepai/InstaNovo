@@ -65,7 +65,7 @@ def convert_mgf_ipc(
         filenames = source.iterdir()
 
     for filepath in filenames:
-        if not filepath.suffix.endswith("mgf"):
+        if not filepath.suffix.lower().endswith("mgf"):
             logger.info(f"Skipping {filepath}... Not a mgf file...")
             continue
 
@@ -90,7 +90,7 @@ def convert_mgf_ipc(
                 peptide = meta["peptide_sequence"]
                 unmod_peptide = "".join([x[0] for x in re.split(r"(?<=.)(?=[A-Z])", peptide)])
 
-            if meta["charge"] > max_charge:
+            if "charge" not in meta or meta["charge"] > max_charge:
                 continue
 
             scan_id = (
@@ -170,7 +170,7 @@ def convert_mzml_ipc(
         filenames = source.iterdir()
 
     for filepath in filenames:
-        if not filepath.suffix.endswith("mzml"):
+        if not filepath.suffix.lower().endswith("mzml"):
             logger.info(f"Skipping {filepath}... Not a mzml file...")
             continue
 
