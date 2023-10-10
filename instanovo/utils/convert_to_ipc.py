@@ -92,7 +92,7 @@ def convert_mgf_ipc(
             if meta["charge"] > max_charge:
                 continue
 
-            scan_id = int(re.findall(r":(\d+)", meta["scans"])[-1])
+            scan_id = int(re.findall(r":(\d+)", meta["scans"])[-1]) if "scans" in meta else evidence_index
 
             data.append(
                 [
@@ -243,7 +243,7 @@ def main() -> None:
 
     source = Path(args.source)
     target = Path(args.target)
-    source_type = args.source_type.lower()
+    source_type = args.source_type
 
     if source_type is None:
         # Attempt to infer type from file
@@ -252,6 +252,8 @@ def main() -> None:
                 f"Cannot infer source type from a directory. Please specify with --source_type"
             )
         source_type = source.suffix[1:].lower()
+    else:
+        source_type = source_type.lower()
 
     if source_type == "mgf":
         convert_mgf_ipc(

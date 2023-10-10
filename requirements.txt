@@ -9,11 +9,11 @@ depthcharge-ms==0.1.0
 fastprogress==1.0.3
 jiwer==2.5.1
 matchms==0.22.0
-matplotlib==3.6.0
+matplotlib==3.7.2
 numpy==1.23.3
 omegaconf==2.2.3
 pandas==2.0.3
-polars==0.17.8
+polars==0.19.7
 protobuf==3.19.6
 pyarrow==11.0.0
 pyopenms==2.7.0
@@ -27,5 +27,6 @@ tensorboardX==2.5.1
 torch==1.13.1
 torchaudio==0.13.1
 torchvision==0.14.1
-tqdm==4.64.1
+tqdm==4.65.0
 transfusion-asr==0.1.0
+numba==0.57.1
