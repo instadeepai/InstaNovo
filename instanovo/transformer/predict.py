@@ -37,7 +37,7 @@ def get_preds(
 ) -> None:
     """Get predictions from a trained model."""
     if denovo and output_path is None:
-        raise KeyError(
+        raise ValueError(
             "Must specify an output path in denovo mode. Specify an output csv file with --output_path"
         )
 
