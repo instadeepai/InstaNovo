@@ -4,6 +4,7 @@ import argparse
 import logging
 import os
 import time
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -36,7 +37,12 @@ def get_preds(
 ) -> None:
     """Get predictions from a trained model."""
     if denovo and output_path is None:
-        raise Exception("Must specify an output path in denovo mode.")
+        raise ValueError("Must specify an output path in denovo mode.")
+
+    if Path(data_path).suffix.lower() != ".ipc":
+        raise ValueError(
+            f"Unknown filetype of {data_path}. Only Polars .ipc is currently supported."
+        )
 
     logging.info(f"Loading data from {data_path}")
     df = pl.read_ipc(data_path)
