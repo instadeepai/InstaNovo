@@ -80,8 +80,12 @@ def convert_mgf_ipc(
         exp = load_from_mgf(str(filepath))
 
         data = []
-        evidence_index = 0
+        metadata = []
+
+        evidence_index = 1
+        scan_number = 0
         for spectrum in exp:
+            scan_number += 1
             meta = spectrum.metadata
 
             peptide = ""
@@ -93,15 +97,11 @@ def convert_mgf_ipc(
             if "charge" not in meta or meta["charge"] > max_charge:
                 continue
 
-            scan_id = (
-                int(re.findall(r":(\d+)", meta["scans"])[-1]) if "scans" in meta else evidence_index
-            )
-
             data.append(
                 [
-                    Path(meta["title"].replace("\\", "/")).stem,
+                    source.stem,
                     evidence_index,
-                    scan_id,
+                    scan_number,
                     unmod_peptide,
                     peptide if not use_old_schema else f"_{peptide}_",
                     meta["pepmass"][0],
@@ -112,9 +112,25 @@ def convert_mgf_ipc(
                     list(spectrum.intensities),
                 ]
             )
+            metadata.append(
+                {
+                    k: v
+                    for k, v in meta.items()
+                    if k not in {
+                        "pepmass",
+                        "precursor_mz",
+                        "charge",
+                        "retention_time",
+                        "peptide_sequence",
+                    }
+                }
+            )
 
             evidence_index += 1
-        df = pl.concat([df, pl.DataFrame(data, schema=schema)])
+
+        data_df = pl.from_pandas(pd.DataFrame.from_records(metadata))
+        data_df = pl.concat([data_df, pl.DataFrame(data, schema=schema)], how="horizontal")
+        df = pl.concat([df, data_df], how="diagonal")
 
     Path(target).parent.mkdir(parents=True, exist_ok=True)
     df.write_ipc(target)
