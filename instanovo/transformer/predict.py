@@ -37,7 +37,9 @@ def get_preds(
 ) -> None:
     """Get predictions from a trained model."""
     if denovo and output_path is None:
-        raise ValueError("Must specify an output path in denovo mode.")
+        raise KeyError(
+            "Must specify an output path in denovo mode. Specify an output csv file with --output_path"
+        )
 
     if Path(data_path).suffix.lower() != ".ipc":
         raise ValueError(
@@ -50,6 +52,11 @@ def get_preds(
     logging.info(
         f"Data loaded, evaluating {config['subset']*100:.1f}%, {df.shape[0]} samples in total."
     )
+
+    if not denovo and (df["modified_sequence"] == "").all():
+        raise ValueError(
+            "The modified_sequence column is empty, are you trying to run de novo prediction? Add the --denovo flag"
+        )
 
     vocab = list(config["residues"].keys())
     config["vocab"] = vocab
