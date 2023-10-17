@@ -163,9 +163,11 @@ public/
 docs/reference
 
 # Other folders
-notebooks/checkpoints
 checkpoints/
-mlruns/
+data/
+docs/
+docs_public/
 logs/
+mlruns/
+notebooks/checkpoints
 secrets/
-checkpoints/
