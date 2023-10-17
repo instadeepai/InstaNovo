@@ -65,6 +65,16 @@ repos:
       - id: conventional-pre-commit
         stages:
           - commit-msg
+        args: ["ci", "build", "docs", "feat", "fix", "perf", "refactor", "style", "test", "exp"]
+
+  - repo: https://github.com/pre-commit/mirrors-prettier
+    rev: v3.0.0-alpha.4
+    hooks:
+      - id: prettier
+        args:
+          - --print-width=100
+          - --prose-wrap=always
+          - --tab-width=2
 
   - repo: https://github.com/pre-commit/mirrors-prettier
     rev: v3.0.3

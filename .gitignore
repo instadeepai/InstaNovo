@@ -168,3 +168,4 @@ checkpoints/
 mlruns/
 logs/
 secrets/
+checkpoints/
