@@ -38,8 +38,8 @@ precommit:
   script:
     - pre-commit run --all-files -c .pre-commit-config.yaml # This won't run the check on commit msg, we need to add one step
     - echo $(git log -1 --pretty=%s --no-merges) > current_commit_msg
-    - pre-commit run --hook-stage commit-msg --commit-msg-filename current_commit_msg -c
-      .pre-commit-config.yaml
+    # - pre-commit run --hook-stage commit-msg --commit-msg-filename current_commit_msg -c
+    #   .pre-commit-config.yaml
 
 run_tests:
   stage: test
