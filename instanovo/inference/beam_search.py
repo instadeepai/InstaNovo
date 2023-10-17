@@ -193,7 +193,7 @@ class BeamSearchDecoder(Decoder):
             beam_size (int):
                 The maximum size of the beam.
 
-            residue_masses (torch.FloatTensor[number of residues]):
+            remaining_masses (torch.FloatTensor[number of residues]):
                 The masses of the residues in the vocabulary
                 as integers in units of the mass scale.
 

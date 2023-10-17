@@ -4,7 +4,7 @@ site_author: InstaDeep Developers
 site_url: https://instadeep.gitlab.io/instanovo/
 site_dir: public
 repo_name: instadeep/dtu-denovo-sequencing
-repo_url: https://gitlab.com/instadeep/dtu-denovo-sequencing
+repo_url: https://github.com/instadeepai/InstaNovo
 strict: false
 
 theme:
