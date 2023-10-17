@@ -23,7 +23,7 @@ setup(
     version=__version__,
     description="De novo sequencing with InstaNovo",
     author="InstaDeep",
-    url="https://githun.com/instadeepai/InstaNovo",
+    url="https://github.com/instadeepai/InstaNovo",
     packages=setuptools.find_packages(),
     zip_safe=False,
     install_requires=read_requirements("./requirements.txt"),
