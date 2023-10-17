@@ -14,6 +14,7 @@ stages:
   - minimum_coverage
   - history_copy
   - generate_report
+  - make_docs
   - deploy
 
 variables:
@@ -25,7 +26,6 @@ sast:
     - kao-k8s-runner
 include:
   - template: Security/SAST.gitlab-ci.yml
-
 precommit:
   stage: precommit
   tags:
@@ -113,8 +113,8 @@ generate_report:
   needs:
     - job: run_tests
 
-pages:
-  stage: deploy
+make_docs:
+  stage: make_docs
   tags:
     - kao-k8s-runner
   before_script:
@@ -124,7 +124,21 @@ pages:
   script:
     - rm -rf docs/reference
     - python ./docs/gen_ref_nav.py
-    - mkdocs build --verbose --site-dir public
+    - mkdocs build --verbose --site-dir docs_public
+  artifacts:
+    paths:
+      - docs_public
+
+pages:
+  stage: deploy
+  tags:
+    - kao-k8s-runner
+  before_script:
+    - /usr/local/bin/python -m pip install --upgrade pip
+    - pip install -r requirements-dev.txt
+    - git config --global --add safe.directory "$(dirname "$(pwd)")"
+  script:
+    - mkdocs build --verbose
     - mkdir -p public/allure
     - cp -r ./allure-report/* public/allure
     - mkdir -p public/coverage
