@@ -8,7 +8,7 @@
 # Allow to use the repository as a package
 !setup.py
 !setup.cfg
-
+!README.md
 
 # To run the linters in the CI job
 !.pre-commit-config.yaml
