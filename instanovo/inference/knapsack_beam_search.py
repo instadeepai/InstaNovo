@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import numpy
 import torch
+from dtu_denovo_sequencing.inference.beam_search import BeamSearchDecoder
+from dtu_denovo_sequencing.inference.interfaces import Decodable
+from dtu_denovo_sequencing.inference.knapsack import Knapsack
 
 from instanovo.constants import CARBON_MASS_DELTA
 from instanovo.inference.beam_search import BeamSearchDecoder

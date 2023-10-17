@@ -9,6 +9,9 @@ Links:
 
 ![Graphical Abstract](./graphical_abstract.jpeg)
 
+Developed by: InstaDeep, Department of Biotechnology and Biomedicine - Technical University of
+Denmark
+
 ## Usage
 
 ### Installation
@@ -25,18 +28,57 @@ pip install instanovo
 To train auto-regressive InstaNovo:
 
 ```bash
-python -m instanovo.transformer.train train_path valid_path [-h] [--config CONFIG] [--n_gpu N_GPU] [--n_workers N_WORKERS]
+usage: python -m instanovo.transformer.train train_path valid_path [-h] [--config CONFIG] [--n_gpu N_GPU] [--n_workers N_WORKERS]
+
+required arguments:
+  train_path        Training data path
+  valid_path        Validation data path
+
+optional arguments:
+  --config CONFIG   file in configs folder
+  --n_workers N_WORKERS
 ```
+
+Note: data is expected to be saved as Polars `.ipc` format. See section on data conversion.
+
+### Prediction
+
+To evaluate InstaNovo:
+
+```bash
+usage: python -m instanovo.transformer.predict data_path model_path [-h] [--denovo] [--config CONFIG] [--subset SUBSET] [--knapsack_path KNAPSACK_PATH] [--n_workers N_WORKERS]
+
+required arguments:
+  data_path         Evaluation data path
+  model_path        Model checkpoint path
+
+optional arguments:
+  --denovo          evaluate in de novo mode, will not try to compute metrics
+  --output_path OUTPUT_PATH
+                    Save predictions to a csv file (required in de novo mode)
+  --config CONFIG
+                    file in configs folder
+  --subset SUBSET
+                    portion of set to evaluate
+  --knapsack_path KNAPSACK_PATH
+                    path to pre-computed knapsack
+  --n_workers N_WORKERS
+```
+
+### Converting datasets to Polars
+
+ToDo
 
 ## Roadmap
 
-The code repo is currently under construction.
+This code repo is currently under construction.
 
 **ToDo:**
 
 - Add diffusion model code
 - Add model checkpoints to releases and HuggingFace
 - Add datasets to HuggingFace
+- Multi-GPU support
 
 ## License
 
@@ -45,7 +87,7 @@ Code is licensed under the Apache License, Version 2.0 (see [LICENSE](LICENSE.tx
 The model checkpoints are licensed under Creative Commons Non-Commercial
 ([CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/))
 
-## Citation
+## BibTeX entry and citation info
 
 ```bibtex
 @article{eloff_kalogeropoulos_2023_instanovo,
