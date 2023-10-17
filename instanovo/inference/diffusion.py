@@ -3,10 +3,10 @@ from __future__ import annotations
 import torch
 from torch.distributions import Categorical
 
+from instanovo.constants import DIFFUSION_EVAL_STEPS
+from instanovo.constants import DIFFUSION_START_STEP
+from instanovo.diffusion.multinomial_diffusion import DiffusionLoss
 from instanovo.diffusion.multinomial_diffusion import MultinomialDiffusion
-
-
-NUCLEON_MASS = 1.00335
 
 
 class DiffusionDecoder:
@@ -16,6 +16,7 @@ class DiffusionDecoder:
         self.model = model
         self.time_steps = model.time_steps
         self.residues = model.residues
+        self.loss_function = DiffusionLoss(model=self.model)
 
     def decode(
         self,
@@ -23,8 +24,9 @@ class DiffusionDecoder:
         spectra_padding_mask: torch.BoolTensor,
         precursors: torch.FloatTensor,
         initial_sequence: None | torch.LongTensor = None,
-        start_step: int | None = None,
-    ) -> list[list[str]]:
+        start_step: int = DIFFUSION_START_STEP,
+        eval_steps: tuple[int, ...] = DIFFUSION_EVAL_STEPS,
+    ) -> tuple[list[list[str]], list[float]]:
         """Decoding predictions from a diffusion model by forward sampling.
 
         Args:
@@ -41,33 +43,30 @@ class DiffusionDecoder:
                 An initial sequence for the model to refine. If no initial sequence is provided (the value
                 is None), will sample a random sequence from a uniform unigram model. Defaults to None.
 
-            start_step (int | None, optional):
-                The step at which to insert the initial sequence and start refinement. If `initial_sequence` is
-                provided, this must be as well. Defaults to None.
+            start_step (int):
+                The step at which to insert the initial sequence and start refinement. If
+                `initial_sequence` is not provided, this will be set to `time_steps - 1`.
 
         Returns:
-            list[list[str]]: _description_
+            tuple[list[list[str]], list[float]]:
+                The decoded peptides and their log-probabilities for a batch of spectra.
         """
-        # Sample uniformly
+        device = spectra.device
+        sequence_length = self.model.config.max_length
         batch_size, num_classes = spectra.size(0), len(self.model.residues)
         if initial_sequence is None:
+            # Sample uniformly
             initial_distribution = Categorical(
-                torch.ones(batch_size, self.model.config.max_length, num_classes) / num_classes
+                torch.ones(batch_size, sequence_length, num_classes) / num_classes
             )
-            sample = initial_distribution.sample().to(spectra.device)
+            sample = initial_distribution.sample().to(device)
+            start_step = self.time_steps - 1
         else:
             sample = initial_sequence
 
-        if start_step is not None:
-            msg = "`start_step` can only be set if there is an initial sequence"
-            assert initial_sequence is not None, msg
+        peptide_mask = torch.zeros(batch_size, sequence_length).bool().to(device)
 
-        peptide_mask = (
-            torch.zeros(spectra.shape[0], self.model.config.max_length).bool().to(spectra.device)
-        )
-
-        start_step = self.time_steps - 1 if start_step is None else start_step
-
+        log_probs = torch.zeros((batch_size, sequence_length)).to(device)
         # Sample through reverse process
         for t in range(start_step, -1, -1):
             times = (t * torch.ones((batch_size,))).long().to(spectra.device)
@@ -83,7 +82,23 @@ class DiffusionDecoder:
             )
             sample = distribution.sample()
 
-        return self._extract_predictions(sample)
+        # Calculate log-probabilities as average loss across `eval_steps`
+        losses = []
+        for t in eval_steps:
+            times = (t * torch.ones((batch_size,))).long().to(spectra.device)
+            losses.append(
+                self.loss_function._compute_loss(
+                    x_0=sample,
+                    t=times,
+                    spectra=spectra,
+                    spectra_padding_mask=spectra_padding_mask,
+                    precursors=precursors,
+                    x_padding_mask=peptide_mask,
+                )
+            )
+        log_probs = (-torch.stack(losses).mean(axis=0).cpu()).tolist()
+        sequences = self._extract_predictions(sample)
+        return sequences, log_probs
 
     def _extract_predictions(self, sample: torch.LongTensor) -> list[list[str]]:
         output = []

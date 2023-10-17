@@ -12,6 +12,7 @@ jiwer==2.5.1
 matchms==0.22.0
 matplotlib==3.7.2
 numba==0.57.1
+numba==0.57.1
 numpy==1.23.3
 omegaconf==2.2.3
 pandas==2.0.3
