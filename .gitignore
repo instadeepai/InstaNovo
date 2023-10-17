@@ -161,3 +161,10 @@ allure_results/
 # mkdocs stuff
 public/
 docs/reference
+
+# Other folders
+notebooks/checkpoints
+checkpoints/
+mlruns/
+logs/
+secrets/

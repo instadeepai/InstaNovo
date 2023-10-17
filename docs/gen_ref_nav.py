@@ -16,7 +16,7 @@ IGNORE = ("public", "docs", ".")
 nav = mkdocs_gen_files.Nav()
 
 src_folder = "."
-module = "dtu_denovo_sequencing"
+module = "instanovo"
 for path in sorted(pathlib.Path(src_folder).rglob("*.py")):
     module_path = path.relative_to(src_folder).with_suffix("")
     if (
