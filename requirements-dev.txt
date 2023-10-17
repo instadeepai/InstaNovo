@@ -19,5 +19,5 @@ pytest-mock==3.8.2
 pytest-parallel==0.1.1
 pytest-random-order==1.0.4
 pytest-xdist==2.5.0
-pytype==2022.9.19
+pytype==2023.10.5
 testfixtures==7.0.0

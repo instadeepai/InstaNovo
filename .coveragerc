@@ -3,7 +3,7 @@ directory = coverage
 
 [run]
 source =
-    dtu_denovo_sequencing
+    instanovo
 omit =
     */__init__.py
     *_test.py

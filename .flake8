@@ -13,7 +13,7 @@ exclude =
     .eggs
 max-line-length=100
 import-order-style = google
-application-import-names = dtu_denovo_sequencing
+application-import-names = instanovo
 doctests = True
 docstring-convention = google
 per-file-ignores = __init__.py:F401

@@ -1,12 +1,12 @@
 # This Makefile provides shortcut commands to facilitate local development.
 
 # Common variables
-PACKAGE_NAME = dtu_denovo_sequencing
+PACKAGE_NAME = instanovo
 
 # Train variables
 NUM_NODES = 1
 BATCH_SIZE = 12
-NUM_GPUS:= $(shell python -m dtu_denovo_sequencing.utils.parse_nr_gpus)
+NUM_GPUS:= $(shell python -m instanovo.utils.parse_nr_gpus)
 
 
 # LAST_COMMIT returns the current HEAD commit
@@ -32,7 +32,6 @@ DOCKER_RUNS_DIRECTORY = "/runs"
 
 DOCKERFILE := Dockerfile
 DOCKERFILE_DEV := Dockerfile.dev
-DOCKERFILE_CI := Dockerfile.ci
 
 DOCKER_IMAGE_NAME = registry.gitlab.com/instadeep/dtu-denovo-sequencing
 DOCKER_IMAGE_TAG = $(VERSION)
@@ -125,7 +124,7 @@ docs: build-dev
 	docker run $(DOCKER_RUN_FLAGS) -p 8000:8000 $(DOCKER_IMAGE) mkdocs serve
 
 set-gcp-credentials:
-	python3 -m dtu_denovo_sequencing.utils.set_gcp_credentials
+	python3 -m instanovo.utils.set_gcp_credentials
 	gcloud auth activate-service-account dtu-denovo-sa@ext-dtu-denovo-sequencing-gcp.iam.gserviceaccount.com --key-file=ext-dtu-denovo-sequencing-gcp.json --project=ext-dtu-denovo-sequencing-gcp
 
 # Train commands
@@ -136,7 +135,7 @@ train:
 	deepspeed \
 		--num_nodes=$(NUM_NODES) \
 		--num_gpus=$(NUM_GPUS) \
-		./dtu_denovo_sequencing/transnovo/train.py \
+		./instanovo/transformer/train.py \
 		train_data_path=./data/denovo_dataset_v1/ \
 		batch_size=$(BATCH_SIZE) \
 		distributed.n_gpus_per_node=$(NUM_GPUS) \
@@ -150,7 +149,7 @@ train-docker:
 		deepspeed \
 			--num_nodes=$(NUM_NODES) \
 			--num_gpus=$(NUM_GPUS) \
-			./dtu_denovo_sequencing/train.py \
+			./instanovo/transformer/train.py \
 			train_data_path=./data/denovo_dataset_v1/ \
 			batch_size=$(BATCH_SIZE) \
 			distributed.n_gpus_per_node=$(NUM_GPUS) \
@@ -161,7 +160,7 @@ train-docker-dev:
 	time docker run -it $(DOCKER_RUN_FLAGS_VOLUME_MOUNT_RUNS) $(DOCKER_IMAGE_DEV) \
 		deepspeed \
 		--num_nodes=$(NUM_NODES) \
-		./dtu_denovo_sequencing/train.py \
+		./instanovo/transformer/train.py \
 		checkpoint_path=$(DOCKER_RUNS_DIRECTORY) \
 		train_data_path=./data/denovo_dataset_v1/ \
 		batch_size=$(BATCH_SIZE) \

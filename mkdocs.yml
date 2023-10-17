@@ -1,10 +1,10 @@
-site_name: DE NOVO SEQUENCING
-site_description: Documentation for De novo sequencing
+site_name: InstaNovo
+site_description: Documentation for InstaNovo
 site_author: InstaDeep Developers
-site_url: https://instadeep.gitlab.io/dtu-denovo-sequencing/
+site_url: https://instadeep.gitlab.io/instanovo/
 site_dir: public
 repo_name: instadeep/dtu-denovo-sequencing
-repo_url: https://gitlab.com/instadeep/dtu-denovo-sequencing
+repo_url: https://github.com/instadeepai/InstaNovo
 strict: false
 
 theme:
@@ -63,7 +63,7 @@ plugins:
       default_handler: python
       handlers:
         python:
-          paths: [dtu_denovo_sequencing]
+          paths: [instanovo]
           options:
             docstring_style: google
             merge_init_into_class: yes
@@ -83,4 +83,5 @@ plugins:
 
 nav:
   - Home: index.md
+  - License: LICENSE.md
   - Code reference: reference/SUMMARY.md
