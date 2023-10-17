@@ -83,4 +83,5 @@ plugins:
 
 nav:
   - Home: index.md
+  - License: LICENSE.md
   - Code reference: reference/SUMMARY.md

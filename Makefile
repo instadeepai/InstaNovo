@@ -32,7 +32,6 @@ DOCKER_RUNS_DIRECTORY = "/runs"
 
 DOCKERFILE := Dockerfile
 DOCKERFILE_DEV := Dockerfile.dev
-DOCKERFILE_CI := Dockerfile.ci
 
 DOCKER_IMAGE_NAME = registry.gitlab.com/instadeep/dtu-denovo-sequencing
 DOCKER_IMAGE_TAG = $(VERSION)
