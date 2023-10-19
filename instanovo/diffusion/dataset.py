@@ -6,11 +6,18 @@ from typing import NamedTuple
 import polars
 import torch
 
+from instanovo.constants import PROTON_MASS_AMU
 from instanovo.utils.residues import ResidueSet
 
 
 class SpectrumBatch(NamedTuple):
-    """Represents a batch of spectrum data without annotations."""
+    """Represents a batch of spectrum data without annotations.
+
+    Attributes:
+        spectra (torch.FloatTensor): The tensor containing the spectra data.
+        spectra_padding_mask (torch.BoolTensor): A boolean tensor indicating the padding positions in the spectra tensor.
+        precursors (torch.FloatTensor): The tensor containing precursor mass information.
+    """
 
     spectra: torch.FloatTensor
     spectra_padding_mask: torch.BoolTensor
@@ -18,7 +25,15 @@ class SpectrumBatch(NamedTuple):
 
 
 class AnnotatedSpectrumBatch(NamedTuple):
-    """Represents a batch of annotated spectrum data."""
+    """Represents a batch of annotated spectrum data.
+
+    Attributes:
+        spectra (torch.FloatTensor): The tensor containing the spectra data.
+        spectra_padding_mask (torch.BoolTensor): A boolean tensor indicating the padding positions in the spectra tensor.
+        precursors (torch.FloatTensor): The tensor containing precursor mass information.
+        peptides (torch.LongTensor): The tensor containing peptide sequence information.
+        peptide_padding_mask (torch.BoolTensor): A boolean tensor indicating the padding positions in the peptides tensor.
+    """
 
     spectra: torch.FloatTensor
     spectra_padding_mask: torch.BoolTensor
@@ -103,7 +118,7 @@ def collate_batches(
 
         precursor_mz = torch.tensor(precursor_mz)
         precursor_charge = torch.FloatTensor(precursor_charge)
-        precursor_masses = (precursor_mz - 1.007276) * precursor_charge
+        precursor_masses = (precursor_mz - PROTON_MASS_AMU) * precursor_charge
         precursors = torch.stack([precursor_masses, precursor_charge, precursor_mz], -1).float()
         if annotated:
             peptides = [sequence if isinstance(sequence, str) else "$" for sequence in peptides]

@@ -52,7 +52,7 @@ class MultinomialDiffusion(nn.Module):
             sequence sampled the previous time step. This is
             just a sequence tagging model.
 
-        diffusion_schedule (torch.FloatTensor):
+        diffusion_schedule (torch.FloatTensor[time_steps]):
             The sequence of diffusion probabilities. Note
             that `diffusion_schedule[t]` is \alpha_t in
             the paper's terminology, not \beta_t.
