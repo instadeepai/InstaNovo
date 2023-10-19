@@ -34,7 +34,7 @@ class MultinomialDiffusion(nn.Module):
     r"""This class implements Multinomial Diffusion as described in Hoogeboom et al. 2021.
 
     Args:
-        config[omegaconf.DictConfig]:
+        config (omegaconf.DictConfig):
             The model configuration. This should have keys:
                 - 'name': the model name identifier.
                 - 'time_steps': the number of time steps in the diffusion process
@@ -46,18 +46,18 @@ class MultinomialDiffusion(nn.Module):
 
             This information is necessary for saving and loading the model.
 
-        transition_model[nn.Module]:
+        transition_model (nn.Module):
             The model that predictions the initial sequence given
             the sequence sampled the current time step and the
             sequence sampled the previous time step. This is
             just a sequence tagging model.
 
-        diffusion_schedule[torch.FloatTensor[time_steps]]:
+        diffusion_schedule (torch.FloatTensor):
             The sequence of diffusion probabilities. Note
             that `diffusion_schedule[t]` is \alpha_t in
             the paper's terminology, not \beta_t.
 
-        residues[ResidueSet]:
+        residues (ResidueSet):
             The residue vocabulary. This holds a mapping between
             residues and indices and residue masses.
     """
@@ -251,7 +251,7 @@ class MultinomialDiffusion(nn.Module):
             x_t (torch.FloatTensor[batch_size, sequence_length]):
                 The values at the `t`-th time step of the reverse process.
 
-            t (int):
+            time (int):
                 The time step.
 
         Returns:
@@ -271,10 +271,6 @@ class DiffusionLoss(nn.Module):
     Args:
         model (MultinomialDiffusion):
             The multinomial diffusion class.
-
-        initial_variance (float):
-            The initial variance in the variance buffer used for
-            importance sampling of time steps.
     """
 
     def __init__(self, model: MultinomialDiffusion) -> None:
@@ -308,11 +304,6 @@ class DiffusionLoss(nn.Module):
             x_0 (torch.LongTensor[batch_size, sequence_length]):
                 A batch of padded sequences.
 
-            variance_weight (float):
-                The weight, between 0 and 1, to apply to the loss
-                when updated the variance buffer for the corresponding
-                time step by exponential smoothing.
-
         Returns:
             torch.FloatTensor[1]:
                 The loss estimate.
@@ -338,7 +329,9 @@ class DiffusionLoss(nn.Module):
         kl_loss = self.kl_divergence(final_log_probs, uniform_log_probs).mean()
         return loss + kl_loss
 
-    def _compute_loss(self, x_0: torch.LongTensor, t: torch.LongTensor, **kwargs) -> torch.FloatTensor:
+    def _compute_loss(
+        self, x_0: torch.LongTensor, t: torch.LongTensor, **kwargs: dict
+    ) -> torch.FloatTensor:
         # 1. sample x_{t+1}
         log_x_0 = torch.log(one_hot(x_0, num_classes=len(self.model.residues)))
         log_probs = self.model.mixture_categorical(

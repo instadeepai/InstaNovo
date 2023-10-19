@@ -49,11 +49,11 @@ class SpectrumDataset(Dataset):
         else:
             self.EOS_ID = -1
 
-        if type(df) == pd.DataFrame:
+        if isinstance(df, pd.DataFrame):
             self.data_type = "pd"
-        elif type(df) == pl.DataFrame:
+        elif isinstance(df, pl.DataFrame):
             self.data_type = "pl"
-        elif type(df) == datasets.Dataset:
+        elif isinstance(df, datasets.Dataset):
             self.data_type = "hf"
         else:
             raise Exception(f"Unsupported data type {type(df)}")
@@ -181,7 +181,7 @@ def collate_batch(
     spectra_mask = torch.arange(spectra.shape[1], dtype=torch.long)[None, :] >= ll[:, None]
 
     # Pad peptide
-    if type(peptides[0]) == str:
+    if isinstance(peptides[0], str):
         peptides_mask = None
     else:
         ll = torch.tensor([x.shape[0] for x in peptides], dtype=torch.long)

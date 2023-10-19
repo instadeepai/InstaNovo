@@ -3,10 +3,10 @@ from __future__ import annotations
 import torch
 from torch.distributions import Categorical
 
-from instanovo.diffusion.multinomial_diffusion import MultinomialDiffusion
+from instanovo.constants import DIFFUSION_EVAL_STEPS
+from instanovo.constants import DIFFUSION_START_STEP
 from instanovo.diffusion.multinomial_diffusion import DiffusionLoss
-
-from instanovo.constants import DIFFUSION_START_STEP, DIFFUSION_EVAL_STEPS
+from instanovo.diffusion.multinomial_diffusion import MultinomialDiffusion
 
 
 class DiffusionDecoder:

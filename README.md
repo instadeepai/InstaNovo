@@ -155,7 +155,7 @@ This code repo is currently under construction.
 
 ## License
 
-Code is licensed under the Apache License, Version 2.0 (see [LICENSE](LICENSE.txt))
+Code is licensed under the Apache License, Version 2.0 (see [LICENSE](LICENSE.md))
 
 The model checkpoints are licensed under Creative Commons Non-Commercial
 ([CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/))
