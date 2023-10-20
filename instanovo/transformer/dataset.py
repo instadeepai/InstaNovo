@@ -70,7 +70,7 @@ class SpectrumDataset(Dataset):
             precursor_mz = self.df[idx, "precursor_mz"]
             precursor_charge = self.df[idx, "precursor_charge"]
             if self.annotated:
-                peptide = self.df[idx, "modified_sequence"][1:-1]
+                peptide = self.df[idx, "modified_sequence"]
         elif self.data_type == "pd":
             row = self.df.iloc[idx]
             mz_array = torch.Tensor(row["mz_array"])
@@ -78,7 +78,7 @@ class SpectrumDataset(Dataset):
             precursor_mz = row["precursor_mz"]
             precursor_charge = row["precursor_charge"]
             if self.annotated:
-                peptide = row["modified_sequence"][1:-1]
+                peptide = row["modified_sequence"]
         elif self.data_type == "hf":
             row = self.df[idx]
             mz_array = torch.Tensor(row["mz_array"])
