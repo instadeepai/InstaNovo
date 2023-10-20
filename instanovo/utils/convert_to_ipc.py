@@ -62,7 +62,7 @@ def convert_mgf_ipc(
     if source.is_file():
         filenames = [source]
     else:
-        filenames = source.iterdir()
+        filenames = list(source.iterdir())
 
     for filepath in filenames:
         if not filepath.suffix.lower().endswith("mgf"):
@@ -116,7 +116,8 @@ def convert_mgf_ipc(
                 {
                     k: v
                     for k, v in meta.items()
-                    if k not in {
+                    if k
+                    not in {
                         "pepmass",
                         "precursor_mz",
                         "charge",
@@ -183,7 +184,7 @@ def convert_mzml_ipc(
     if source.is_file():
         filenames = [source]
     else:
-        filenames = source.iterdir()
+        filenames = list(source.iterdir())
 
     for filepath in filenames:
         if not filepath.suffix.lower().endswith("mzml"):

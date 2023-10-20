@@ -1,17 +1,19 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from enum import Enum
 from typing import Any
 
 import torch
 from torch.nn.functional import one_hot
 
+from instanovo.constants import CARBON_MASS_DELTA
+from instanovo.constants import H2O_MASS
+from instanovo.constants import INTEGER
+from instanovo.constants import MASS_SCALE
+from instanovo.constants import PRECURSOR_DIM
+from instanovo.constants import PrecursorDimension
 from instanovo.inference.interfaces import Decodable
 from instanovo.inference.interfaces import Decoder
-from instanovo.constants import H2O_MASS, CARBON_MASS_DELTA
-from instanovo.constants import MASS_SCALE, INTEGER, PrecursorDimension
-from instanovo.constants import PRECURSOR_DIM 
 
 
 @dataclass
@@ -191,7 +193,7 @@ class BeamSearchDecoder(Decoder):
             beam_size (int):
                 The maximum size of the beam.
 
-            residue_masses (torch.FloatTensor[number of residues]):
+            remaining_masses (torch.FloatTensor[number of residues]):
                 The masses of the residues in the vocabulary
                 as integers in units of the mass scale.
 
@@ -332,11 +334,11 @@ class BeamSearchDecoder(Decoder):
         # Filter out the end of sequence token since
         # it is added manually when a sequence's mass
         # means it's complete
-        EOS_TOKEN = self.model.get_eos_index()
+        EOS_TOKEN = self.model.get_eos_index()  # noqa: N806
         log_probabilities[:, :, EOS_TOKEN] = -float("inf")
 
         # Filter out the empty token
-        EMPTY_TOKEN = self.model.get_empty_index()
+        EMPTY_TOKEN = self.model.get_empty_index()  # noqa: N806
         log_probabilities[:, :, EMPTY_TOKEN] = -float("inf")
 
         # Filter out large masses

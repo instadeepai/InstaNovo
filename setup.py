@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 from codecs import open
+from pathlib import Path
 
 import setuptools
 from setuptools import setup
-from pathlib import Path
 
 __version__ = "0.1.6"
 
@@ -23,12 +23,12 @@ setup(
     version=__version__,
     description="De novo sequencing with InstaNovo",
     author="InstaDeep",
-    url="https://githun.com/instadeepai/InstaNovo",
+    url="https://github.com/instadeepai/InstaNovo",
     packages=setuptools.find_packages(),
     zip_safe=False,
     install_requires=read_requirements("./requirements.txt"),
     # extras_require={"dev": read_requirements("./requirements-dev.txt")},
     include_package_data=True,
     long_description=long_description,
-    long_description_content_type='text/markdown'
+    long_description_content_type="text/markdown",
 )

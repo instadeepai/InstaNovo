@@ -1,11 +1,45 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from typing import NamedTuple
 
 import polars
 import torch
 
+from instanovo.constants import PROTON_MASS_AMU
 from instanovo.utils.residues import ResidueSet
+
+
+class SpectrumBatch(NamedTuple):
+    """Represents a batch of spectrum data without annotations.
+
+    Attributes:
+        spectra (torch.FloatTensor): The tensor containing the spectra data.
+        spectra_padding_mask (torch.BoolTensor): A boolean tensor indicating the padding positions in the spectra tensor.
+        precursors (torch.FloatTensor): The tensor containing precursor mass information.
+    """
+
+    spectra: torch.FloatTensor
+    spectra_padding_mask: torch.BoolTensor
+    precursors: torch.FloatTensor
+
+
+class AnnotatedSpectrumBatch(NamedTuple):
+    """Represents a batch of annotated spectrum data.
+
+    Attributes:
+        spectra (torch.FloatTensor): The tensor containing the spectra data.
+        spectra_padding_mask (torch.BoolTensor): A boolean tensor indicating the padding positions in the spectra tensor.
+        precursors (torch.FloatTensor): The tensor containing precursor mass information.
+        peptides (torch.LongTensor): The tensor containing peptide sequence information.
+        peptide_padding_mask (torch.BoolTensor): A boolean tensor indicating the padding positions in the peptides tensor.
+    """
+
+    spectra: torch.FloatTensor
+    spectra_padding_mask: torch.BoolTensor
+    precursors: torch.FloatTensor
+    peptides: torch.LongTensor
+    peptide_padding_mask: torch.BoolTensor
 
 
 class PolarsSpectrumDataset(torch.utils.data.Dataset):
@@ -36,7 +70,7 @@ class AnnotatedPolarsSpectrumDataset(PolarsSpectrumDataset):
         super().__init__(data_frame)
         self.peptides = peptides
 
-    def __getitem__(self, idx: int) -> tuple[torch.Tensor, float, float, str]:
+    def __getitem__(self, idx: int) -> tuple[torch.Tensor, float, float, str]:  # type: ignore[override]
         spectrum, precursor_mz, precursor_charge = super().__getitem__(idx)
         peptide = self.peptides[idx]
         return spectrum, precursor_mz, precursor_charge, peptide
@@ -45,20 +79,7 @@ class AnnotatedPolarsSpectrumDataset(PolarsSpectrumDataset):
 def collate_batches(
     residues: ResidueSet, max_length: int, time_steps: int, annotated: bool
 ) -> Callable[
-    [list[tuple[torch.FloatTensor, float, int, str]]],
-    tuple[
-        torch.FloatTensor,
-        torch.BoolTensor,
-        torch.FloatTensor,
-    ]
-    | tuple[
-        torch.FloatTensor,
-        torch.BoolTensor,
-        torch.FloatTensor,
-        torch.LongTensor,
-        torch.LongTensor,
-        torch.BoolTensor,
-    ],
+    [list[tuple[torch.FloatTensor, float, int, str]]], SpectrumBatch | AnnotatedSpectrumBatch
 ]:
     """Get batch collation function for given residue set, maximum length and time steps.
 
@@ -80,20 +101,13 @@ def collate_batches(
             The number of diffusion time steps.
 
     Returns:
-        Callable[ [list[tuple[torch.FloatTensor, float, int, str]]], tuple[ torch.FloatTensor, torch.BoolTensor, torch.FloatTensor, torch.LongTensor, torch.LongTensor, torch.BoolTensor, ], ]:
+        Callable[ [list[tuple[torch.FloatTensor, float, int, str]]], SpectrumBatch | AnnotatedSpectrumBatch]:
             The function that combines examples into a batch given the parameters above.
     """
 
     def fn(
         batch: list[tuple[torch.Tensor, float, int, str]]
-    ) -> tuple[torch.FloatTensor, torch.BoolTensor, torch.FloatTensor] | tuple[
-        torch.FloatTensor,
-        torch.BoolTensor,
-        torch.FloatTensor,
-        torch.LongTensor,
-        torch.LongTensor,
-        torch.BoolTensor,
-    ]:
+    ) -> SpectrumBatch | AnnotatedSpectrumBatch:
         if annotated:
             spectra, precursor_mz, precursor_charge, peptides = list(zip(*batch))
         else:
@@ -104,13 +118,11 @@ def collate_batches(
 
         precursor_mz = torch.tensor(precursor_mz)
         precursor_charge = torch.FloatTensor(precursor_charge)
-        precursor_masses = (precursor_mz - 1.007276) * precursor_charge
+        precursor_masses = (precursor_mz - PROTON_MASS_AMU) * precursor_charge
         precursors = torch.stack([precursor_masses, precursor_charge, precursor_mz], -1).float()
         if annotated:
-            peptides = [sequence if isinstance(sequence, str) else "$"
-                        for sequence in peptides]
-            peptides = [sequence if len(sequence) > 0 else "$"
-                        for sequence in peptides]
+            peptides = [sequence if isinstance(sequence, str) else "$" for sequence in peptides]
+            peptides = [sequence if len(sequence) > 0 else "$" for sequence in peptides]
             peptides = torch.stack(
                 [
                     residues.encode(residues.tokenize(sequence)[:max_length], pad_length=max_length)
@@ -118,8 +130,10 @@ def collate_batches(
                 ]
             )
             peptide_padding_mask = peptides == residues.pad_index
-            return spectra, spectra_padding_mask, precursors, peptides, peptide_padding_mask
+            return AnnotatedSpectrumBatch(
+                spectra, spectra_padding_mask, precursors, peptides, peptide_padding_mask
+            )
         else:
-            return spectra, spectra_padding_mask, precursors
+            return SpectrumBatch(spectra, spectra_padding_mask, precursors)
 
     return fn

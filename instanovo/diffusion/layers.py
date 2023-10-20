@@ -442,7 +442,6 @@ class LocalisedEncoderLayer(torch.nn.TransformerEncoderLayer):
         key_padding_mask: Tensor | None,
         # full_attention: bool = True,
     ) -> Tensor:
-
         if self.pos_enc and mass is not None:
             q = x.reshape(-1, 1, x.shape[-1])  # apply queries in one big batch
             zero_enc = self.pos_enc(torch.zeros((q.shape[0], 1), device=x.device, dtype=x.dtype))

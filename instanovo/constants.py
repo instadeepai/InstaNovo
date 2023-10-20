@@ -1,4 +1,7 @@
+from __future__ import annotations
+
 from enum import Enum
+
 import torch
 
 H2O_MASS = 18.0106

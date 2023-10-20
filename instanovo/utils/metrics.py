@@ -5,7 +5,9 @@ import re
 import jiwer
 import numpy as np
 
-from instanovo.constants import PROTON_MASS_AMU, CARBON_MASS_DELTA, H2O_MASS
+from instanovo.constants import CARBON_MASS_DELTA
+from instanovo.constants import H2O_MASS
+from instanovo.constants import PROTON_MASS_AMU
 
 
 class Metrics:
