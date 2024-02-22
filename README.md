@@ -38,7 +38,7 @@ if you have
 installed:
 
 ```bash
-conda create -n instanovo python=3.8
+conda env create -f environment.yml
 conda activate instanovo
 ```
 
