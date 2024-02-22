@@ -18,7 +18,7 @@ stages:
   - deploy
 
 variables:
-  MIN_COVERAGE: 0
+  MIN_COVERAGE: 23
 
 sast:
   stage: sast
@@ -42,6 +42,18 @@ precommit:
 
 run_tests:
   stage: test
+  cache:
+    - key:
+        files:
+          - instanovo_yeast.pt
+      paths:
+        - checkpoints/
+    - key:
+        files:
+          - chart.npy
+          - masses.npy
+      paths:
+        - checkpoints/knapsack/
   tags:
     - kao-k8s-runner
   artifacts:

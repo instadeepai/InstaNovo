@@ -2,8 +2,7 @@
 directory = coverage
 
 [run]
-source =
-    instanovo
+source = instanovo
 omit =
     */__init__.py
     *_test.py
@@ -12,6 +11,7 @@ omit =
 omit =
     __init__.py
     *_test.py
+
 
 exclude_lines =
     # Don't complain if tests don't hit defensive assertion code:
