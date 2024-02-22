@@ -14,6 +14,7 @@ import yaml
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
+from instanovo.constants import MASS_SCALE
 from instanovo.inference.knapsack import Knapsack
 from instanovo.inference.knapsack_beam_search import KnapsackBeamSearchDecoder
 from instanovo.transformer.dataset import collate_batch
@@ -121,8 +122,8 @@ def get_preds(
                 max_length=config["max_length"],
             )
 
-            preds += ["".join(x.sequence) if type(x) != list else "" for x in p]
-            probs += [x.log_probability if type(x) != list else -1 for x in p]
+            preds += ["".join(x.sequence) if not isinstance(x, list) else "" for x in p]
+            probs += [x.log_probability if not isinstance(x, list) else -1 for x in p]
             targs += list(peptides)
 
     delta = time.time() - start
@@ -189,7 +190,6 @@ def main() -> None:
 
 
 def _setup_knapsack(model: InstaNovo) -> Knapsack:
-    MASS_SCALE = 10000
     residue_masses = model.peptide_mass_calculator.masses
     residue_masses["$"] = 0
     residue_indices = model.decoder._aa2idx

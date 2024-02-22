@@ -45,6 +45,8 @@ DOCKER_RUN_FLAGS_VOLUME_MOUNT_HOME = $(DOCKER_RUN_FLAGS) --volume $(PWD):$(DOCKE
 DOCKER_RUN_FLAGS_VOLUME_MOUNT_RUNS = $(DOCKER_RUN_FLAGS) --volume $(PWD)/runs:$(DOCKER_RUNS_DIRECTORY)
 DOCKER_RUN = docker run $(DOCKER_RUN_FLAGS) $(IMAGE_NAME)
 
+PYTEST = pytest --alluredir=allure_results --cov-report=html --cov --cov-config=.coveragerc --random-order --verbose .
+COVERAGE = coverage report -m
 
 
 # Build commands
@@ -109,10 +111,19 @@ push-ci-gitlab:
 
 # Dev commands
 
-.PHONY: test bash-dev docs-build
+.PHONY: test coverage test-docker coverage-docker bash-dev docs-build
 
-test: build-dev
-	docker run --rm $(DOCKER_IMAGE_DEV) pytest --verbose $(PACKAGE_NAME)
+test:
+	$(PYTEST)
+
+coverage:
+	$(COVERAGE)
+
+test-docker:
+	docker run $(DOCKER_RUN_FLAGS) $(DOCKER_IMAGE_DEV) nvidia-smi && $(PYTEST)
+
+coverage-docker:
+	docker run $(DOCKER_RUN_FLAGS) $(DOCKER_IMAGE_DEV) nvidia-smi && $(PYTEST) && $(COVERAGE)
 
 bash:
 	docker run -it $(DOCKER_RUN_FLAGS) $(DOCKER_IMAGE) /bin/bash
@@ -187,6 +198,7 @@ GCP_PROJECT=ext-dtu-denovo-sequencing-gcp
 ARTIFACT_REGISTRY=europe-west6-docker.pkg.dev
 VERSION=latest
 
+.PHONY: mlflow-auth mlflow-build mlflow-tag mlflow-push
 
 mlflow-auth:
 	gcloud auth login && gcloud config set project ${GCP_PROJECT} && gcloud auth configure-docker ${ARTIFACT_REGISTRY}

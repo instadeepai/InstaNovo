@@ -10,5 +10,9 @@
 !setup.cfg
 !README.md
 
+# To be able to run the tests
+!tests
+!instanovo
+
 # To run the linters in the CI job
 !.pre-commit-config.yaml
