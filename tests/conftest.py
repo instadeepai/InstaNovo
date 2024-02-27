@@ -52,7 +52,7 @@ def dataset() -> DatasetDict | Dataset | IterableDatasetDict | IterableDataset:
 
     Loads a specific subset (1% of test data) from the 'instanovo_ninespecies_exclude_yeast' dataset.
     """
-    return load_dataset("InstaDeepAI/instanovo_ninespecies_exclude_yeast", split="test[:1%]")
+    return load_dataset("InstaDeepAI/ms_ninespecies_benchmark", split="test[:1%]")
 
 
 @pytest.fixture(scope="session")

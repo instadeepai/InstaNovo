@@ -109,7 +109,7 @@ The dataset is tabular, where each row corresponds to a labelled MS2 spectra.
   The intensity values of the MS2 spectrum
 
 For example, the DataFrame for the
-[Nine-Species excluding Yeast](https://huggingface.co/datasets/InstaDeepAI/instanovo_ninespecies_exclude_yeast)
+[Nine-Species excluding Yeast](https://huggingface.co/datasets/InstaDeepAI/ms_ninespecies_benchmark)
 dataset look as follows:
 
 |     | sequence             | modified_sequence          | precursor_mz | precursor_charge | mz_array                             | intensity_array                     |
