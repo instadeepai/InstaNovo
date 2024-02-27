@@ -31,6 +31,9 @@ jobs:
       - name: Lint with pre-commit
         run: |
           pre-commit run --all-files -c .pre-commit-config.yaml
+      - uses: wirekang/setup-ninja@v1
+        with:
+          platform: linux
       - name: Test with pytest
         run: |
           pytest -v --alluredir=allure_results  --cov-report=html --cov  --cov-config=.coveragerc --random-order
