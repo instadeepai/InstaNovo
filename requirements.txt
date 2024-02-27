@@ -7,8 +7,7 @@ cloudpathlib==0.10.0
 datasets==2.14.5
 depthcharge-ms==0.1.0
 fastprogress==1.0.3
-jiwer==2.5.1
-Levenshtein==0.25.0; python_version >= '3.11'
+jiwer==3.0.3
 matchms==0.22.0
 matplotlib==3.7.2
 numba==0.57.1
