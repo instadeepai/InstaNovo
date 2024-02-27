@@ -1,6 +1,7 @@
 # All of these dependencies are pinned to specific versions to achieve reproducible builds (CI/DEV)
 allure-pytest==2.11.1
 coverage==6.4.4
+libcst==1.2.0
 livereload==2.6.3
 mkdocs==1.4.0
 mkdocs-gen-files==0.4.0
