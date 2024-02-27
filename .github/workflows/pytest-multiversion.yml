@@ -31,7 +31,9 @@ jobs:
       - name: Lint with pre-commit
         run: |
           pre-commit run --all-files -c .pre-commit-config.yaml
-      - uses: wirekang/setup-ninja@v1
+      - name: Setup Ninja for Python 3.11
+        if: matrix.python-version == '3.11'
+        uses: wirekang/setup-ninja@v1
         with:
           platform: linux
       - name: Test with pytest
