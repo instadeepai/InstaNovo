@@ -26,7 +26,7 @@ theme:
   logo: assets/instadeep-logo.png
   favicon: assets/instadeep-logo.png
   icon:
-    repo: fontawesome/brands/gitlab
+    repo: fontawesome/brands/github
   font:
     text: Avenir Next
   features:
