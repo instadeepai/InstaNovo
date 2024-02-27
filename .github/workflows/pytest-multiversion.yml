@@ -36,3 +36,4 @@ jobs:
       - name: Test with pytest
         run: |
           pytest -v --alluredir=allure_results  --cov-report=html --cov  --cov-config=.coveragerc --random-order
+          coverage report -m
