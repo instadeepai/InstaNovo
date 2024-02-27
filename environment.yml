@@ -1,0 +1,12 @@
+# This is an environment for running git commands and other tools locally.
+name: instanovo
+channels:
+  - default
+dependencies:
+  - python=3.8
+  - pip
+  - setuptools=68.2.2
+  - pip:
+      - -r requirements-dev.txt
+      - -r requirements.txt
+      - pre-commit==2.20.0
