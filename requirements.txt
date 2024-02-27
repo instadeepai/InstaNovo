@@ -27,6 +27,6 @@ seaborn==0.12.0
 spectrum_utils==0.4.1
 tensorboard==2.10.1
 tensorboardX==2.5.1
-torch==1.13.1
+torch==2.2.1
 tqdm==4.65.0
 transfusion-asr==0.1.0
