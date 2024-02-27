@@ -1,17 +1,16 @@
 # This workflow will install Python dependencies, run tests and lint with a variety of Python versions
 # For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-python
 
-name: Python package
+name: Test on multiple Python versions
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
   pull_request:
-    branches: [ "main" ]
+    branches: ["main"]
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -19,20 +18,21 @@ jobs:
         python-version: ["3.8", "3.9", "3.10", "3.11"]
 
     steps:
-    - uses: actions/checkout@v3
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v3
-      with:
-        python-version: ${{ matrix.python-version }}
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        python -m pip install -r requirements.txt
-        python -m pip install -r requirements-dev.txt
-    - name: Lint with pre-commit
-      run: |
-        pre-commit run --all-files -c .pre-commit-config.yaml
-    - name: Test with pytest
-      run: |
-        pytest -v --alluredir=allure_results  --cov-report=html --cov  --cov-config=.coveragerc --random-order
-
+      - uses: actions/checkout@v4
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: "pip" # caching pip dependencies
+          cache-dependency-path: "**/requirements*.txt"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+          python -m pip install -r requirements-dev.txt
+      - name: Lint with pre-commit
+        run: |
+          pre-commit run --all-files -c .pre-commit-config.yaml
+      - name: Test with pytest
+        run: |
+          pytest -v --alluredir=allure_results  --cov-report=html --cov  --cov-config=.coveragerc --random-order

@@ -149,7 +149,7 @@ class PTModule(ptl.LightningModule):
             )
 
         # targets = self.model.batch_idx_to_aa(peptides)
-        y = ["".join(x.sequence) if type(x) != list else "" for x in p]
+        y = ["".join(x.sequence) if not isinstance(x, list) else "" for x in p]
         targets = peptides
 
         aa_prec, aa_recall, pep_recall, _ = self.metrics.compute_precision_recall(targets, y)
