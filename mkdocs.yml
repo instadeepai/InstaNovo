@@ -1,7 +1,7 @@
 site_name: InstaNovo
 site_description: Documentation for InstaNovo
 site_author: InstaDeep Developers
-site_url: https://instadeep.gitlab.io/instanovo/
+site_url: https://instadeepai.github.io/InstaNovo/
 site_dir: public
 repo_name: instadeep/dtu-denovo-sequencing
 repo_url: https://github.com/instadeepai/InstaNovo
