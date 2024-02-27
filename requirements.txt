@@ -5,7 +5,6 @@ botocore==1.27.59
 click==8.1.7
 cloudpathlib==0.10.0
 datasets==2.14.5
-deepspeed==0.7.2
 depthcharge-ms==0.1.0
 fastprogress==1.0.3
 jiwer==2.5.1
