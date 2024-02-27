@@ -23,11 +23,6 @@ jobs:
         uses: actions/setup-python@v3
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Setup Ninja for Python 3.11 (needed to build levenshtein package)
-        if: matrix.python-version == '3.11'
-        uses: wirekang/setup-ninja@v1
-        with:
-          platform: linux
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
