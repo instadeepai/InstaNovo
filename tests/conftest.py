@@ -50,7 +50,7 @@ def instanovo_checkpoint(checkpoints_dir: str) -> str:
 def dataset() -> DatasetDict | Dataset | IterableDatasetDict | IterableDataset:
     """A pytest fixture to load and provide a dataset for testing.
 
-    Loads a specific subset (1% of test data) from the 'instanovo_ninespecies_exclude_yeast' dataset.
+    Loads a specific subset (1% of test data) from the 'ms_ninespecies_benchmark' dataset.
     """
     return load_dataset("InstaDeepAI/ms_ninespecies_benchmark", split="test[:1%]")
 
