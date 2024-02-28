@@ -1,8 +1,5 @@
 name: Publish docs via GitHub Pages
-on:
-  push:
-    branches:
-      - main
+on: pull_request
 
 jobs:
   build:
