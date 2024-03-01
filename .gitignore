@@ -165,7 +165,6 @@ docs/reference
 # Other folders
 checkpoints/
 data/
-docs/
 docs_public/
 logs/
 mlruns/

@@ -3,7 +3,7 @@ name: instanovo
 channels:
   - default
 dependencies:
-  - python=3.8.3
+  - python=3.8
   - pip
   - setuptools=68.2.2
   - pip:
