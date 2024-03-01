@@ -131,7 +131,7 @@ make_docs:
     - kao-k8s-runner
   before_script:
     - /usr/local/bin/python -m pip install --upgrade pip
-    - pip install -r requirements-dev.txt
+    - pip install -r requirements-docs.txt
     - git config --global --add safe.directory "$(dirname "$(pwd)")"
   script:
     - rm -rf docs/reference
@@ -147,7 +147,7 @@ pages:
     - kao-k8s-runner
   before_script:
     - /usr/local/bin/python -m pip install --upgrade pip
-    - pip install -r requirements-dev.txt
+    - pip install -r requirements-docs.txt
     - git config --global --add safe.directory "$(dirname "$(pwd)")"
   script:
     - mkdocs build --verbose

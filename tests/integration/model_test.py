@@ -458,7 +458,6 @@ def test_model(
         ),
     )
     assert peptides == ("TPGREDAAEETAAPGK", "TPGREDAAEETAAPGK")
-    assert _ is None
 
     spectra = spectra.to(device)
     precursors = precursors.to(device)
