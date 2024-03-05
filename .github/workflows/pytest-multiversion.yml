@@ -37,3 +37,8 @@ jobs:
         run: |
           pytest -v --alluredir=allure_results  --cov-report=html --cov  --cov-config=.coveragerc --random-order
           coverage report -m
+      - name: Test notebooks
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        run: |
+          python -m ipykernel install --user --name instanovo
+          pytest --nbmake "./notebooks"  --nbmake-kernel=instanovo --nbmake-timeout=10000
