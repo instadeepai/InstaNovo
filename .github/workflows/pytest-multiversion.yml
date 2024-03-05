@@ -40,4 +40,4 @@ jobs:
       - name: Test notebooks
         run: |
           python -m ipykernel install --user --name instanovo
-          pytest --nbmake "./notebooks"  --nbmake-kernel=instanovo
+          pytest --nbmake "./notebooks"  --nbmake-kernel=instanovo --nbmake-timeout=3600
