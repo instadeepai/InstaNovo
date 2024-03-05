@@ -6,7 +6,7 @@ from pathlib import Path
 import setuptools
 from setuptools import setup
 
-__version__ = "0.1.6"
+__version__ = "0.1.7"
 
 
 def read_requirements(file: str) -> list[str]:
