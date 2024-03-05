@@ -14,7 +14,7 @@ iterative refinement of predicted sequences.
 
 **Links:**
 
-- bioRxiv: https://www.biorxiv.org/content/10.1101/2023.08.30.555055v2
+- bioRxiv: https://www.biorxiv.org/content/10.1101/2023.08.30.555055v3
 
 **Developed by:**
 
@@ -169,7 +169,7 @@ The model checkpoints are licensed under Creative Commons Non-Commercial
 	year = {2023},
 	doi = {10.1101/2023.08.30.555055},
 	publisher = {Cold Spring Harbor Laboratory},
-	URL = {https://www.biorxiv.org/content/10.1101/2023.08.30.555055v2},
+	URL = {https://www.biorxiv.org/content/10.1101/2023.08.30.555055v3},
 	journal = {bioRxiv}
 }
 ```
