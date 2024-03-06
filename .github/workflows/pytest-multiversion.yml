@@ -40,5 +40,5 @@ jobs:
       - name: Test notebooks
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         run: |
-          python -m ipykernel install --user --name instanovo
+          PYDEVD_DISABLE_FILE_VALIDATION=1 python -m ipykernel install --user --name instanovo
           pytest --nbmake "./notebooks"  --nbmake-kernel=instanovo --nbmake-timeout=10000
