@@ -1,8 +1,5 @@
 from __future__ import annotations
 
-import os
-
-import numpy as np
 import torch
 from datasets.arrow_dataset import Dataset
 from datasets.dataset_dict import DatasetDict
@@ -10,37 +7,16 @@ from datasets.dataset_dict import IterableDatasetDict
 from datasets.iterable_dataset import IterableDataset
 from torch.utils.data import DataLoader
 
-from instanovo.constants import MASS_SCALE
-from instanovo.inference.knapsack import Knapsack
-from instanovo.inference.knapsack_beam_search import KnapsackBeamSearchDecoder
 from instanovo.transformer.dataset import collate_batch
 from instanovo.transformer.dataset import SpectrumDataset
 from instanovo.transformer.model import InstaNovo
 
 
-def _setup_knapsack(model: InstaNovo) -> Knapsack:
-    residue_masses = model.peptide_mass_calculator.masses
-    residue_masses["$"] = 0
-    residue_indices = model.decoder._aa2idx
-    return Knapsack.construct_knapsack(
-        residue_masses=residue_masses,
-        residue_indices=residue_indices,
-        max_mass=4000.00,
-        mass_scale=MASS_SCALE,
-    )
-
-
-def test_model(
-    instanovo_checkpoint: str,
-    dataset: DatasetDict | Dataset | IterableDatasetDict | IterableDataset,
-    knapsack_dir: str,
-) -> None:
-    """Test loading an InstaNovo model and doing inference end-to-end."""
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    model, config = InstaNovo.load(instanovo_checkpoint)
-    model = model.to(device).eval()
-
+def test_vocab(instanovo_model: InstaNovo) -> None:
+    """Test InstaNovo model vocab."""
+    model, config = instanovo_model
     s2i = {v: k for k, v in model.i2s.items()}
+
     assert s2i == {
         "A": 1,
         "C(+57.02)": 6,
@@ -67,11 +43,89 @@ def test_model(
         "Y": 18,
     }
 
+
+def test_config_peaks(instanovo_model: InstaNovo) -> None:
+    """Test InstaNovo config peaks."""
+    model, config = instanovo_model
     n_peaks = config["n_peaks"]
+
     assert n_peaks == 200
+
+
+def test_dataset_default_init(
+    instanovo_model: InstaNovo,
+    dataset: DatasetDict | Dataset | IterableDatasetDict | IterableDataset,
+) -> None:
+    """Test InstaNovo dataset default initialisation."""
+    model, config = instanovo_model
+    s2i = {v: k for k, v in model.i2s.items()}
+
+    ds = SpectrumDataset(df=dataset, s2i=s2i)
+
+    assert ds.n_peaks == 200
+    assert ds.min_mz == 50
+    assert ds.max_mz == 2500
+    assert ds.min_intensity == 0.01
+    assert ds.remove_precursor_tol == 2.0
+    assert ds.reverse_peptide
+    assert ds.EOS_ID == -1
+    assert ds.annotated
+    assert not ds.return_str
+
+
+def test_dataset_spec_init(
+    instanovo_model: InstaNovo,
+    dataset: DatasetDict | Dataset | IterableDatasetDict | IterableDataset,
+) -> None:
+    """Test InstaNovo dataset specified initialisation."""
+    model, config = instanovo_model
+    s2i = {v: k for k, v in model.i2s.items()}
+
+    ds = SpectrumDataset(
+        df=dataset,
+        s2i=s2i,
+        n_peaks=100,
+        min_mz=25,
+        max_mz=1000,
+        min_intensity=0.01,
+        remove_precursor_tol=1.0,
+        reverse_peptide=False,
+        annotated=False,
+        return_str=True,
+    )
+
+    assert ds.n_peaks == 100
+    assert ds.min_mz == 25
+    assert ds.max_mz == 1000
+    assert ds.min_intensity == 0.01
+    assert ds.remove_precursor_tol == 1.0
+    assert not ds.reverse_peptide
+    assert ds.EOS_ID == -1
+    assert not ds.annotated
+    assert ds.return_str
+
+
+def test_dataset_length(
+    instanovo_model: InstaNovo,
+    dataset: DatasetDict | Dataset | IterableDatasetDict | IterableDataset,
+) -> None:
+    """Test InstaNovo dataset length."""
+    model, config = instanovo_model
+    s2i = {v: k for k, v in model.i2s.items()}
 
     ds = SpectrumDataset(dataset, s2i, config["n_peaks"], return_str=True)
     assert len(ds) == 271
+
+
+def test_dataset_batch(
+    instanovo_model: InstaNovo,
+    dataset: DatasetDict | Dataset | IterableDatasetDict | IterableDataset,
+) -> None:
+    """Test InstaNovo dataset batch."""
+    model, config = instanovo_model
+    s2i = {v: k for k, v in model.i2s.items()}
+
+    ds = SpectrumDataset(dataset, s2i, config["n_peaks"], return_str=True)
     spectrum, precursor_mz, precursor_charge, peptide = ds[0]
     assert torch.allclose(
         spectrum,
@@ -115,10 +169,21 @@ def test_model(
         ),
         rtol=1e-04,
     )
+
     assert precursor_mz == 800.38427734375
     assert precursor_charge == 2.0
     assert peptide == "TPGREDAAEETAAPGK"
 
+
+def test_collate(
+    instanovo_model: InstaNovo,
+    dataset: DatasetDict | Dataset | IterableDatasetDict | IterableDataset,
+) -> None:
+    """Test InstaNovo dataloader collate function."""
+    model, config = instanovo_model
+    s2i = {v: k for k, v in model.i2s.items()}
+
+    ds = SpectrumDataset(dataset, s2i, config["n_peaks"], return_str=True)
     dl = DataLoader(ds, batch_size=2, shuffle=False, collate_fn=collate_batch)
     batch = next(iter(dl))
 
@@ -458,31 +523,3 @@ def test_model(
         ),
     )
     assert peptides == ("TPGREDAAEETAAPGK", "TPGREDAAEETAAPGK")
-
-    spectra = spectra.to(device)
-    precursors = precursors.to(device)
-
-    if not os.path.exists(knapsack_dir):
-        knapsack = _setup_knapsack(model)
-        decoder = KnapsackBeamSearchDecoder(model, knapsack)
-        knapsack.save(knapsack_dir)
-    else:
-        decoder = KnapsackBeamSearchDecoder.from_file(model=model, path=knapsack_dir)
-
-    assert os.path.isfile(os.path.join(knapsack_dir, "parameters.pkl"))
-    assert os.path.isfile(os.path.join(knapsack_dir, "chart.npy"))
-    assert os.path.isfile(os.path.join(knapsack_dir, "masses.npy"))
-    assert isinstance(decoder, KnapsackBeamSearchDecoder)
-
-    with torch.no_grad():
-        p = decoder.decode(
-            spectra=spectra,
-            precursors=precursors,
-            beam_size=config["n_beams"],
-            max_length=config["max_length"],
-        )
-    preds = ["".join(x.sequence) if not isinstance(x, list) else "" for x in p]
-    probs = [x.log_probability if not isinstance(x, list) else -1 for x in p]
-
-    assert preds == ["NRNVGDQNGC(+57.02)LAPGK", "TDRPGEAAEETAAPGK"]
-    assert np.allclose(probs, [-8.156049728393555, -3.1159517765045166])
