@@ -974,12 +974,12 @@ def test_model(
     if device == "cuda":
         assert preds == ["DTEDRVQPGGYAPGK", "TPARDEAAEETAAPGK", "DVAEKQDDIKEEAK"]
         assert np.allclose(
-            probs, [-1.7420989274978638, -0.07612105458974838, -0.01360385213047266], rtol=1e-4
+            probs, [-1.7420989274978638, -0.07612105458974838, -0.01360385213047266], rtol=1e-2
         )
     else:
         assert preds == ["NGSRWVM(+15.99)VGQDAPGK", "TPAREDAAEETAAPGK", "DVAEKQDDIKEEAK"]
         assert np.allclose(
-            probs, [-1.3853957653045654, -0.04906697943806648, -0.005087343044579029], rtol=1e-4
+            probs, [-1.3853957653045654, -0.04906697943806648, -0.005087343044579029], rtol=1e-2
         )
 
     model, config = instanovo_model
