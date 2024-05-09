@@ -1,17 +1,13 @@
 from __future__ import annotations
 
-import depthcharge.masses
 import torch
-from depthcharge.components import PeptideDecoder
-from depthcharge.components import SpectrumEncoder
-from depthcharge.components.encoders import MassEncoder
-from depthcharge.components.encoders import PeakEncoder
-from depthcharge.components.encoders import PositionalEncoder
 from torch import nn
 from torch import Tensor
 
+from instanovo.constants import MAX_SEQUENCE_LENGTH
 from instanovo.transformer.layers import MultiScalePeakEmbedding
 from instanovo.transformer.layers import PositionalEncoding
+from instanovo.utils.residues import ResidueSet
 
 
 class InstaNovo(nn.Module):
@@ -19,119 +15,55 @@ class InstaNovo(nn.Module):
 
     def __init__(
         self,
-        i2s: dict[int, str],
-        residues: dict[str, float],
+        residue_set: ResidueSet,
         dim_model: int = 768,
         n_head: int = 16,
         dim_feedforward: int = 2048,
         n_layers: int = 9,
         dropout: float = 0.1,
-        max_length: int = 30,
         max_charge: int = 5,
-        bos_id: int = 1,
-        eos_id: int = 2,
-        use_depthcharge: bool = True,
-        enc_type: str = "depthcharge",
-        dec_type: str = "depthcharge",
-        dec_precursor_sos: bool = False,
     ) -> None:
         super().__init__()
-        self.i2s = i2s
-        self.n_vocab = len(self.i2s)
-        self.residues = residues
-        self.bos_id = bos_id  # beginning of sentence ID, prepend to y
-        self.eos_id = eos_id  # stop token
-        self.pad_id = 0
-        self.use_depthcharge = use_depthcharge
-
-        self.enc_type = enc_type
-        self.dec_type = dec_type
-        self.dec_precursor_sos = dec_precursor_sos
-        self.peptide_mass_calculator = depthcharge.masses.PeptideMass(self.residues)
+        self.residue_set = residue_set
+        self.vocab_size = len(residue_set)
 
         self.latent_spectrum = nn.Parameter(torch.randn(1, 1, dim_model))
 
         # Encoder
-        if self.enc_type == "depthcharge":
-            self.encoder = SpectrumEncoder(
-                dim_model=dim_model,
-                n_head=n_head,
-                dim_feedforward=dim_feedforward,
-                n_layers=n_layers,
-                dropout=dropout,
-                dim_intensity=None,
-            )
-            if not self.dec_precursor_sos:
-                self.mass_encoder = MassEncoder(dim_model)
-                self.charge_encoder = nn.Embedding(max_charge, dim_model)
+        self.peak_encoder = MultiScalePeakEmbedding(dim_model, dropout=dropout)
 
-        else:
-            if not self.use_depthcharge:
-                self.peak_encoder = MultiScalePeakEmbedding(dim_model, dropout=dropout)
-                self.mass_encoder = self.peak_encoder.encode_mass
-            else:
-                self.mass_encoder = MassEncoder(dim_model)
-                self.peak_encoder = PeakEncoder(dim_model, dim_intensity=None)
-
-            encoder_layer = nn.TransformerEncoderLayer(
-                d_model=dim_model,
-                nhead=n_head,
-                dim_feedforward=dim_feedforward,
-                batch_first=True,
-                dropout=dropout,
-            )
-            self.encoder = nn.TransformerEncoder(
-                encoder_layer,
-                num_layers=n_layers,
-                enable_nested_tensor=False,
-            )
+        encoder_layer = nn.TransformerEncoderLayer(
+            d_model=dim_model,
+            nhead=n_head,
+            dim_feedforward=dim_feedforward,
+            batch_first=True,
+            dropout=dropout,
+        )
+        self.encoder = nn.TransformerEncoder(
+            encoder_layer,
+            num_layers=n_layers,
+            enable_nested_tensor=False,
+        )
 
         # Decoder
-        if dec_type == "depthcharge":
-            self.decoder = PeptideDecoder(
-                dim_model=dim_model,
-                n_head=n_head,
-                dim_feedforward=dim_feedforward,
-                n_layers=n_layers,
-                dropout=dropout,
-                residues=residues,
-                max_charge=max_charge,
-            )
+        self.aa_embed = nn.Embedding(self.vocab_size, dim_model, padding_idx=0)
 
-            if not dec_precursor_sos:
-                del self.decoder.charge_encoder
-                self.decoder.charge_encoder = lambda x: torch.zeros(
-                    x.shape[0], dim_model, device=x.device
-                )
-                self.sos_embedding = nn.Parameter(torch.randn(1, 1, dim_model))
-                del self.decoder.mass_encoder
-                self.decoder.mass_encoder = lambda x: self.sos_embedding.expand(x.shape[0], -1, -1)
-        else:
-            self.aa_embed = nn.Embedding(self.n_vocab, dim_model, padding_idx=0)
-            if not self.use_depthcharge:
-                self.aa_pos_embed = PositionalEncoding(dim_model, dropout, max_len=200)
-                assert max_length <= 200  # update value if necessary
-            else:
-                self.aa_pos_embed = PositionalEncoder(dim_model)
+        self.aa_pos_embed = PositionalEncoding(dim_model, dropout, max_len=MAX_SEQUENCE_LENGTH)
 
-            decoder_layer = nn.TransformerDecoderLayer(
-                d_model=dim_model,
-                nhead=n_head,
-                dim_feedforward=dim_feedforward,
-                batch_first=True,
-                dropout=dropout,
-                # norm_first=True,
-            )
-            self.decoder = nn.TransformerDecoder(
-                decoder_layer,
-                num_layers=n_layers,
-            )
+        decoder_layer = nn.TransformerDecoderLayer(
+            d_model=dim_model,
+            nhead=n_head,
+            dim_feedforward=dim_feedforward,
+            batch_first=True,
+            dropout=dropout,
+        )
+        self.decoder = nn.TransformerDecoder(
+            decoder_layer,
+            num_layers=n_layers,
+        )
 
-            self.head = nn.Linear(dim_model, self.n_vocab)
-            self.charge_encoder = nn.Embedding(max_charge, dim_model)
-
-        if self.dec_type == "depthcharge":
-            self.eos_id = self.decoder._aa2idx["$"]
+        self.head = nn.Linear(dim_model, self.vocab_size)
+        self.charge_encoder = nn.Embedding(max_charge, dim_model)
 
     @staticmethod
     def _get_causal_mask(seq_len: int) -> Tensor:
@@ -150,22 +82,16 @@ class InstaNovo(nn.Module):
         if all([x.startswith("model") for x in ckpt["state_dict"].keys()]):
             ckpt["state_dict"] = {k.replace("model.", ""): v for k, v in ckpt["state_dict"].items()}
 
-        i2s = {i: v for i, v in enumerate(config["vocab"])}
+        residue_set = ResidueSet(config["residues"])
 
         model = cls(
-            i2s=i2s,
-            residues=config["residues"],
+            residue_set=residue_set,
             dim_model=config["dim_model"],
             n_head=config["n_head"],
             dim_feedforward=config["dim_feedforward"],
             n_layers=config["n_layers"],
             dropout=config["dropout"],
-            max_length=config["max_length"],
             max_charge=config["max_charge"],
-            use_depthcharge=config["use_depthcharge"],
-            enc_type=config["enc_type"],
-            dec_type=config["dec_type"],
-            dec_precursor_sos=config["dec_precursor_sos"],
         )
         model.load_state_dict(ckpt["state_dict"])
 
@@ -195,15 +121,14 @@ class InstaNovo(nn.Module):
             (batch, n+1, vocab_size) if add_bos==True.
         """
         x, x_mask = self._encoder(x, p, x_mask)
-        return self._decoder(x, p, y, x_mask, y_mask, add_bos)
+        return self._decoder(x, y, x_mask, y_mask, add_bos)
 
     def init(
         self, x: Tensor, p: Tensor, x_mask: Tensor = None
     ) -> tuple[tuple[Tensor, Tensor], Tensor]:
         """Initialise model encoder."""
         x, x_mask = self._encoder(x, p, x_mask)
-        # y = torch.ones((x.shape[0], 1), dtype=torch.long, device=x.device) * self.bos_id
-        logits, _ = self._decoder(x, p, None, x_mask, None, add_bos=False)
+        logits = self._decoder(x, None, x_mask, None, add_bos=False)
         return (x, x_mask), torch.log_softmax(logits[:, -1, :], -1)
 
     def score_candidates(
@@ -214,71 +139,42 @@ class InstaNovo(nn.Module):
         x_mask: torch.BoolTensor,
     ) -> torch.FloatTensor:
         """Score a set of candidate sequences."""
-        logits, _ = self._decoder(x, p, y, x_mask, None, add_bos=True)
+        logits = self._decoder(x, y, x_mask, None, add_bos=True)
 
         return torch.log_softmax(logits[:, -1, :], -1)
 
     def get_residue_masses(self, mass_scale: int) -> torch.LongTensor:
         """Get the scaled masses of all residues."""
-        residue_masses = torch.zeros(max(self.decoder._idx2aa.keys()) + 1).type(torch.int64)
-        for index, residue in self.decoder._idx2aa.items():
-            if residue in self.peptide_mass_calculator.masses:
-                residue_masses[index] = round(
-                    mass_scale * self.peptide_mass_calculator.masses[residue]
-                )
+        residue_masses = torch.zeros(len(self.residue_set), dtype=torch.int64)
+        for index, residue in self.residue_set.index_to_residue.items():
+            if residue in self.residue_set.residue_masses:
+                residue_masses[index] = round(mass_scale * self.residue_set.get_mass(residue))
         return residue_masses
 
     def get_eos_index(self) -> int:
         """Get the EOS token ID."""
-        return self.eos_id
+        return int(self.residue_set.EOS_INDEX)
 
     def get_empty_index(self) -> int:
         """Get the PAD token ID."""
-        return 0
+        return int(self.residue_set.PAD_INDEX)
 
     def decode(self, sequence: torch.LongTensor) -> list[str]:
         """Decode a single sequence of AA IDs."""
-        return self.decoder.detokenize(sequence)  # type: ignore
+        # return self.decoder.detokenize(sequence)  # type: ignore
+        # Note: Sequence is reversed as InstaNovo predicts right-to-left.
+        # We reverse the sequence again when decoding to ensure the decoder outputs forward sequences.
+        return self.residue_set.decode(sequence, reverse=True)  # type: ignore
 
-    def idx_to_aa(self, idx: Tensor) -> list[str]:
-        """Decode a single sample of indices to aa list."""
-        idx = idx.cpu().numpy()
-        t = []
-        for i in idx:
-            if i == self.eos_id:
-                break
-            if i == self.bos_id or i == self.pad_id:
-                continue
-            t.append(i)
-        return [self.i2s[x.item()] for x in t]
-
-    def batch_idx_to_aa(self, idx: Tensor) -> list[list[str]]:
+    def batch_idx_to_aa(self, idx: torch.LongTensor, reverse: bool = False) -> list[list[str]]:
         """Decode a batch of indices to aa lists."""
-        return [self.idx_to_aa(i) for i in idx]
+        return [self.residue_set.decode(i, reverse=reverse) for i in idx]
 
     def _encoder(self, x: Tensor, p: Tensor, x_mask: Tensor = None) -> tuple[Tensor, Tensor]:
-        if self.enc_type == "depthcharge":
-            x, x_mask = self.encoder(x)
-
-            if not self.dec_precursor_sos:
-                # Prepare precursors
-                masses = self.mass_encoder(p[:, None, [0]])
-                charges = self.charge_encoder(p[:, 1].int() - 1)
-                precursors = masses + charges[:, None, :]
-                x = torch.cat([precursors, x], dim=1)
-                prec_mask = torch.zeros((x_mask.shape[0], 1), dtype=bool, device=x_mask.device)
-                x_mask = torch.cat([prec_mask, x_mask], dim=1)
-            return x, x_mask
-
         if x_mask is None:
             x_mask = ~x.sum(dim=2).bool()
 
-        # Peak encoding
-        if not self.use_depthcharge:
-            x = self.peak_encoder(x[:, :, [0]], x[:, :, [1]])
-        else:
-            x = self.peak_encoder(x)
-        # x = self.peak_norm(x)
+        x = self.peak_encoder(x[:, :, [0]], x[:, :, [1]])
 
         # Self-attention on latent spectra AND peaks
         latent_spectra = self.latent_spectrum.expand(x.shape[0], -1, -1)
@@ -288,33 +184,33 @@ class InstaNovo(nn.Module):
 
         x = self.encoder(x, src_key_padding_mask=x_mask)
 
-        if not self.dec_precursor_sos:
-            # Prepare precursors
-            masses = self.mass_encoder(p[:, None, [0]])
-            charges = self.charge_encoder(p[:, 1].int() - 1)
-            precursors = masses + charges[:, None, :]
+        # Prepare precursors
+        masses = self.peak_encoder.encode_mass(p[:, None, [0]])
+        charges = self.charge_encoder(p[:, 1].int() - 1)
+        precursors = masses + charges[:, None, :]
 
-            # Concatenate precursors
-            x = torch.cat([precursors, x], dim=1)
-            prec_mask = torch.zeros((x_mask.shape[0], 1), dtype=bool, device=x_mask.device)
-            x_mask = torch.cat([prec_mask, x_mask], dim=1)
+        # Concatenate precursors
+        x = torch.cat([precursors, x], dim=1)
+        prec_mask = torch.zeros((x_mask.shape[0], 1), dtype=bool, device=x_mask.device)
+        x_mask = torch.cat([prec_mask, x_mask], dim=1)
 
         return x, x_mask
 
     def _decoder(
         self,
         x: Tensor,
-        p: Tensor,
         y: Tensor,
         x_mask: Tensor,
         y_mask: Tensor = None,
         add_bos: bool = True,
     ) -> Tensor:
-        if self.dec_type == "depthcharge":
-            return self.decoder(y, p, x, x_mask)
-
-        if add_bos:
-            bos = torch.ones((y.shape[0], 1), dtype=y.dtype, device=y.device) * self.bos_id
+        if y is None:
+            y = torch.full((x.shape[0], 1), self.residue_set.SOS_INDEX, device=x.device)
+        elif add_bos:
+            bos = (
+                torch.ones((y.shape[0], 1), dtype=y.dtype, device=y.device)
+                * self.residue_set.SOS_INDEX
+            )
             y = torch.cat([bos, y], dim=1)
 
             if y_mask is not None:
@@ -323,7 +219,8 @@ class InstaNovo(nn.Module):
 
         y = self.aa_embed(y)
         if y_mask is None:
-            y_mask = y.sum(axis=2) == 0
+            y_mask = ~y.sum(axis=2).bool()
+
         # concat bos
         y = self.aa_pos_embed(y)
 

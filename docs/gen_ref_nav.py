@@ -11,7 +11,7 @@ import pathlib
 import mkdocs_gen_files
 
 # Folders for which we don't want to create code documentation but which can contain *.py files
-IGNORE = ("public", "docs", "tests", ".")
+IGNORE = ("public", "docs", "tests", "scripts", ".")
 
 nav = mkdocs_gen_files.Nav()
 

@@ -1,0 +1,5 @@
+outs:
+- md5: fbd485f3e3c532900452a4c0c05e1fff
+  size: 324448769
+  hash: md5
+  path: gluc_raw.ipc

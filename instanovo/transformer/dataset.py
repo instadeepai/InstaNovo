@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-import re
+import logging
+from pathlib import Path
 
 import datasets
 import numpy as np
@@ -13,6 +14,10 @@ from torch import Tensor
 from torch.utils.data import Dataset
 
 from instanovo.constants import PROTON_MASS_AMU
+from instanovo.utils.residues import ResidueSet
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 
 class SpectrumDataset(Dataset):
@@ -21,20 +26,19 @@ class SpectrumDataset(Dataset):
     def __init__(
         self,
         df: pd.DataFrame | pl.DataFrame,
-        s2i: dict[str, int],
+        residue_set: ResidueSet,
         n_peaks: int = 200,
         min_mz: float = 50.0,
         max_mz: float = 2500.0,
         min_intensity: float = 0.01,
         remove_precursor_tol: float = 2.0,
         reverse_peptide: bool = True,
-        eos_symbol: str = "</s>",
         annotated: bool = True,
         return_str: bool = False,
     ) -> None:
         super().__init__()
         self.df = df
-        self.s2i = s2i
+        self.residue_set = residue_set
         self.n_peaks = n_peaks
         self.min_mz = min_mz
         self.max_mz = max_mz
@@ -43,11 +47,6 @@ class SpectrumDataset(Dataset):
         self.reverse_peptide = reverse_peptide
         self.annotated = annotated
         self.return_str = return_str
-
-        if eos_symbol in self.s2i:
-            self.EOS_ID = self.s2i[eos_symbol]
-        else:
-            self.EOS_ID = -1
 
         if isinstance(df, pd.DataFrame):
             self.data_type = "pd"
@@ -58,10 +57,12 @@ class SpectrumDataset(Dataset):
         else:
             raise Exception(f"Unsupported data type {type(df)}")
 
+        self._check_expected_cols()
+
     def __len__(self) -> int:
         return int(self.df.shape[0])
 
-    def __getitem__(self, idx: int) -> tuple[Tensor, float, int, Tensor | list[str]]:
+    def __getitem__(self, idx: int) -> tuple[Tensor, float, int, Tensor | str]:
         peptide = ""
 
         if self.data_type == "pl":
@@ -88,18 +89,35 @@ class SpectrumDataset(Dataset):
             if self.annotated:
                 peptide = row["modified_sequence"]
 
-        # Split on amino acids allowing for modifications eg. AM(ox)Z -> [A, M(ox), Z]
-        # Groups A-Z with any suffix
-        if not self.return_str:
-            peptide = re.split(r"(?<=.)(?=[A-Z])", peptide)  # type: ignore
-            if self.reverse_peptide:
-                peptide = peptide[::-1]
-
-            peptide = torch.tensor([self.s2i[x] for x in peptide] + [self.EOS_ID]).long()
-
         spectrum = self._process_peaks(mz_array, int_array, precursor_mz, precursor_charge)
 
+        if not self.return_str:
+            peptide_tokenized = self.residue_set.tokenize(peptide)
+            if self.reverse_peptide:
+                peptide_tokenized = peptide_tokenized[::-1]
+
+            peptide_encoding = self.residue_set.encode(
+                peptide_tokenized, add_eos=True, return_tensor="pt"
+            )
+            return spectrum, precursor_mz, precursor_charge, peptide_encoding
+
         return spectrum, precursor_mz, precursor_charge, peptide
+
+    def _check_expected_cols(self) -> None:
+        expected_cols = [
+            "mz_array",
+            "intensity_array",
+            "precursor_mz",
+            "precursor_charge",
+            "modified_sequence",
+        ]
+        missing_cols = [col for col in expected_cols if col not in self.df.columns]
+        if missing_cols:
+            plural_s = "s" if len(missing_cols) > 1 else ""
+            missing_col_names = ", ".join(missing_cols)
+            raise ValueError(
+                f"Column{plural_s} missing! Missing column{plural_s}: {missing_col_names}"
+            )
 
     def _process_peaks(
         self,
@@ -194,3 +212,78 @@ def collate_batch(
     precursors = torch.vstack([precursor_masses, precursor_charges, precursor_mzs]).T.float()
 
     return spectra, precursors, spectra_mask, peptides, peptides_mask
+
+
+# TODO: move to generic utils
+def load_ipc_shards(
+    data_path: str | Path, split: str = "train", remap_cols: bool = True
+) -> pl.DataFrame:
+    """Load sharded polars dataframe."""
+    data_path = Path(data_path)
+    if data_path.is_file():
+        return pl.read_ipc(str(data_path))
+
+    df_list = []
+    for file in data_path.iterdir():
+        if f"{split}_shard" not in file.stem:
+            continue
+        logger.info(f"Reading shard {str(file)}")
+        raw_df = pl.read_ipc(str(file))
+        df = _clean_and_remap(raw_df)
+        del raw_df
+        df_list.append(df)
+        logger.info(f"Read {df.shape[0]:,} spectra")
+
+    if len(df_list) == 0:
+        # No shards found, assume "{split}.ipc" name used
+        file = data_path.joinpath(f"{split}.ipc")
+        logger.info(f"No shards found, reading {str(file)}")
+        if not file.exists():
+            raise ValueError(
+                f"No shards for split '{split}' in {data_path}. Fallback to {file} also failed."
+            )
+        raw_df = pl.read_ipc(str(file))
+        df = _clean_and_remap(raw_df)
+        del raw_df
+        df_list.append(df)
+        logger.info(f"Read {df.shape[0]:,} spectra")
+
+    df = pl.concat(df_list)
+
+    return df
+
+
+def _clean_and_remap(df: pl.DataFrame) -> pl.DataFrame:
+    col_map: dict[str, str] = {
+        "Modified sequence": "modified_sequence",
+        "MS/MS m/z": "precursor_mz",
+        "Precursor m/z": "precursor_mz",
+        "Theoretical m/z": "theoretical_mz",
+        "Mass": "precursor_mass",
+        "Charge": "precursor_charge",
+        "Mass values": "mz_array",
+        "Mass spectrum": "mz_array",
+        "Intensity": "intensity_array",
+        "Raw intensity spectrum": "intensity_array",
+    }
+
+    col_dtypes: dict[str, pl.DataType] = {
+        "modified_sequence": str,
+        "precursor_mz": pl.Float64,
+        "precursor_charge": pl.Int32,
+        "mz_array": pl.List(pl.Float32),
+        "intensity_array": pl.List(pl.Float32),
+    }
+
+    df = df.rename({k: v for k, v in col_map.items() if k in df.columns})
+    if df.select(pl.first("modified_sequence")).item()[0] == "_":
+        df = df.with_columns(pl.col("modified_sequence").apply(lambda x: x[1:-1]))
+    if df.select(pl.first("modified_sequence")).item()[0] == ".":
+        df = df.with_columns(pl.col("modified_sequence").apply(lambda x: x[1:-1]))
+
+    df = df.drop([col for col in df.columns if col not in list(col_dtypes.keys())])
+
+    # cast fp64
+    df = df.with_columns([pl.col(k).cast(v) for k, v in col_dtypes.items()])
+
+    return df.select(list(col_dtypes.keys()))

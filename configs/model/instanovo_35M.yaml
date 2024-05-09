@@ -1,0 +1,10 @@
+defaults:
+  - instanovo_base
+  - _self_
+
+# Model parameters
+dim_model: 480
+n_head: 20
+dim_feedforward: 1920
+n_layers: 12
+dropout: 0.1

@@ -1,0 +1,5 @@
+outs:
+- md5: 0f01ceb5957d8968f9e2789fabe6d090
+  size: 4570188401
+  hash: md5
+  path: test.ipc

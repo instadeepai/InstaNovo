@@ -1,0 +1,5 @@
+outs:
+- md5: 50c7b6daeba570f3280c99337e941da0
+  size: 849222939
+  hash: md5
+  path: train.ipc

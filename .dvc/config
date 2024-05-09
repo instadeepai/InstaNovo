@@ -1,0 +1,5 @@
+[core]
+    remote = google_cloud
+    autostage = true
+['remote "google_cloud"']
+    url = gs://denovo_dvc_data

@@ -1,23 +1,34 @@
-# yaml-language-server: $schema=https://prod.instadeep.ichorai.io/schema/latest/manifest.schema.json
-kind: "IchorManifest"
-version: "0.0.2"
-docker:
-  image: dtu-denovo-sequencing
-  dockerfile: Dockerfile
+# yaml-language-server: $schema=https://instadeep.aichor.ai/schema/latest/manifest.schema.json
+kind: AIchorManifest
+apiVersion: 0.2.1
+builder:
+  image: instanovo
+  dockerfile: ./Dockerfile
+  context: .
+  buildArgs:
+    USE_CUDA: "true"
 spec:
   operator: tf
-  image: dtu-denovo-sequencing
-  command: make set-gcp-credentials && make download_dataset_v1 && make train
+  image: instanovo
+  # command: make set-gcp-credentials && make download_validation && make download_dataset_v2_ipc && make validate_instanovo
+  # command: make set-gcp-credentials && make train_acpt
+  # command: make set-gcp-credentials && make finetune_on_hcpt
+  # command: make set-gcp-credentials && make finetune_on_phospho
+  command: make set-gcp-credentials && make train_extended
+
+  tensorboard: # optional, disabled by default
+    enabled: true
+
   types:
     Worker:
-      replicas: 1
-      cpus: 32
-      # optional: number of GPUs wanted
-      gpus: 2
-      # gpuType: mig-3g.20gb
-      gpuType: gpu
-      # gpuProduct: A100-SXM4-40GB
-      gpuProduct: NVIDIA-A100-SXM-80GB
-      # gpuProduct: Tesla-V100-SXM3-32GB
-      # mandatory (must be >= 2): RAM to CPU ratio (in GB)
-      ramRatio: 16
+      count: 1
+      resources:
+        cpus: 32
+        ramRatio: 8 # >= 2
+
+        accelerators:
+          gpu:
+            count: 1
+            type: gpu # gpu, mig-1g.10gb, mig-3g.20gb, mig-3g.40gb
+            product: NVIDIA-A100-SXM4-80GB # NVIDIA-A100-SXM-80GB
+            # product: A100-SXM4-80GB # NVIDIA-A100-SXM-80GB

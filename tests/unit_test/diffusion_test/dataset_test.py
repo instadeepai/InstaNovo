@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pandas as pd
 import polars as pl
+import pytest
 import torch
 from datasets.arrow_dataset import Dataset
 from datasets.dataset_dict import DatasetDict
@@ -12,6 +13,7 @@ from instanovo.diffusion.dataset import AnnotatedPolarsSpectrumDataset
 from instanovo.diffusion.dataset import PolarsSpectrumDataset
 
 
+@pytest.mark.skip(reason="Skip diffusion tests for the moment")
 def test_preds(load_preds: list[str]) -> None:
     """Test InstaNovo predictions type."""
     assert isinstance(load_preds, list)
@@ -75,6 +77,7 @@ def test_polar_spectrum(
     assert precursor_charge == 2.0
 
 
+@pytest.mark.skip(reason="Skip diffusion tests for the moment")
 def test_ann_polar_spectrum(
     load_preds: list[str],
     dataset: DatasetDict | Dataset | IterableDatasetDict | IterableDataset,

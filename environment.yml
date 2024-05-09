@@ -3,10 +3,10 @@ name: instanovo
 channels:
   - default
 dependencies:
-  - python=3.8
+  - python=3.10
   - pip
-  - setuptools=68.2.2
+  - setuptools=69.5.1
   - pip:
-      - -r requirements-dev.txt
-      - -r requirements.txt
-      - pre-commit==2.20.0
+      - --extra-index-url https://pypi.cs.uni-tuebingen.de/simple/pyopenms/
+      - -r requirements/requirements.txt
+      - -r requirements/requirements-dev.txt

@@ -38,26 +38,23 @@ if you have
 installed:
 
 ```bash
+conda update -n base conda
 conda env create -f environment.yml
 conda activate instanovo
 ```
 
-Note: InstaNovo is built for Python >= 3.8
+Note: InstaNovo is built for Python >= 3.10
 
 ### Training
 
-To train auto-regressive InstaNovo:
+To train auto-regressive InstaNovo using Hydra configs (see `--hydra-help` for more information):
 
 ```bash
-usage: python -m instanovo.transformer.train train_path valid_path [-h] [--config CONFIG] [--n_gpu N_GPU] [--n_workers N_WORKERS]
+usage: python -m instanovo.transformer.train [--config-name CONFIG_NAME]
 
-required arguments:
-  train_path        Training data path
-  valid_path        Validation data path
-
-optional arguments:
-  --config CONFIG   file in configs folder
-  --n_workers N_WORKERS
+Config options:
+  config-name       Name of Hydra config in `/configs/instanovo/`
+                    Defaults to `instanovo_acpt`
 ```
 
 Note: data is expected to be saved as Polars `.ipc` format. See section on data conversion.
@@ -70,21 +67,16 @@ To update the InstaNovo model config, modify the config file under
 To evaluate InstaNovo:
 
 ```bash
-usage: python -m instanovo.transformer.predict data_path model_path [-h] [--denovo] [--config CONFIG] [--subset SUBSET] [--knapsack_path KNAPSACK_PATH] [--n_workers N_WORKERS]
+Usage: python -m instanovo.transformer.predict [OPTIONS] DATA_PATH MODEL_PATH
 
-required arguments:
-  data_path         Evaluation data path
-  model_path        Model checkpoint path
+  Predict with the model.
 
-optional arguments:
-  --denovo          evaluate in de novo mode, will not try to compute metrics
-  --output_path OUTPUT_PATH
-                    Save predictions to a csv file (required in de novo mode)
-  --subset SUBSET
-                    portion of set to evaluate
-  --knapsack_path KNAPSACK_PATH
-                    path to pre-computed knapsack
-  --n_workers N_WORKERS
+Options:
+  -o, --output-path TEXT      Save predictions to a csv file (required in de novo mode)
+  -n, --denovo                Evaluate in de novo mode, will not try to compute metrics
+  -s, --subset FLOAT          Portion of set to evaluate, sampled randomly
+  -k, --knapsack-path TEXT    Path to pre-computed knapsack, saved to path if not found
+  -w, --n-workers INTEGER     Number of dataloader workers
 ```
 
 ### Using your own datasets
@@ -163,10 +155,10 @@ The model checkpoints are licensed under Creative Commons Non-Commercial
 ## BibTeX entry and citation info
 
 ```bibtex
-@article{eloff_kalogeropoulos_2023_instanovo,
+@article{eloff_kalogeropoulos_2024_instanovo,
 	title = {De novo peptide sequencing with InstaNovo: Accurate, database-free peptide identification for large scale proteomics experiments},
 	author = {Kevin Eloff and Konstantinos Kalogeropoulos and Oliver Morell and Amandla Mabona and Jakob Berg Jespersen and Wesley Williams and Sam van Beljouw and Marcin Skwark and Andreas Hougaard Laustsen and Stan J. J. Brouns and Anne Ljungars and Erwin Marten Schoof and Jeroen Van Goey and Ulrich auf dem Keller and Karim Beguir and Nicolas Lopez Carranza and Timothy Patrick Jenkins},
-	year = {2023},
+	year = {2024},
 	doi = {10.1101/2023.08.30.555055},
 	publisher = {Cold Spring Harbor Laboratory},
 	URL = {https://www.biorxiv.org/content/10.1101/2023.08.30.555055v3},

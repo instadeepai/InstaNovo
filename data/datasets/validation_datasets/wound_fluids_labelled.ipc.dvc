@@ -1,0 +1,5 @@
+outs:
+- md5: 73da61b57ae5eb27f8dfab47461ad56a
+  size: 17810322
+  hash: md5
+  path: wound_fluids_labelled.ipc

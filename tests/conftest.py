@@ -21,13 +21,14 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 from instanovo.constants import MASS_SCALE
-from instanovo.diffusion.multinomial_diffusion import MultinomialDiffusion
-from instanovo.inference.diffusion import DiffusionDecoder
 from instanovo.inference.knapsack import Knapsack
 from instanovo.inference.knapsack_beam_search import KnapsackBeamSearchDecoder
 from instanovo.transformer.dataset import collate_batch
 from instanovo.transformer.dataset import SpectrumDataset
 from instanovo.transformer.model import InstaNovo
+
+# from instanovo.diffusion.multinomial_diffusion import MultinomialDiffusion
+# from instanovo.inference.diffusion import DiffusionDecoder
 
 # Add the root directory to the PYTHONPATH
 # This allows pytest to find the modules for testing
@@ -119,17 +120,17 @@ def instanovo_model(instanovo_checkpoint: str) -> tuple[Any, Any]:
     return model, config
 
 
-@pytest.fixture(scope="session")
-def instanovoplus_model(
-    instanovoplus_checkpoint: str,
-) -> tuple[MultinomialDiffusion, DiffusionDecoder]:
-    """A pytest fixture to load an InstaNovo+ model from a specified checkpoint."""
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    diffusion_model = MultinomialDiffusion.load(instanovoplus_checkpoint)
-    diffusion_model = diffusion_model.to(device).eval()
-    diffusion_decoder = DiffusionDecoder(model=diffusion_model)
-
-    return diffusion_model, diffusion_decoder
+# @pytest.fixture(scope="session")
+# def instanovoplus_model(
+#     instanovoplus_checkpoint: str,
+# ) -> tuple[MultinomialDiffusion, DiffusionDecoder]:
+#     """A pytest fixture to load an InstaNovo+ model from a specified checkpoint."""
+#     device = "cuda" if torch.cuda.is_available() else "cpu"
+#     diffusion_model = MultinomialDiffusion.load(instanovoplus_checkpoint)
+#     diffusion_model = diffusion_model.to(device).eval()
+#     diffusion_decoder = DiffusionDecoder(model=diffusion_model)
+#
+#     return diffusion_model, diffusion_decoder
 
 
 @pytest.fixture(scope="session")
@@ -193,9 +194,10 @@ def load_preds(
         preds = []
 
         model, config = instanovo_model
-        s2i = {v: k for k, v in model.i2s.items()}
 
-        ds = SpectrumDataset(df=dataset, s2i=s2i, n_peaks=config["n_peaks"], return_str=True)
+        ds = SpectrumDataset(
+            df=dataset, residue_set=model.residue_set, n_peaks=config["n_peaks"], return_str=True
+        )
         dl = DataLoader(ds, batch_size=64, shuffle=False, collate_fn=collate_batch)
 
         output_file = "tests/instanovo_predictions.json"

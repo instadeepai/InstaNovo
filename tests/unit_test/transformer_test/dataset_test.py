@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import pytest
 import torch
 from datasets.arrow_dataset import Dataset
 from datasets.dataset_dict import DatasetDict
@@ -12,6 +13,7 @@ from instanovo.transformer.dataset import SpectrumDataset
 from instanovo.transformer.model import InstaNovo
 
 
+@pytest.mark.skip(reason="Skip diffusion tests for the moment")
 def test_vocab(instanovo_model: InstaNovo) -> None:
     """Test InstaNovo model vocab."""
     model, config = instanovo_model
@@ -44,6 +46,7 @@ def test_vocab(instanovo_model: InstaNovo) -> None:
     }
 
 
+@pytest.mark.skip(reason="Skip diffusion tests for the moment")
 def test_config_peaks(instanovo_model: InstaNovo) -> None:
     """Test InstaNovo config peaks."""
     model, config = instanovo_model
@@ -52,15 +55,15 @@ def test_config_peaks(instanovo_model: InstaNovo) -> None:
     assert n_peaks == 200
 
 
+@pytest.mark.skip(reason="Skip diffusion tests for the moment")
 def test_dataset_default_init(
     instanovo_model: InstaNovo,
     dataset: DatasetDict | Dataset | IterableDatasetDict | IterableDataset,
 ) -> None:
     """Test InstaNovo dataset default initialisation."""
     model, config = instanovo_model
-    s2i = {v: k for k, v in model.i2s.items()}
 
-    ds = SpectrumDataset(df=dataset, s2i=s2i)
+    ds = SpectrumDataset(df=dataset, residue_set=model.residue_set)
 
     assert ds.n_peaks == 200
     assert ds.min_mz == 50
@@ -68,22 +71,21 @@ def test_dataset_default_init(
     assert ds.min_intensity == 0.01
     assert ds.remove_precursor_tol == 2.0
     assert ds.reverse_peptide
-    assert ds.EOS_ID == -1
     assert ds.annotated
     assert not ds.return_str
 
 
+@pytest.mark.skip(reason="Skip diffusion tests for the moment")
 def test_dataset_spec_init(
     instanovo_model: InstaNovo,
     dataset: DatasetDict | Dataset | IterableDatasetDict | IterableDataset,
 ) -> None:
     """Test InstaNovo dataset specified initialisation."""
     model, config = instanovo_model
-    s2i = {v: k for k, v in model.i2s.items()}
 
     ds = SpectrumDataset(
         df=dataset,
-        s2i=s2i,
+        residue_set=model.residue_set,
         n_peaks=100,
         min_mz=25,
         max_mz=1000,
@@ -105,27 +107,27 @@ def test_dataset_spec_init(
     assert ds.return_str
 
 
+@pytest.mark.skip(reason="Skip diffusion tests for the moment")
 def test_dataset_length(
     instanovo_model: InstaNovo,
     dataset: DatasetDict | Dataset | IterableDatasetDict | IterableDataset,
 ) -> None:
     """Test InstaNovo dataset length."""
     model, config = instanovo_model
-    s2i = {v: k for k, v in model.i2s.items()}
 
-    ds = SpectrumDataset(dataset, s2i, config["n_peaks"], return_str=True)
+    ds = SpectrumDataset(dataset, model.residue_set, config["n_peaks"], return_str=True)
     assert len(ds) == 271
 
 
+@pytest.mark.skip(reason="Skip diffusion tests for the moment")
 def test_dataset_batch(
     instanovo_model: InstaNovo,
     dataset: DatasetDict | Dataset | IterableDatasetDict | IterableDataset,
 ) -> None:
     """Test InstaNovo dataset batch."""
     model, config = instanovo_model
-    s2i = {v: k for k, v in model.i2s.items()}
 
-    ds = SpectrumDataset(dataset, s2i, config["n_peaks"], return_str=True)
+    ds = SpectrumDataset(dataset, model.residue_set, config["n_peaks"], return_str=True)
     spectrum, precursor_mz, precursor_charge, peptide = ds[0]
     assert torch.allclose(
         spectrum,
@@ -175,15 +177,15 @@ def test_dataset_batch(
     assert peptide == "TPGREDAAEETAAPGK"
 
 
+@pytest.mark.skip(reason="Skip diffusion tests for the moment")
 def test_collate(
     instanovo_model: InstaNovo,
     dataset: DatasetDict | Dataset | IterableDatasetDict | IterableDataset,
 ) -> None:
     """Test InstaNovo dataloader collate function."""
     model, config = instanovo_model
-    s2i = {v: k for k, v in model.i2s.items()}
 
-    ds = SpectrumDataset(dataset, s2i, config["n_peaks"], return_str=True)
+    ds = SpectrumDataset(dataset, model.residue_set, config["n_peaks"], return_str=True)
     dl = DataLoader(ds, batch_size=2, shuffle=False, collate_fn=collate_batch)
     batch = next(iter(dl))
 

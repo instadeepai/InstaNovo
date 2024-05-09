@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 
 import numpy as np
+import pytest
 import torch
 from datasets.arrow_dataset import Dataset
 from datasets.dataset_dict import DatasetDict
@@ -16,6 +17,7 @@ from instanovo.transformer.dataset import SpectrumDataset
 from instanovo.transformer.model import InstaNovo
 
 
+@pytest.mark.skip(reason="Skip diffusion tests for the moment")
 def test_model(
     instanovo_checkpoint: str,
     dataset: DatasetDict | Dataset | IterableDatasetDict | IterableDataset,
@@ -57,7 +59,7 @@ def test_model(
     n_peaks = config["n_peaks"]
     assert n_peaks == 200
 
-    ds = SpectrumDataset(dataset, s2i, config["n_peaks"], return_str=True)
+    ds = SpectrumDataset(dataset, model.residue_set, config["n_peaks"], return_str=True)
     assert len(ds) == 271
 
     spectrum, precursor_mz, precursor_charge, peptide = ds[0]

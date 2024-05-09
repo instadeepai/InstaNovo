@@ -1,13 +1,10 @@
 from __future__ import annotations
 
-import re
-
 import jiwer
 import numpy as np
 
 from instanovo.constants import CARBON_MASS_DELTA
-from instanovo.constants import H2O_MASS
-from instanovo.constants import PROTON_MASS_AMU
+from instanovo.utils.residues import ResidueSet
 
 
 class Metrics:
@@ -15,25 +12,15 @@ class Metrics:
 
     def __init__(
         self,
-        residues: dict[str, float],
+        residue_set: ResidueSet,
         isotope_error_range: list[int],
         cum_mass_threshold: float = 0.5,
         ind_mass_threshold: float = 0.1,
     ) -> None:
-        self.residues = residues
+        self.residue_set = residue_set
         self.isotope_error_range = isotope_error_range
         self.cum_mass_threshold = cum_mass_threshold
         self.ind_mass_threshold = ind_mass_threshold
-
-    @staticmethod
-    def _split_sequences(seq: list[str] | list[list[str]]) -> list[list[str]]:
-        return [re.split(r"(?<=.)(?=[A-Z])", x) if isinstance(x, str) else x for x in seq]
-
-    @staticmethod
-    def _split_peptide(peptide: str | list[str]) -> list[str]:
-        if not isinstance(peptide, str):
-            return peptide
-        return re.split(r"(?<=.)(?=[A-Z])", peptide)
 
     def matches_precursor(
         self, seq: str | list[str], prec_mass: float, prec_charge: int, prec_tol: int = 50
@@ -61,7 +48,8 @@ class Metrics:
 
         return float(
             jiwer.wer(
-                [" ".join(x) for x in peptides_truth], [" ".join(x) for x in peptides_predicted]
+                [" ".join(x).replace("I", "L") for x in peptides_truth],
+                [" ".join(x).replace("I", "L") for x in peptides_predicted],
             )
         )
 
@@ -96,7 +84,8 @@ class Metrics:
             pred = self._split_peptide(predictions[i])
             conf = confidence[i]  # type: ignore
 
-            if pred[0] == "":
+            # Legacy for old regex, may be removed
+            if len(pred) > 0 and pred[0] == "":
                 pred = []
 
             n_targ_aa += len(targ)
@@ -140,6 +129,14 @@ class Metrics:
         side = top - height
         return (width * height).sum() + 0.5 * (side * width).sum()  # type: ignore
 
+    def _split_sequences(self, seq: list[str] | list[list[str]]) -> list[list[str]]:
+        return [self.residue_set.tokenize(x) if isinstance(x, str) else x for x in seq]
+
+    def _split_peptide(self, peptide: str | list[str]) -> list[str]:
+        if not isinstance(peptide, str):
+            return peptide
+        return self.residue_set.tokenize(peptide)  # type: ignore
+
     def _get_pr_curve(
         self,
         targs: list[str] | list[list[str]],
@@ -160,20 +157,20 @@ class Metrics:
     def _mass(self, seq: str | list[str], charge: int | None = None) -> float:
         """Calculate a peptide's mass or m/z."""
         seq = self._split_peptide(seq)
+        return self.residue_set.get_sequence_mass(seq, charge)  # type: ignore
+        # calc_mass = sum([self.residues[aa] for aa in seq]) + H2O_MASS
 
-        calc_mass = sum([self.residues[aa] for aa in seq]) + H2O_MASS
+        # if charge is not None:
+        #     # Neutral mass
+        #     calc_mass = (calc_mass / charge) + PROTON_MASS_AMU
 
-        if charge is not None:
-            # Neutral mass
-            calc_mass = (calc_mass / charge) + PROTON_MASS_AMU
-
-        return calc_mass
+        # return calc_mass
 
     def _calc_mass_error(
         self, mz_theoretical: float, mz_measured: float, charge: int, isotope: int = 0
     ) -> float:
         """Calculate the mass error between theoretical and actual mz in ppm."""
-        return (
+        return float(
             (mz_theoretical - (mz_measured - isotope * CARBON_MASS_DELTA / charge))
             / mz_measured
             * 10**6
@@ -188,8 +185,8 @@ class Metrics:
         """Number of AA matches with novor method."""
         n = 0
 
-        mass_a: list[float] = [self.residues[x] for x in a]
-        mass_b: list[float] = [self.residues[x] for x in b]
+        mass_a: list[float] = [self.residue_set.get_mass(x) for x in a]
+        mass_b: list[float] = [self.residue_set.get_mass(x) for x in b]
         cum_mass_a = np.cumsum(mass_a)
         cum_mass_b = np.cumsum(mass_b)
 
