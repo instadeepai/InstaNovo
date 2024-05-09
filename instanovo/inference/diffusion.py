@@ -104,8 +104,8 @@ class DiffusionDecoder:
         output = []
         for sequence in sample:
             tokens = sequence.tolist()
-            if self.residues.eos_index in sequence:
-                peptide = tokens[: tokens.index(self.residues.eos_index)]
+            if self.residues.EOS_INDEX in sequence:
+                peptide = tokens[: tokens.index(self.residues.EOS_INDEX)]
             else:
                 peptide = tokens
             output.append(self.residues.decode(peptide))

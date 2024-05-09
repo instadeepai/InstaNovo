@@ -9,6 +9,8 @@ CARBON_MASS_DELTA = 1.00335
 PROTON_MASS_AMU = 1.007276
 MASS_SCALE = 10000
 
+MAX_SEQUENCE_LENGTH = 200
+
 
 class PrecursorDimension(Enum):
     """Names corresponding to indices in the precursor tensor."""
@@ -16,6 +18,14 @@ class PrecursorDimension(Enum):
     PRECURSOR_MASS = 0
     PRECURSOR_CHARGE = 1
     PRECURSOR_MZ = 2
+
+
+class SpecialTokens(Enum):
+    """Special tokens used by the ResidueSet and model."""
+
+    PAD_TOKEN = "[PAD]"  # Padding token
+    EOS_TOKEN = "[EOS]"  # End of sequence
+    SOS_TOKEN = "[SOS]"  # Start of sequence
 
 
 PRECURSOR_DIM = 3

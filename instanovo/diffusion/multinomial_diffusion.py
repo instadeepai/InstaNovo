@@ -95,8 +95,7 @@ class MultinomialDiffusion(nn.Module):
                 for the model. Defaults to False.
 
         Raises:
-            FileExistsError:
-                If `overwrite` is `False` and a directory already exists
+            FileExistsError: If `overwrite` is `False` and a directory already exists
                 for the model identifier.
         """
         # Make directory

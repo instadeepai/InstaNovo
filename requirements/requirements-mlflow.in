@@ -1,0 +1,9 @@
+-c requirements.txt
+-c requirements-dev.txt
+-c requirements-docs.txt
+google-cloud-storage
+gunicorn
+mlflow
+pg8000
+psycopg2-binary
+wsgi-basic-auth

@@ -1,0 +1,5 @@
+outs:
+- md5: 08eef24316a637ec9630feecbebcf023
+  size: 245162801
+  hash: md5
+  path: hela_qc_raw.ipc

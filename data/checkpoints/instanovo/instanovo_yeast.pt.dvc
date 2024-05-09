@@ -1,0 +1,5 @@
+outs:
+- md5: 840db23e8fe7ef9095ea723bdf097f6b
+  size: 378538329
+  hash: md5
+  path: instanovo_yeast.pt

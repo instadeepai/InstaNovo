@@ -129,7 +129,7 @@ def collate_batches(
                     for sequence in peptides
                 ]
             )
-            peptide_padding_mask = peptides == residues.pad_index
+            peptide_padding_mask = peptides == residues.PAD_INDEX
             return AnnotatedSpectrumBatch(
                 spectra, spectra_padding_mask, precursors, peptides, peptide_padding_mask
             )

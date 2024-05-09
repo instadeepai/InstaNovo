@@ -64,8 +64,7 @@ class Knapsack:
                 The path to the directory.
 
         Raises:
-            FileExistsError:
-                If the directory `path` already exists,
+            FileExistsError: If the directory `path` already exists,
                 this message raise an exception.
         """
         if os.path.exists(path):

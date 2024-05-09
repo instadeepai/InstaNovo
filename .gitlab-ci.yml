@@ -5,7 +5,7 @@
 # Note that environment variables can be set in several places
 # See https://docs.gitlab.com/ee/ci/variables/#cicd-variable-precedence
 default:
-  image: python:3.8
+  image: python:3.10
 
 stages:
   - sast
@@ -31,9 +31,9 @@ precommit:
   tags:
     - kao-k8s-runner
   before_script:
-    - /usr/local/bin/python -m pip install --upgrade pip
-    - pip install -r requirements.txt
-    - pip install -r requirements-dev.txt
+    - /usr/local/bin/python -m pip install --upgrade uv
+    - uv pip install --system -r requirements/requirements.txt
+    - uv pip install --system -r requirements/requirements-dev.txt
   script:
     - pre-commit run --all-files -c .pre-commit-config.yaml # This won't run the check on commit msg, we need to add one step
     - echo $(git log -1 --pretty=%s --no-merges) > current_commit_msg
@@ -64,8 +64,9 @@ run_tests:
       - coverage.json
     expire_in: 1 day
   before_script:
-    - pip install -r requirements.txt
-    - pip install -r requirements-dev.txt
+    - /usr/local/bin/python -m pip install --upgrade uv
+    - uv pip install --system -r requirements/requirements.txt
+    - uv pip install --system -r requirements/requirements-dev.txt
   script:
     - pytest -v --alluredir=allure_results  --cov-report=html --cov  --cov-config=.coveragerc
       --random-order
@@ -124,41 +125,41 @@ generate_report:
     expire_in: 1 day
   needs:
     - job: run_tests
-
-make_docs:
-  stage: make_docs
-  tags:
-    - kao-k8s-runner
-  before_script:
-    - /usr/local/bin/python -m pip install --upgrade pip
-    - pip install -r requirements-docs.txt
-    - git config --global --add safe.directory "$(dirname "$(pwd)")"
-  script:
-    - rm -rf docs/reference
-    - python ./docs/gen_ref_nav.py
-    - mkdocs build --verbose --site-dir docs_public
-  artifacts:
-    paths:
-      - docs_public
-
-pages:
-  stage: deploy
-  tags:
-    - kao-k8s-runner
-  before_script:
-    - /usr/local/bin/python -m pip install --upgrade pip
-    - pip install -r requirements-docs.txt
-    - git config --global --add safe.directory "$(dirname "$(pwd)")"
-  script:
-    - mkdocs build --verbose
-    - mkdir -p public/allure
-    - cp -r ./allure-report/* public/allure
-    - mkdir -p public/coverage
-    - cp -r ./coverage/* public/coverage
-  artifacts:
-    paths:
-      - public
-    expire_in: never
-  needs:
-    - job: generate_report
-    - job: run_tests
+# TODO: fix these again
+# make_docs:
+#   stage: make_docs
+#   tags:
+#     - kao-k8s-runner
+#   before_script:
+#     - /usr/local/bin/python -m pip install --upgrade uv
+#     - uv pip install --system -r requirements/requirements-docs.txt
+#     - git config --global --add safe.directory "$(dirname "$(pwd)")"
+#   script:
+#     - rm -rf docs/reference
+#     - python ./docs/gen_ref_nav.py
+#     - mkdocs build --verbose --site-dir docs_public
+#   artifacts:
+#     paths:
+#       - docs_public
+#
+# pages:
+#   stage: deploy
+#   tags:
+#     - kao-k8s-runner
+#   before_script:
+#     - /usr/local/bin/python -m pip install --upgrade uv
+#     - uv pip install --system -r requirements/requirements-docs.txt
+#     - git config --global --add safe.directory "$(dirname "$(pwd)")"
+#   script:
+#     - mkdocs build --verbose
+#     - mkdir -p public/allure
+#     - cp -r ./allure-report/* public/allure
+#     - mkdir -p public/coverage
+#     - cp -r ./coverage/* public/coverage
+#   artifacts:
+#     paths:
+#       - public
+#     expire_in: never
+#   needs:
+#     - job: generate_report
+#     - job: run_tests

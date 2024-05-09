@@ -140,7 +140,7 @@ def convert_mgf_ipc(
 
 
 # flake8: noqa: CR001
-def convert_mzml_ipc(
+def convert_mzml_mzxml_ipc(
     source: Path,
     target: Path,
     max_charge: int = 10,
@@ -187,8 +187,10 @@ def convert_mzml_ipc(
         filenames = list(source.iterdir())
 
     for filepath in filenames:
-        if not filepath.suffix.lower().endswith("mzml"):
-            logger.info(f"Skipping {filepath}... Not a mzml file...")
+        if not filepath.suffix.lower().endswith("mzml") and not filepath.suffix.lower().endswith(
+            "mzxml"
+        ):
+            logger.info(f"Skipping {filepath}... Not a mzml or mzXML file...")
             continue
 
         if verbose:
@@ -200,7 +202,11 @@ def convert_mzml_ipc(
             continue
 
         exp = pyopenms.MSExperiment()
-        pyopenms.MzMLFile().load(str(filepath), exp)
+        if filepath.suffix.lower().endswith("mzml"):
+            loader = pyopenms.MzMLFile()
+        else:
+            loader = pyopenms.MzXMLFile()
+        loader.load(str(filepath), exp)
 
         evidence_index = 0
 
@@ -253,7 +259,10 @@ def main() -> None:
     parser.add_argument("source", help="source file or folder")
     parser.add_argument("target", help="target ipc file to be saved")
     parser.add_argument(
-        "--source_type", default=None, choices=["mgf", "mzml", "csv"], help="type of input data"
+        "--source_type",
+        default=None,
+        choices=["mgf", "mzml", "mzxml", "csv"],
+        help="type of input data",
     )
     parser.add_argument("--max_charge", default=10, help="maximum charge to filter out")
     parser.add_argument("--verbose", action="store_true")
@@ -283,8 +292,8 @@ def main() -> None:
             use_old_schema=args.use_old_schema,
             verbose=args.verbose,
         )
-    elif source_type == "mzml":
-        convert_mzml_ipc(
+    elif source_type == "mzml" or source_type == "mzxml":
+        convert_mzml_mzxml_ipc(
             source,
             target,
             args.max_charge,

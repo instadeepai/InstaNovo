@@ -1,0 +1,12 @@
+-c requirements.txt
+allure-pytest
+coverage
+pre-commit
+pytest
+pytest-cov
+pytest-mock
+pytest-parallel
+pytest-random-order
+pytest-xdist
+pytype
+testfixtures

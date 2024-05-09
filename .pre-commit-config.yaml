@@ -55,7 +55,7 @@ repos:
     rev: v1.6.0
     hooks:
       - id: mypy
-        additional_dependencies: ["types-requests"]
+        additional_dependencies: ["types-requests", "types-PyYAML"]
 
   - repo: https://github.com/compilerla/conventional-pre-commit
     rev: v2.4.0

@@ -1,0 +1,16 @@
+# Combination of multiple datasets
+# - ACPT
+# - Pride
+# - Phospho
+
+use_shards: True
+train_path: data/extended
+valid_path: data/extended
+valid_subset_of_train:
+
+# Left gets remapped to right, right should exist in residue set
+residue_remapping:
+  "M(ox)": "M(+15.99)"
+  "S(p)": "S(+79.97)"
+  "T(p)": "T(+79.97)"
+  "Y(p)": "Y(+79.97)"

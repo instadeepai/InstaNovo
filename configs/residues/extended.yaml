@@ -1,0 +1,37 @@
+residues:
+  "G": 57.021464
+  "A": 71.037114
+  "S": 87.032028
+  "P": 97.052764
+  "V": 99.068414
+  "T": 101.047670
+  "C": 103.009185
+  "L": 113.084064
+  "I": 113.084064
+  "N": 114.042927
+  "D": 115.026943
+  "Q": 128.058578
+  "K": 128.094963
+  "E": 129.042593
+  "M": 131.040485
+  "H": 137.058912
+  "F": 147.068414
+  "R": 156.101111
+  "Y": 163.063329
+  "W": 186.079313
+  # Modifications
+  "M(+15.99)": 147.035400 # Oxidation
+  "C(+57.02)": 160.030649 # Cysteine depletion
+  "N(+.98)": 115.026943 # Deamidation
+  "Q(+.98)": 129.042594 # Deamidation
+  # Extended modifications
+  # "F(+.98)": 148.052431 # Deamidation
+  # Phospho modifications
+  "S(+79.97)": 166.998028 # Phosphorylation + 79.966
+  "T(+79.97)": 181.01367 # Phosphorylation + 79.966
+  "Y(+79.97)": 243.029329 # Phosphorylation + 79.966
+  # Terminal modifications
+  "(+42.01)": 42.010565 # Acetylation
+  "(+43.01)": 43.005814 # Carbamylation
+  "(-17.03)": -17.026549 # NH3 loss
+  "(+25.98)": 25.980265 # Carbamylation & NH3 loss
