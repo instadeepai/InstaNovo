@@ -9,11 +9,19 @@ import pandas as pd
 import polars as pl
 import spectrum_utils.spectrum as sus
 import torch
+from jaxtyping import Bool
+from jaxtyping import Float
+from jaxtyping import Integer
 from torch import nn
 from torch import Tensor
 from torch.utils.data import Dataset
 
 from instanovo.constants import PROTON_MASS_AMU
+from instanovo.types import Peptide
+from instanovo.types import PeptideMask
+from instanovo.types import PrecursorFeatures
+from instanovo.types import Spectrum
+from instanovo.types import SpectrumMask
 from instanovo.utils.residues import ResidueSet
 
 logger = logging.getLogger(__name__)
@@ -62,7 +70,7 @@ class SpectrumDataset(Dataset):
     def __len__(self) -> int:
         return int(self.df.shape[0])
 
-    def __getitem__(self, idx: int) -> tuple[Tensor, float, int, Tensor | str]:
+    def __getitem__(self, idx: int) -> tuple[Spectrum, float, int, Peptide | list[str]]:
         peptide = ""
 
         if self.data_type == "pl":
@@ -121,12 +129,12 @@ class SpectrumDataset(Dataset):
 
     def _process_peaks(
         self,
-        mz_array: Tensor,
-        int_array: Tensor,
-        precursor_mz: Tensor,
-        precursor_charge: Tensor,
+        mz_array: Float[Tensor, " peak"],
+        int_array: Float[Tensor, " peak"],
+        precursor_mz: float,
+        precursor_charge: int,
         use_sus_preprocess: bool = True,
-    ) -> Tensor:
+    ) -> Spectrum:
         """Preprocess the spectrum by removing noise peaks and scaling the peak intensities.
 
         Parameters
@@ -171,7 +179,9 @@ class SpectrumDataset(Dataset):
 
         # filters
         filter_idx = (
-            (int_array < self.min_intensity) & (mz_array < self.min_mz) & (mz_array > self.max_mz)
+            (int_array < self.min_intensity)
+            & (mz_array < self.min_mz)
+            & (mz_array > self.max_mz)
         )
 
         int_array = int_array[~filter_idx]
@@ -188,15 +198,23 @@ class SpectrumDataset(Dataset):
 
 
 def collate_batch(
-    batch: list[tuple[Tensor, float, int, Tensor]]
-) -> tuple[Tensor, Tensor, Tensor, Tensor, Tensor]:
+    batch: list[tuple[Spectrum, float, int, Peptide]],
+) -> tuple[
+    Float[Spectrum, " batch"],
+    Float[PrecursorFeatures, " batch"],
+    Bool[SpectrumMask, " batch"],
+    Integer[Peptide, " batch"],
+    Bool[PeptideMask, " batch"],
+]:
     """Collate batch of samples."""
     spectra, precursor_mzs, precursor_charges, peptides = zip(*batch)
 
     # Pad spectra
     ll = torch.tensor([x.shape[0] for x in spectra], dtype=torch.long)
     spectra = nn.utils.rnn.pad_sequence(spectra, batch_first=True)
-    spectra_mask = torch.arange(spectra.shape[1], dtype=torch.long)[None, :] >= ll[:, None]
+    spectra_mask = (
+        torch.arange(spectra.shape[1], dtype=torch.long)[None, :] >= ll[:, None]
+    )
 
     # Pad peptide
     if isinstance(peptides[0], str):
@@ -204,12 +222,16 @@ def collate_batch(
     else:
         ll = torch.tensor([x.shape[0] for x in peptides], dtype=torch.long)
         peptides = nn.utils.rnn.pad_sequence(peptides, batch_first=True)
-        peptides_mask = torch.arange(peptides.shape[1], dtype=torch.long)[None, :] >= ll[:, None]
+        peptides_mask = (
+            torch.arange(peptides.shape[1], dtype=torch.long)[None, :] >= ll[:, None]
+        )
 
     precursor_mzs = torch.tensor(precursor_mzs)
     precursor_charges = torch.tensor(precursor_charges)
     precursor_masses = (precursor_mzs - PROTON_MASS_AMU) * precursor_charges
-    precursors = torch.vstack([precursor_masses, precursor_charges, precursor_mzs]).T.float()
+    precursors = torch.vstack(
+        [precursor_masses, precursor_charges, precursor_mzs]
+    ).T.float()
 
     return spectra, precursors, spectra_mask, peptides, peptides_mask
 

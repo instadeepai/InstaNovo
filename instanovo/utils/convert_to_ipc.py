@@ -2,14 +2,9 @@ from __future__ import annotations
 
 import argparse
 import logging
-import os
 import re
-import tempfile
-import uuid
 from pathlib import Path
-from typing import Any
 
-import numpy as np
 import pandas as pd
 import polars as pl
 import pyopenms
@@ -92,7 +87,9 @@ def convert_mgf_ipc(
             unmod_peptide = ""
             if "peptide_sequence" in meta:
                 peptide = meta["peptide_sequence"]
-                unmod_peptide = "".join([x[0] for x in re.split(r"(?<=.)(?=[A-Z])", peptide)])
+                unmod_peptide = "".join(
+                    [x[0] for x in re.split(r"(?<=.)(?=[A-Z])", peptide)]
+                )
 
             if "charge" not in meta or meta["charge"] > max_charge:
                 continue
@@ -130,7 +127,9 @@ def convert_mgf_ipc(
             evidence_index += 1
 
         data_df = pl.from_pandas(pd.DataFrame.from_records(metadata))
-        data_df = pl.concat([data_df, pl.DataFrame(data, schema=schema)], how="horizontal")
+        data_df = pl.concat(
+            [data_df, pl.DataFrame(data, schema=schema)], how="horizontal"
+        )
         df = pl.concat([df, data_df], how="diagonal")
 
     Path(target).parent.mkdir(parents=True, exist_ok=True)
@@ -278,7 +277,7 @@ def main() -> None:
         # Attempt to infer type from file
         if source.is_dir():
             raise ValueError(
-                f"Cannot infer source type from a directory. Please specify with --source_type"
+                "Cannot infer source type from a directory. Please specify with --source_type"
             )
         source_type = source.suffix[1:].lower()
     else:

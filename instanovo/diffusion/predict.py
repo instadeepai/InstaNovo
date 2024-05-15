@@ -115,7 +115,9 @@ def main(
                 start_step=DIFFUSION_START_STEP,
             )
             predictions = [
-                prediction if "$" not in prediction else prediction[: prediction.index("$")]
+                prediction
+                if "$" not in prediction
+                else prediction[: prediction.index("$")]
                 for prediction in predictions
             ]
             predictions = ["".join(prediction) for prediction in predictions]

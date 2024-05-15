@@ -281,7 +281,8 @@ def test_model(
         rtol=1e-04,
     )
     assert torch.allclose(
-        precursors, torch.Tensor([[1598.7540, 2.0000, 800.3843], [1598.7551, 3.0000, 533.9257]])
+        precursors,
+        torch.Tensor([[1598.7540, 2.0000, 800.3843], [1598.7551, 3.0000, 533.9257]]),
     )
     assert torch.equal(
         spectra_mask,
@@ -467,7 +468,7 @@ def test_model(
             max_length=config["max_length"],
         )
     preds = ["".join(x.sequence) if not isinstance(x, list) else "" for x in p]
-    probs = [x.log_probability if not isinstance(x, list) else -1 for x in p]
+    probs = [x.sequence_log_probability if not isinstance(x, list) else -1 for x in p]
 
     assert preds == ["NRNVGDQNGC(+57.02)LAPGK", "TDRPGEAAEETAAPGK"]
     assert np.allclose(probs, [-8.156049728393555, -3.1159517765045166])

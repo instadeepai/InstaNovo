@@ -5,6 +5,7 @@ import logging
 import os
 from pathlib import Path
 from typing import Any
+from typing import Tuple
 
 import hydra
 import neptune
@@ -13,6 +14,10 @@ import pandas as pd
 import polars as pl
 import pytorch_lightning as ptl
 import torch
+import yaml
+from jaxtyping import Bool
+from jaxtyping import Float
+from jaxtyping import Integer
 from omegaconf import DictConfig
 from omegaconf import OmegaConf
 from omegaconf import open_dict
@@ -29,6 +34,12 @@ from instanovo.transformer.dataset import collate_batch
 from instanovo.transformer.dataset import load_ipc_shards
 from instanovo.transformer.dataset import SpectrumDataset
 from instanovo.transformer.model import InstaNovo
+from instanovo.types import Peptide
+from instanovo.types import PeptideMask
+from instanovo.types import PrecursorFeatures
+from instanovo.types import ResidueLogits
+from instanovo.types import Spectrum
+from instanovo.types import SpectrumMask
 from instanovo.utils.metrics import Metrics
 from instanovo.utils.residues import ResidueSet
 
@@ -70,19 +81,25 @@ class PTModule(ptl.LightningModule):
 
     def forward(
         self,
-        spectra: Tensor,
-        precursors: Tensor,
-        peptides: Tensor,
-        spectra_mask: Tensor,
-        peptides_mask: Tensor,
-    ) -> Tensor:
+        spectra: Float[Spectrum, " batch"],
+        precursors: Float[PrecursorFeatures, " batch"],
+        peptides: list[str] | Integer[Peptide, " batch"],
+        spectra_mask: Bool[SpectrumMask, " batch"],
+        peptides_mask: Bool[PeptideMask, " batch"],
+    ) -> Tuple[Float[ResidueLogits, " batch"], Integer[Peptide, " batch"]]:
         """Model forward pass."""
         return self.model(spectra, precursors, peptides, spectra_mask, peptides_mask)  # type: ignore
 
     def training_step(  # need to update this
         self,
-        batch: tuple[Tensor, Tensor, Tensor, Tensor, Tensor],
-    ) -> torch.Tensor:
+        batch: tuple[
+            Float[Spectrum, " batch"],
+            Float[PrecursorFeatures, " batch"],
+            Bool[SpectrumMask, " batch"],
+            list[str] | Integer[Peptide, " batch"],
+            Bool[PeptideMask, " batch"],
+        ],
+    ) -> Float[Tensor, " batch"]:
         """A single training step.
 
         Args:
@@ -134,8 +151,16 @@ class PTModule(ptl.LightningModule):
         return loss
 
     def validation_step(
-        self, batch: tuple[Tensor, Tensor, Tensor, Tensor, Tensor], *args: Any
-    ) -> torch.Tensor:
+        self,
+        batch: Tuple[
+            Float[Spectrum, " batch"],
+            Float[PrecursorFeatures, " batch"],
+            Bool[SpectrumMask, " batch"],
+            list[str] | Integer[Peptide, " batch"],
+            Bool[PeptideMask, " batch"],
+        ],
+        *args: Any,
+    ) -> float:
         """Single validation step."""
         spectra, precursors, spectra_mask, peptides, peptides_mask = batch
         spectra = spectra.to(self.device)
@@ -165,7 +190,9 @@ class PTModule(ptl.LightningModule):
         y = [x.sequence if type(x) != list else "" for x in p]
         targets = [s for s in self.model.batch_idx_to_aa(peptides, reverse=True)]
 
-        aa_prec, aa_recall, pep_recall, _ = self.metrics.compute_precision_recall(targets, y)
+        aa_prec, aa_recall, pep_recall, _ = self.metrics.compute_precision_recall(
+            targets, y
+        )
         aa_er = self.metrics.compute_aa_er(targets, y)
 
         self.valid_metrics["valid_loss"].append(loss.item())
@@ -174,12 +201,12 @@ class PTModule(ptl.LightningModule):
         self.valid_metrics["aa_recall"].append(aa_recall)
         self.valid_metrics["pep_recall"].append(pep_recall)
 
-        return loss.item()
+        return float(loss.item())
 
     def on_train_epoch_end(self) -> None:
         """Log the training loss at the end of each epoch."""
         epoch = self.trainer.current_epoch
-        self.sw.add_scalar(f"eval/train_loss", self.running_loss, epoch)
+        self.sw.add_scalar("eval/train_loss", self.running_loss, epoch)
 
         self.running_loss = None
 
@@ -420,7 +447,9 @@ def train(
         model_state = torch.load(model_path, map_location="cpu")
         # check if PTL checkpoint
         if "state_dict" in model_state:
-            model_state = {k.replace("model.", ""): v for k, v in model_state["state_dict"].items()}
+            model_state = {
+                k.replace("model.", ""): v for k, v in model_state["state_dict"].items()
+            }
 
         aa_embed_size = model_state["head.weight"].shape[0]
         if aa_embed_size != len(residue_set):

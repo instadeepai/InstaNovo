@@ -3,13 +3,22 @@ from __future__ import annotations
 import logging
 import math
 from collections.abc import Callable
+from typing import Optional
+from typing import Tuple
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from depthcharge.components import SpectrumEncoder
 from depthcharge.components.encoders import MassEncoder
+from jaxtyping import Bool
+from jaxtyping import Float
 from torch import Tensor
+
+from instanovo.types import Mass
+from instanovo.types import Spectrum
+from instanovo.types import SpectrumEmbedding
+from instanovo.types import SpectrumMask
 
 logger = logging.getLogger("casanovo")
 
@@ -33,7 +42,7 @@ class CustomPeakEncoder(MassEncoder):
     def __init__(
         self,
         dim_model: int,
-        dim_intensity: int | None = None,
+        dim_intensity: Optional[int] = None,
         min_wavelength: float = 0.001,
         max_wavelength: float = 10000,
         partial_encode: float = 1.0,
@@ -63,8 +72,11 @@ class CustomPeakEncoder(MassEncoder):
             )
 
     def forward(
-        self, x: torch.Tensor, mass: torch.Tensor, precursor_mass: torch.Tensor
-    ) -> torch.Tensor:
+        self,
+        x: Float[Spectrum, " batch"],
+        mass: Float[Mass, " batch"],
+        precursor_mass: Float[Mass, " batch"],
+    ) -> Float[SpectrumEmbedding, " batch"]:
         """Encode m/z values and intensities.
 
         Note that we expect intensities to fall within the interval [0, 1].
@@ -143,16 +155,24 @@ class CustomSpectrumEncoder(SpectrumEncoder):
         n_layers: int = 1,
         dropout: float = 0.0,
         peak_encoder: bool = True,
-        dim_intensity: int | None = None,
+        dim_intensity: Optional[int] = None,
         mass_encoding: str = "linear",
     ):
         """Initialize a CustomSpectrumEncoder."""
         super().__init__(
-            dim_model, n_head, dim_feedforward, n_layers, dropout, peak_encoder, dim_intensity
+            dim_model,
+            n_head,
+            dim_feedforward,
+            n_layers,
+            dropout,
+            peak_encoder,
+            dim_intensity,
         )
 
         if peak_encoder and mass_encoding == "casanovo":
-            self.peak_encoder = CustomPeakEncoder(dim_model, dim_intensity=dim_intensity)
+            self.peak_encoder = CustomPeakEncoder(
+                dim_model, dim_intensity=dim_intensity
+            )
             self.linear_encoder = False
         else:
             self.peak_encoder = torch.nn.Linear(2, dim_model)
@@ -160,11 +180,11 @@ class CustomSpectrumEncoder(SpectrumEncoder):
 
     def forward(
         self,
-        spectra: torch.Tensor,
-        spectra_padding_mask: torch.Tensor | None = None,
-        mass: torch.Tensor | None = None,
-        precursor_mass: torch.Tensor | None = None,
-    ) -> tuple[torch.Tensor, torch.Tensor]:
+        spectra: Float[Spectrum, " batch"],
+        spectra_padding_mask: Optional[Bool[SpectrumMask, " batch"]] = None,
+        mass: Optional[Float[Mass, " batch"]] = None,
+        precursor_mass: Optional[Float[Mass, " batch"]] = None,
+    ) -> Tuple[Float[SpectrumEmbedding, " batch"], Bool[SpectrumMask, " batch"]]:
         """The forward pass.
 
         Parameters
@@ -244,9 +264,9 @@ class LocalisedSpectrumEncoder(torch.nn.Module):
         n_layers: int = 1,
         dropout: int = 0,
         peak_encoder: bool = True,
-        dim_intensity: int | None = None,
+        dim_intensity: Optional[int] = None,
         window_size: int = 400,
-        device: str | None = None,
+        device: Optional[str] = None,
         mass_encoding: str = "linear",
     ):
         """Initialize a SpectrumEncoder."""
@@ -295,8 +315,10 @@ class LocalisedSpectrumEncoder(torch.nn.Module):
         return device
 
     def forward(
-        self, spectra: torch.Tensor, spectra_padding_mask: torch.Tensor | None = None
-    ) -> torch.Tensor:
+        self,
+        spectra: Float[Spectrum, " batch"],
+        spectra_padding_mask: Optional[Bool[SpectrumMask, " batch"]] = None,
+    ) -> Tuple[Float[SpectrumEmbedding, " batch"], Bool[SpectrumMask, " batch"]]:
         """The forward pass.
 
         Parameters
@@ -330,11 +352,15 @@ class LocalisedSpectrumEncoder(torch.nn.Module):
 
         # Add the spectrum representation to each input:
         latent_spectra = self.latent_spectrum.expand(peaks.shape[0], -1, -1)
-        latent_mz = torch.zeros((m_over_z.shape[0], 1), device=spectra.device, dtype=m_over_z.dtype)
+        latent_mz = torch.zeros(
+            (m_over_z.shape[0], 1), device=spectra.device, dtype=m_over_z.dtype
+        )
 
         peaks = torch.cat([latent_spectra, peaks], dim=1)
         m_over_z = torch.cat([latent_mz, m_over_z], dim=1)
-        return self.transformer_encoder(peaks, mass=m_over_z, src_key_padding_mask=mask), mask
+        return self.transformer_encoder(
+            peaks, mass=m_over_z, src_key_padding_mask=mask
+        ), mask
 
 
 class LocalisedTransformerEncoder(torch.nn.TransformerEncoder):
@@ -342,11 +368,11 @@ class LocalisedTransformerEncoder(torch.nn.TransformerEncoder):
 
     def forward(
         self,
-        src: Tensor,
-        mass: Tensor | None = None,
-        mask: Tensor | None = None,
-        src_key_padding_mask: Tensor | None = None,
-    ) -> Tensor:
+        src: Float[Tensor, "..."],
+        mass: Optional[Float[Tensor, "..."]] = None,
+        mask: Optional[Bool[Tensor, "..."]] = None,
+        src_key_padding_mask: Optional[Bool[Tensor, "..."]] = None,
+    ) -> Float[Tensor, "..."]:
         """Compute representations using localised transformer.
 
         Args:
@@ -361,7 +387,10 @@ class LocalisedTransformerEncoder(torch.nn.TransformerEncoder):
         src_key_padding_mask_for_layers = src_key_padding_mask
 
         output = self.layers[0](
-            src, mass=mass, src_mask=mask, src_key_padding_mask=src_key_padding_mask_for_layers
+            src,
+            mass=mass,
+            src_mask=mask,
+            src_key_padding_mask=src_key_padding_mask_for_layers,
         )
 
         for mod in self.layers[1:]:
@@ -384,7 +413,8 @@ class LocalisedEncoderLayer(torch.nn.TransformerEncoderLayer):
         nhead: int,
         dim_feedforward: int = 2048,
         dropout: float = 0.1,
-        activation: str | Callable[[Tensor], Tensor] = F.relu,
+        activation: str
+        | Callable[[Float[Tensor, "..."]], Float[Tensor, "..."]] = F.relu,
         layer_norm_eps: float = 1e-5,
         batch_first: bool = False,
         norm_first: bool = False,
@@ -410,11 +440,11 @@ class LocalisedEncoderLayer(torch.nn.TransformerEncoderLayer):
 
     def forward(
         self,
-        src: Tensor,
-        mass: Tensor | None = None,
-        src_mask: Tensor | None = None,
-        src_key_padding_mask: Tensor | None = None,
-    ) -> Tensor:
+        src: Float[Tensor, "..."],
+        mass: Optional[Float[Tensor, "..."]] = None,
+        src_mask: Optional[Bool[Tensor, "..."]] = None,
+        src_key_padding_mask: Optional[Bool[Tensor, "..."]] = None,
+    ) -> Float[Tensor, "..."]:
         """Compute localised transformer encoding for one layer.
 
         Args:
@@ -436,22 +466,26 @@ class LocalisedEncoderLayer(torch.nn.TransformerEncoderLayer):
     # flake8: noqa: CR001
     def _sa_block(
         self,
-        x: Tensor,
-        mass: Tensor | None,
-        attn_mask: Tensor | None,
-        key_padding_mask: Tensor | None,
+        x: Float[Tensor, "..."],
+        mass: Optional[Float[Tensor, "..."]],
+        attn_mask: Optional[Bool[Tensor, "..."]],
+        key_padding_mask: Optional[Bool[Tensor, "..."]],
         # full_attention: bool = True,
-    ) -> Tensor:
+    ) -> Float[Tensor, "..."]:
         if self.pos_enc and mass is not None:
             q = x.reshape(-1, 1, x.shape[-1])  # apply queries in one big batch
-            zero_enc = self.pos_enc(torch.zeros((q.shape[0], 1), device=x.device, dtype=x.dtype))
+            zero_enc = self.pos_enc(
+                torch.zeros((q.shape[0], 1), device=x.device, dtype=x.dtype)
+            )
             q[:, :, -self.pos_enc.d_model :] += zero_enc  # add encoding to query
 
             kv = x.repeat_interleave(x.shape[1], axis=0)  # kv values
             mask = key_padding_mask.repeat_interleave(x.shape[1], axis=0)  # mask
             # calculate pairwise distance matrix
             if self.mass_encoding == "casanovo":
-                mass_mat = torch.ones(mass.shape[0], mass.shape[1], 1) @ mass[:, None, :]
+                mass_mat = (
+                    torch.ones(mass.shape[0], mass.shape[1], 1) @ mass[:, None, :]
+                )
                 mass_mat = mass_mat - mass_mat.transpose(1, 2)
 
                 enc = self.pos_enc(mass_mat.reshape(-1, x.shape[1]))
@@ -462,21 +496,33 @@ class LocalisedEncoderLayer(torch.nn.TransformerEncoderLayer):
                 mass = torch.stack([m1, m2, m1 - m2], dim=-1)
                 enc = self.pos_enc(mass)
 
-            kv[:, :, -self.pos_enc.d_model :] += enc  # add positional encoding to kv values
+            kv[:, :, -self.pos_enc.d_model :] += (
+                enc  # add positional encoding to kv values
+            )
 
             y = self.self_attn(
-                q, kv, kv, attn_mask=attn_mask, key_padding_mask=mask, need_weights=False
+                q,
+                kv,
+                kv,
+                attn_mask=attn_mask,
+                key_padding_mask=mask,
+                need_weights=False,
             )[0]
             y = y.reshape(x.shape)  # return big batch to original shape
 
         else:
             y = self.self_attn(
-                x, x, x, attn_mask=attn_mask, key_padding_mask=key_padding_mask, need_weights=False
+                x,
+                x,
+                x,
+                attn_mask=attn_mask,
+                key_padding_mask=key_padding_mask,
+                need_weights=False,
             )[0]
         return self.dropout1(y)
 
     # feed forward block
-    def _ff_block(self, x: Tensor) -> Tensor:
+    def _ff_block(self, x: Float[Tensor, "..."]) -> Tensor:
         x = self.linear2(self.dropout(self.activation(self.linear1(x))))
         return self.dropout2(x)
 
@@ -490,7 +536,7 @@ class LocalisedEncoding(nn.Module):
         casanovo_style: bool = False,
         window_size: int = 100,
         min_wavelength: float = 0.001,
-        device: str | None = None,
+        device: Optional[str] = None,
     ) -> None:
         """Custom localised positional encoder.
 
@@ -505,7 +551,9 @@ class LocalisedEncoding(nn.Module):
 
         self.d_model = d_model
 
-        max_len = int((window_size + 1) * 2 / min_wavelength)  # +2 to be inclusive of window bounds
+        max_len = int(
+            (window_size + 1) * 2 / min_wavelength
+        )  # +2 to be inclusive of window bounds
 
         logging.info(
             f"Pre-computing localised encoding matrix on device={'cpu' if not device else device}, \
@@ -523,10 +571,12 @@ class LocalisedEncoding(nn.Module):
             pe[:, 0::2] = torch.sin(position * div_term)
             pe[:, 1::2] = torch.cos(position * div_term)
 
-        logging.info(f"Pre-computing complete")
+        logging.info("Pre-computing complete")
         self.register_buffer("pe", pe)
 
-    def forward(self, mass: Tensor) -> Tensor:
+    def forward(
+        self, mass: Float[Mass, "batch token 1"]
+    ) -> Float[Tensor, "batch token embedding"]:
         """Defines the computation performed at every call.
 
         Args:
@@ -536,6 +586,8 @@ class LocalisedEncoding(nn.Module):
             Tensor
         """
         mass = mass.clamp(-self.window_size, self.window_size)
-        mass_idx = (((mass + 1) + self.window_size) / self.min_wavelength).to(torch.long)
+        mass_idx = (((mass + 1) + self.window_size) / self.min_wavelength).to(
+            torch.long
+        )
 
         return self.pe[mass_idx]

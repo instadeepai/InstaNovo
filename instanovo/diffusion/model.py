@@ -1,7 +1,12 @@
 from __future__ import annotations
 
+from typing import Optional
+
 import torch
 from depthcharge.components.encoders import MassEncoder
+from jaxtyping import Bool
+from jaxtyping import Float
+from jaxtyping import Integer
 from torch import nn
 from torch import Tensor
 from transfusion.model import Pogfuse
@@ -11,6 +16,16 @@ from transfusion.model import TransFusion
 from instanovo.diffusion.config import MassSpectrumModelConfig
 from instanovo.diffusion.layers import CustomSpectrumEncoder
 from instanovo.diffusion.layers import LocalisedSpectrumEncoder
+from instanovo.types import Peptide
+from instanovo.types import PeptideEmbedding
+from instanovo.types import PeptideMask
+from instanovo.types import PrecursorFeatures
+from instanovo.types import ResidueLogits
+from instanovo.types import Spectrum
+from instanovo.types import SpectrumEmbedding
+from instanovo.types import SpectrumMask
+from instanovo.types import TimeEmbedding
+from instanovo.types import TimeStep
 
 
 class MassSpectrumTransformer(Pogfuse):
@@ -18,19 +33,19 @@ class MassSpectrumTransformer(Pogfuse):
 
     def forward(
         self,
-        x: Tensor,
-        t_emb: Tensor,
-        precursor_emb: Tensor,
-        cond_emb: Tensor | None = None,
-        x_padding_mask: Tensor | None = None,
-        cond_padding_mask: Tensor | None = None,
-        pos_bias: Tensor | None = None,
-    ) -> Tensor:
+        x: Float[SpectrumEmbedding, " batch"],
+        t_emb: Float[TimeEmbedding, " batch"],
+        precursor_emb: Float[Tensor, "..."],
+        cond_emb: Optional[Float[PeptideEmbedding, " batch"]] = None,
+        x_padding_mask: Optional[Bool[SpectrumMask, " batch"]] = None,
+        cond_padding_mask: Optional[Bool[PeptideMask, " batch"]] = None,
+        pos_bias: Optional[Float[Tensor, "..."]] = None,
+    ) -> Float[Tensor, "batch token embedding"]:
         """Compute encodings with the model.
 
         Forward with `x` (bs, seq_len, dim), summing `t_emb` (bs, dim) before the transformer layer,
         and appending `conditioning_emb` (bs, seq_len2, dim) to the key/value pairs of the attention.
-        Also `pooled_conv_emb` (bs, dim) is summed with the timestep embeddings
+        Also `pooled_conv_emb` (bs, 1, dim) is summed with the timestep embeddings
 
         Optionally specify key/value padding for input `x` with `x_padding_mask` (bs, seq_len), and optionally
         specify key/value padding mask for conditional embedding with `cond_padding_mask` (bs, seq_len2).
@@ -55,7 +70,11 @@ class MassSpectrumTransformer(Pogfuse):
         # 3. Do transformer layer
         # -- Self-attention block
         x1, pos_bias = self._sa_block(
-            x, c, x_padding_mask=x_padding_mask, c_padding_mask=cond_padding_mask, pos_bias=pos_bias
+            x,
+            c,
+            x_padding_mask=x_padding_mask,
+            c_padding_mask=cond_padding_mask,
+            pos_bias=pos_bias,
         )
 
         # -- Layer-norm with residual connection
@@ -70,7 +89,9 @@ class MassSpectrumTransformer(Pogfuse):
 class MassSpectrumTransFusion(TransFusion):
     """Diffusion reconstruction model conditioned on mass spectra."""
 
-    def __init__(self, cfg: MassSpectrumModelConfig, max_transcript_len: int = 200) -> None:
+    def __init__(
+        self, cfg: MassSpectrumModelConfig, max_transcript_len: int = 200
+    ) -> None:
         super().__init__(cfg, max_transcript_len)
         layers = []
         for i in range(cfg.layers):
@@ -82,7 +103,8 @@ class MassSpectrumTransFusion(TransFusion):
                 self.cfg.nheads,
                 add_cond_seq=add_cond_cross_attn,
                 dropout=self.cfg.dropout,
-                use_wavlm_attn=cfg.attention_type == "wavlm" and not add_cond_cross_attn,
+                use_wavlm_attn=cfg.attention_type == "wavlm"
+                and not add_cond_cross_attn,
                 wavlm_num_bucket=cfg.wavlm_num_bucket,
                 wavlm_max_dist=cfg.wavlm_max_dist,
                 has_rel_attn_bias=(cfg.attention_type == "wavlm" and i == 1),
@@ -123,13 +145,13 @@ class MassSpectrumTransFusion(TransFusion):
 
     def forward(
         self,
-        x: Tensor,
-        t: Tensor,
-        spectra: Tensor,
-        spectra_padding_mask: Tensor,
-        precursors: Tensor,
-        x_padding_mask: Tensor | None = None,
-    ) -> Tensor:
+        x: Integer[Peptide, " batch"],
+        t: Integer[TimeStep, " batch"],
+        spectra: Float[Spectrum, " batch"],
+        spectra_padding_mask: Bool[SpectrumMask, " batch"],
+        precursors: Float[PrecursorFeatures, " batch"],
+        x_padding_mask: Optional[Bool[PeptideMask, " batch"]] = None,
+    ) -> Float[ResidueLogits, "batch token"]:
         """Transformer with conditioning cross attention.
 
         - `x`: (bs, seq_len) long tensor of character indices
@@ -158,7 +180,9 @@ class MassSpectrumTransFusion(TransFusion):
         )  # (bs, t_dim)
         # 2. Classifier-free guidance: with prob cfg.drop_cond_prob, zero out and drop conditional probability
         if self.training:
-            zero_cond_inds = torch.rand_like(t, dtype=spectra.dtype) < self.cfg.drop_cond_prob
+            zero_cond_inds = (
+                torch.rand_like(t, dtype=spectra.dtype) < self.cfg.drop_cond_prob
+            )
         else:
             # never randomly zero when in eval mode
             zero_cond_inds = torch.zeros_like(t, dtype=torch.bool)
@@ -171,10 +195,17 @@ class MassSpectrumTransFusion(TransFusion):
         if self.training:
             cond_emb, cond_padding_mask = self.encoder(spectra, spectra_padding_mask)
         else:
-            if self.cache_spectra is not None and torch.equal(self.cache_spectra, spectra):
-                cond_emb, cond_padding_mask = self.cache_cond_emb, self.cache_cond_padding_mask
+            if self.cache_spectra is not None and torch.equal(
+                self.cache_spectra, spectra
+            ):
+                cond_emb, cond_padding_mask = (
+                    self.cache_cond_emb,
+                    self.cache_cond_padding_mask,
+                )
             else:
-                cond_emb, cond_padding_mask = self.encoder(spectra, spectra_padding_mask)
+                cond_emb, cond_padding_mask = self.encoder(
+                    spectra, spectra_padding_mask
+                )
                 self.cache_spectra = spectra
                 self.cache_cond_emb = cond_emb
                 self.cache_cond_padding_mask = cond_padding_mask

@@ -23,7 +23,11 @@ class Metrics:
         self.ind_mass_threshold = ind_mass_threshold
 
     def matches_precursor(
-        self, seq: str | list[str], prec_mass: float, prec_charge: int, prec_tol: int = 50
+        self,
+        seq: str | list[str],
+        prec_mass: float,
+        prec_charge: int,
+        prec_tol: int = 50,
     ) -> tuple[bool, list[float]]:
         """Check if a sequence matches the precursor mass within some tolerance."""
         seq_mass = self._mass(seq, charge=prec_charge)
@@ -147,9 +151,13 @@ class Metrics:
         x, y = [], []
         t_idx = np.argsort(np.array(conf))
         t_idx = t_idx[~conf[t_idx].isna()]
-        t_idx = list(t_idx[(t_idx.shape[0] * np.arange(N) / N).astype(int)]) + [t_idx[-1]]
+        t_idx = list(t_idx[(t_idx.shape[0] * np.arange(N) / N).astype(int)]) + [
+            t_idx[-1]
+        ]
         for t in conf[t_idx]:
-            _, _, recall, precision = self.compute_precision_recall(targs, preds, conf, t)
+            _, _, recall, precision = self.compute_precision_recall(
+                targs, preds, conf, t
+            )
             x.append(recall)
             y.append(precision)
         return x, y
