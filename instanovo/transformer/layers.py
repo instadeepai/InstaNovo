@@ -4,8 +4,11 @@ import math
 
 import numpy as np
 import torch
+from jaxtyping import Float
 from torch import nn
 from torch import Tensor
+
+from instanovo.types import SpectrumEmbedding
 
 
 class PositionalEncoding(nn.Module):
@@ -16,13 +19,17 @@ class PositionalEncoding(nn.Module):
         self.dropout = nn.Dropout(p=dropout)
 
         position = torch.arange(max_len).unsqueeze(1)
-        div_term = torch.exp(torch.arange(0, d_model, 2) * (-math.log(10000.0) / d_model))
+        div_term = torch.exp(
+            torch.arange(0, d_model, 2) * (-math.log(10000.0) / d_model)
+        )
         pe = torch.zeros(1, max_len, d_model)
         pe[0, :, 0::2] = torch.sin(position * div_term)
         pe[0, :, 1::2] = torch.cos(position * div_term)
         self.register_buffer("pe", pe)
 
-    def forward(self, x: Tensor) -> Tensor:
+    def forward(
+        self, x: Float[Tensor, "token batch embedding"]
+    ) -> Float[Tensor, "token batch embedding"]:
         """Positional encoding forward pass.
 
         Arguments:
@@ -58,14 +65,18 @@ class MultiScalePeakEmbedding(nn.Module):
         freqs = 2 * np.pi / torch.logspace(-2, -3, int(h_size / 2), dtype=torch.float64)
         self.register_buffer("freqs", freqs)
 
-    def forward(self, mz_values: Tensor, intensities: Tensor) -> Tensor:
+    def forward(
+        self, mz_values: Float[Tensor, " batch"], intensities: Float[Tensor, " batch"]
+    ) -> Float[SpectrumEmbedding, " batch"]:
         """Encode peaks."""
         x = self.encode_mass(mz_values)
         x = self.mlp(x)
         x = torch.cat([x, intensities], axis=2)
         return self.head(x)
 
-    def encode_mass(self, x: Tensor) -> Tensor:
+    def encode_mass(
+        self, x: Float[Tensor, " batch"]
+    ) -> Float[Tensor, "batch embedding"]:
         """Encode mz."""
         x = self.freqs[None, None, :] * x
         x = torch.cat([torch.sin(x), torch.cos(x)], axis=2)

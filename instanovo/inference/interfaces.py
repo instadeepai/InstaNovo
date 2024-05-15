@@ -5,6 +5,12 @@ from abc import abstractmethod
 from typing import Any
 
 import torch
+from jaxtyping import Float
+from jaxtyping import Integer
+
+from instanovo.types import Peptide
+from instanovo.types import PrecursorFeatures
+from instanovo.types import Spectrum
 
 
 class Decodable(metaclass=ABCMeta):
@@ -12,7 +18,11 @@ class Decodable(metaclass=ABCMeta):
 
     @abstractmethod
     def init(  # type:ignore
-        self, spectra: torch.FloatTensor, precursors: torch.FloatTensor, *args, **kwargs
+        self,
+        spectra: Float[Spectrum, " batch"],
+        precursors: Float[PrecursorFeatures, " batch"],
+        *args,
+        **kwargs,
     ) -> Any:
         """Initialize the search state.
 
@@ -27,7 +37,11 @@ class Decodable(metaclass=ABCMeta):
 
     @abstractmethod
     def score_candidates(  # type:ignore
-        self, sequences: torch.LongTensor, precursor_mass_charge: torch.FloatTensor, *args, **kwargs
+        self,
+        sequences: Integer[Peptide, "..."],
+        precursor_mass_charge: Float[PrecursorFeatures, "..."],
+        *args,
+        **kwargs,
     ) -> torch.FloatTensor:
         """Generate and score the next set of candidates.
 
@@ -55,7 +69,7 @@ class Decodable(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def decode(self, sequence: torch.LongTensor) -> list[str]:
+    def decode(self, sequence: Integer[Peptide, "..."]) -> list[str]:
         """Map sequences of indices to residues using the model's residue vocabulary.
 
         Args:
@@ -91,7 +105,11 @@ class Decoder(metaclass=ABCMeta):
 
     @abstractmethod
     def decode(  # type:ignore
-        self, spectra: torch.FloatTensor, precursors: torch.FloatTensor, *args, **kwargs
+        self,
+        spectra: Float[Spectrum, "..."],
+        precursors: Float[PrecursorFeatures, "..."],
+        *args,
+        **kwargs,
     ) -> list[list[str]]:
         """Generate the predicted residue sequence using the decoder's search algorithm.
 

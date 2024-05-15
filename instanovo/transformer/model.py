@@ -1,12 +1,34 @@
 from __future__ import annotations
 
+from typing import Optional
+from typing import Tuple
+
+import depthcharge.masses
 import torch
+from depthcharge.components import PeptideDecoder
+from depthcharge.components import SpectrumEncoder
+from depthcharge.components.encoders import MassEncoder
+from depthcharge.components.encoders import PeakEncoder
+from depthcharge.components.encoders import PositionalEncoder
+from jaxtyping import Bool
+from jaxtyping import Float
+from jaxtyping import Integer
 from torch import nn
 from torch import Tensor
 
 from instanovo.constants import MAX_SEQUENCE_LENGTH
 from instanovo.transformer.layers import MultiScalePeakEmbedding
 from instanovo.transformer.layers import PositionalEncoding
+from instanovo.types import DiscretizedMass
+from instanovo.types import Peptide
+from instanovo.types import PeptideMask
+from instanovo.types import PrecursorFeatures
+from instanovo.types import ResidueLogits
+from instanovo.types import ResidueLogProbabilities
+from instanovo.types import Spectrum
+from instanovo.types import SpectrumEmbedding
+from instanovo.types import SpectrumMask
+from transfusion.config import ModelConfig
 from instanovo.utils.residues import ResidueSet
 
 
@@ -66,13 +88,17 @@ class InstaNovo(nn.Module):
         self.charge_encoder = nn.Embedding(max_charge, dim_model)
 
     @staticmethod
-    def _get_causal_mask(seq_len: int) -> Tensor:
+    def _get_causal_mask(seq_len: int) -> PeptideMask:
         mask = (torch.triu(torch.ones(seq_len, seq_len)) == 1).transpose(0, 1)
-        mask = mask.float().masked_fill(mask == 0, float("-inf")).masked_fill(mask == 1, float(0.0))
+        mask = (
+            mask.float()
+            .masked_fill(mask == 0, float("-inf"))
+            .masked_fill(mask == 1, float(0.0))
+        )
         return mask
 
     @classmethod
-    def load(cls, path: str) -> nn.Module:
+    def load(cls, path: str) -> Tuple["InstaNovo", "ModelConfig"]:
         """Load model from checkpoint."""
         ckpt = torch.load(path, map_location="cpu")
 
@@ -80,7 +106,9 @@ class InstaNovo(nn.Module):
 
         # check if PTL checkpoint
         if all([x.startswith("model") for x in ckpt["state_dict"].keys()]):
-            ckpt["state_dict"] = {k.replace("model.", ""): v for k, v in ckpt["state_dict"].items()}
+            ckpt["state_dict"] = {
+                k.replace("model.", ""): v for k, v in ckpt["state_dict"].items()
+            }
 
         residue_set = ResidueSet(config["residues"])
 
@@ -99,13 +127,13 @@ class InstaNovo(nn.Module):
 
     def forward(
         self,
-        x: Tensor,
-        p: Tensor,
-        y: Tensor,
-        x_mask: Tensor = None,
-        y_mask: Tensor = None,
+        x: Float[Spectrum, " batch"],
+        p: Float[PrecursorFeatures, " batch"],
+        y: Integer[Peptide, " batch"],
+        x_mask: Optional[Bool[SpectrumMask, " batch"]] = None,
+        y_mask: Optional[Bool[PeptideMask, " batch"]] = None,
         add_bos: bool = True,
-    ) -> Tensor:
+    ) -> Float[Tensor, "batch token+1 residue"]:
         """Model forward pass.
 
         Args:
@@ -124,8 +152,14 @@ class InstaNovo(nn.Module):
         return self._decoder(x, y, x_mask, y_mask, add_bos)
 
     def init(
-        self, x: Tensor, p: Tensor, x_mask: Tensor = None
-    ) -> tuple[tuple[Tensor, Tensor], Tensor]:
+        self,
+        x: Float[Spectrum, " batch"],
+        p: Float[PrecursorFeatures, " batch"],
+        x_mask: Optional[Bool[SpectrumMask, " batch"]] = None,
+    ) -> Tuple[
+        Tuple[Float[Spectrum, " batch"], Bool[SpectrumMask, " batch"]],
+        Float[ResidueLogProbabilities, "batch token"],
+    ]:
         """Initialise model encoder."""
         x, x_mask = self._encoder(x, p, x_mask)
         logits = self._decoder(x, None, x_mask, None, add_bos=False)
@@ -133,17 +167,19 @@ class InstaNovo(nn.Module):
 
     def score_candidates(
         self,
-        y: torch.LongTensor,
-        p: torch.FloatTensor,
-        x: torch.FloatTensor,
-        x_mask: torch.BoolTensor,
-    ) -> torch.FloatTensor:
+        y: Integer[Peptide, " batch"],
+        p: Float[PrecursorFeatures, " batch"],
+        x: Float[Spectrum, " batch"],
+        x_mask: Bool[SpectrumMask, " batch"],
+    ) -> Float[ResidueLogProbabilities, "batch token"]:
         """Score a set of candidate sequences."""
         logits = self._decoder(x, y, x_mask, None, add_bos=True)
 
         return torch.log_softmax(logits[:, -1, :], -1)
 
-    def get_residue_masses(self, mass_scale: int) -> torch.LongTensor:
+    def get_residue_masses(
+        self, mass_scale: int
+    ) -> Integer[DiscretizedMass, " residue"]:
         """Get the scaled masses of all residues."""
         residue_masses = torch.zeros(len(self.residue_set), dtype=torch.int64)
         for index, residue in self.residue_set.index_to_residue.items():
@@ -159,18 +195,34 @@ class InstaNovo(nn.Module):
         """Get the PAD token ID."""
         return int(self.residue_set.PAD_INDEX)
 
-    def decode(self, sequence: torch.LongTensor) -> list[str]:
+    def decode(self, sequence: Peptide) -> list[str]:
         """Decode a single sequence of AA IDs."""
-        # return self.decoder.detokenize(sequence)  # type: ignore
         # Note: Sequence is reversed as InstaNovo predicts right-to-left.
         # We reverse the sequence again when decoding to ensure the decoder outputs forward sequences.
         return self.residue_set.decode(sequence, reverse=True)  # type: ignore
 
-    def batch_idx_to_aa(self, idx: torch.LongTensor, reverse: bool = False) -> list[list[str]]:
+    def idx_to_aa(self, idx: Peptide) -> list[str]:
+        """Decode a single sample of indices to aa list."""
+        idx = idx.cpu().numpy()
+        t = []
+        for i in idx:
+            if i == self.eos_id:
+                break
+            if i == self.bos_id or i == self.pad_id:
+                continue
+            t.append(i)
+        return [self.i2s[x.item()] for x in t]
+
+    def batch_idx_to_aa(self, idx: Integer[Peptide, " batch"]) -> list[list[str]]:
         """Decode a batch of indices to aa lists."""
         return [self.residue_set.decode(i, reverse=reverse) for i in idx]
 
-    def _encoder(self, x: Tensor, p: Tensor, x_mask: Tensor = None) -> tuple[Tensor, Tensor]:
+    def _encoder(
+        self,
+        x: Float[Spectrum, " batch"],
+        p: Float[PrecursorFeatures, " batch"],
+        x_mask: Optional[Bool[SpectrumMask, " batch"]] = None,
+    ) -> Tuple[Float[SpectrumEmbedding, " batch"], Bool[SpectrumMask, " batch"]]:
         if x_mask is None:
             x_mask = ~x.sum(dim=2).bool()
 
@@ -179,7 +231,9 @@ class InstaNovo(nn.Module):
         # Self-attention on latent spectra AND peaks
         latent_spectra = self.latent_spectrum.expand(x.shape[0], -1, -1)
         x = torch.cat([latent_spectra, x], dim=1)
-        latent_mask = torch.zeros((x_mask.shape[0], 1), dtype=bool, device=x_mask.device)
+        latent_mask = torch.zeros(
+            (x_mask.shape[0], 1), dtype=bool, device=x_mask.device
+        )
         x_mask = torch.cat([latent_mask, x_mask], dim=1)
 
         x = self.encoder(x, src_key_padding_mask=x_mask)
@@ -198,12 +252,16 @@ class InstaNovo(nn.Module):
 
     def _decoder(
         self,
-        x: Tensor,
-        y: Tensor,
-        x_mask: Tensor,
-        y_mask: Tensor = None,
+        x: Float[Spectrum, " batch"],
+        p: Float[PrecursorFeatures, " batch"],
+        y: Integer[Peptide, " batch"],
+        x_mask: Bool[SpectrumMask, " batch"],
+        y_mask: Optional[Bool[PeptideMask, " batch"]] = None,
         add_bos: bool = True,
-    ) -> Tensor:
+    ) -> (
+        Tuple[Float[ResidueLogits, " batch"], Integer[Peptide, " batch"]]
+        | Float[ResidueLogits, " batch"]
+    ):
         if y is None:
             y = torch.full((x.shape[0], 1), self.residue_set.SOS_INDEX, device=x.device)
         elif add_bos:
@@ -214,7 +272,9 @@ class InstaNovo(nn.Module):
             y = torch.cat([bos, y], dim=1)
 
             if y_mask is not None:
-                bos_mask = torch.zeros((y_mask.shape[0], 1), dtype=bool, device=y_mask.device)
+                bos_mask = torch.zeros(
+                    (y_mask.shape[0], 1), dtype=bool, device=y_mask.device
+                )
                 y_mask = torch.cat([bos_mask, y_mask], dim=1)
 
         y = self.aa_embed(y)
@@ -227,7 +287,11 @@ class InstaNovo(nn.Module):
         c_mask = self._get_causal_mask(y.shape[1]).to(y.device)
 
         y_hat = self.decoder(
-            y, x, tgt_mask=c_mask, tgt_key_padding_mask=y_mask, memory_key_padding_mask=x_mask
+            y,
+            x,
+            tgt_mask=c_mask,
+            tgt_key_padding_mask=y_mask,
+            memory_key_padding_mask=x_mask,
         )
 
         return self.head(y_hat)

@@ -1,4 +1,5 @@
 """Generate the code reference pages and navigation."""
+
 # This script is used by the mkdocs-gen-files plugin (https://oprypin.github.io/mkdocs-gen-files/)
 # for MkDocs (https://www.mkdocs.org/). It creates for each module in the code a stub page
 # and it creates a "docs/reference/SUMMARY.md" page which contains a Table of Contents with links to

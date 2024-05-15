@@ -1,12 +1,21 @@
 from __future__ import annotations
 
+from typing import Optional
+
 import torch
+from jaxtyping import Bool
+from jaxtyping import Float
+from jaxtyping import Integer
 from torch.distributions import Categorical
 
 from instanovo.constants import DIFFUSION_EVAL_STEPS
 from instanovo.constants import DIFFUSION_START_STEP
 from instanovo.diffusion.multinomial_diffusion import DiffusionLoss
 from instanovo.diffusion.multinomial_diffusion import MultinomialDiffusion
+from instanovo.types import Peptide
+from instanovo.types import PrecursorFeatures
+from instanovo.types import Spectrum
+from instanovo.types import SpectrumMask
 
 
 class DiffusionDecoder:
@@ -20,10 +29,10 @@ class DiffusionDecoder:
 
     def decode(
         self,
-        spectra: torch.FloatTensor,
-        spectra_padding_mask: torch.BoolTensor,
-        precursors: torch.FloatTensor,
-        initial_sequence: None | torch.LongTensor = None,
+        spectra: Float[Spectrum, " batch"],
+        spectra_padding_mask: Bool[SpectrumMask, " batch"],
+        precursors: Float[PrecursorFeatures, " batch"],
+        initial_sequence: Optional[Integer[Peptide, " batch"]] = None,
         start_step: int = DIFFUSION_START_STEP,
         eval_steps: tuple[int, ...] = DIFFUSION_EVAL_STEPS,
     ) -> tuple[list[list[str]], list[float]]:
@@ -100,7 +109,9 @@ class DiffusionDecoder:
         sequences = self._extract_predictions(sample)
         return sequences, log_probs
 
-    def _extract_predictions(self, sample: torch.LongTensor) -> list[list[str]]:
+    def _extract_predictions(
+        self, sample: Integer[Peptide, " batch"]
+    ) -> list[list[str]]:
         output = []
         for sequence in sample:
             tokens = sequence.tolist()

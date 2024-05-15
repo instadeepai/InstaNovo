@@ -5,6 +5,8 @@ import os
 import shutil
 
 import torch
+from jaxtyping import Float
+from jaxtyping import Integer
 from omegaconf import DictConfig
 from omegaconf import OmegaConf
 from torch import nn
@@ -13,10 +15,15 @@ from torch.nn.functional import log_softmax
 from torch.nn.functional import one_hot
 
 from instanovo.diffusion.model import MassSpectrumTransFusion
+from instanovo.types import Peptide
+from instanovo.types import ResidueLogProbabilities
+from instanovo.types import TimeStep
 from instanovo.utils.residues import ResidueSet
 
 
-def cosine_beta_schedule(timesteps: int, s: float = 0.008) -> torch.FloatTensor:
+def cosine_beta_schedule(
+    timesteps: int, s: float = 0.008
+) -> Float[torch.Tensor, " time"]:
     """Cosine schedule as proposed in https://arxiv.org/abs/2102.09672 .
 
     Returns alpha parameters, NOT Beta
@@ -66,7 +73,7 @@ class MultinomialDiffusion(nn.Module):
         self,
         config: DictConfig,
         transition_model: nn.Module,
-        diffusion_schedule: torch.FloatTensor,
+        diffusion_schedule: Float[torch.Tensor, " time"],
         residues: ResidueSet,
     ) -> None:
         super().__init__()
@@ -75,10 +82,15 @@ class MultinomialDiffusion(nn.Module):
         self.residues = residues
         self.transition_model = transition_model
         self.register_buffer("diffusion_schedule", torch.log(diffusion_schedule))
-        self.register_buffer("diffusion_schedule_complement", torch.log(1 - diffusion_schedule))
-        self.register_buffer("cumulative_schedule", torch.cumsum(self.diffusion_schedule, -1))
         self.register_buffer(
-            "cumulative_schedule_complement", torch.log(1 - torch.exp(self.cumulative_schedule))
+            "diffusion_schedule_complement", torch.log(1 - diffusion_schedule)
+        )
+        self.register_buffer(
+            "cumulative_schedule", torch.cumsum(self.diffusion_schedule, -1)
+        )
+        self.register_buffer(
+            "cumulative_schedule_complement",
+            torch.log(1 - torch.exp(self.cumulative_schedule)),
         )
 
     def save(self, path: str, overwrite: bool = False) -> None:
@@ -117,13 +129,15 @@ class MultinomialDiffusion(nn.Module):
 
         # Save schedule
         torch.save(
-            torch.exp(self.diffusion_schedule), os.path.join(model_dir, "diffusion_schedule.pt")
+            torch.exp(self.diffusion_schedule),
+            os.path.join(model_dir, "diffusion_schedule.pt"),
         )
 
         # Save transition model
         self.transition_model.to("cpu")
         torch.save(
-            self.transition_model.state_dict(), os.path.join(model_dir, "transition_model.ckpt")
+            self.transition_model.state_dict(),
+            os.path.join(model_dir, "transition_model.ckpt"),
         )
         self.transition_model.to(self.config.device)
 
@@ -149,8 +163,12 @@ class MultinomialDiffusion(nn.Module):
         diffusion_schedule = torch.load(os.path.join(path, "diffusion_schedule.pt"))
 
         # Load transition model
-        transition_model = MassSpectrumTransFusion(config.transition_model, config.max_length)
-        transition_model.load_state_dict(torch.load(os.path.join(path, "transition_model.ckpt")))
+        transition_model = MassSpectrumTransFusion(
+            config.transition_model, config.max_length
+        )
+        transition_model.load_state_dict(
+            torch.load(os.path.join(path, "transition_model.ckpt"))
+        )
 
         return cls(
             config=config,
@@ -181,8 +199,11 @@ class MultinomialDiffusion(nn.Module):
         self.transition_model.head[1] = nn.Linear(model_dim, num_residues)
 
     def mixture_categorical(
-        self, log_x: torch.FloatTensor, log_alpha: float, log_alpha_complement: float
-    ) -> torch.FloatTensor:
+        self,
+        log_x: Float[ResidueLogProbabilities, "batch token"],
+        log_alpha: float,
+        log_alpha_complement: float,
+    ) -> Float[ResidueLogProbabilities, "batch token"]:
         """A categorical mixture between a base distribution and a uniform distribution.
 
         Args:
@@ -205,8 +226,11 @@ class MultinomialDiffusion(nn.Module):
         )
 
     def forward(
-        self, log_x_t: torch.FloatTensor, log_x_0: torch.FloatTensor, t: torch.FloatTensor
-    ) -> torch.FloatTensor:
+        self,
+        log_x_t: Float[ResidueLogProbabilities, "batch token"],
+        log_x_0: Float[ResidueLogProbabilities, "batch token"],
+        t: Integer[TimeStep, " batch"],
+    ) -> Float[ResidueLogProbabilities, "batch token"]:
         """Calculate the log-posterior of the `t-1`-th process values given the 0-th and t-th values.
 
         Args:
@@ -234,7 +258,9 @@ class MultinomialDiffusion(nn.Module):
         log_likelihood = self.mixture_categorical(
             log_x=log_x_t,
             log_alpha=self.diffusion_schedule[t].unsqueeze(-1).unsqueeze(-1),
-            log_alpha_complement=self.diffusion_schedule_complement[t].unsqueeze(-1).unsqueeze(-1),
+            log_alpha_complement=self.diffusion_schedule_complement[t]
+            .unsqueeze(-1)
+            .unsqueeze(-1),
         )
         t_mask = (t == 0).unsqueeze(-1).unsqueeze(-1).expand_as(log_x_0)
         prior_term = torch.where(t_mask, log_x_0, log_prior)
@@ -242,12 +268,15 @@ class MultinomialDiffusion(nn.Module):
         return torch.log_softmax(logits, -1)
 
     def reverse_distribution(
-        self, x_t: torch.FloatTensor, time: torch.FloatTensor, **kwargs: dict
-    ) -> torch.FloatTensor:
+        self,
+        x_t: Integer[Peptide, "batch token"],
+        time: Integer[TimeStep, " batch"],
+        **kwargs: dict,
+    ) -> Float[ResidueLogProbabilities, "batch token"]:
         """Calculate the reverse transition distribution of the diffusion process.
 
         Args:
-            x_t (torch.FloatTensor[batch_size, sequence_length]):
+            x_t (torch.LongTensor[batch_size, sequence_length]):
                 The values at the `t`-th time step of the reverse process.
 
             time (int):
@@ -279,8 +308,9 @@ class DiffusionLoss(nn.Module):
 
     @staticmethod
     def kl_divergence(
-        log_probs_first: torch.FloatTensor, log_probs_second: torch.FloatTensor
-    ) -> torch.FloatTensor:
+        log_probs_first: Float[ResidueLogProbabilities, "..."],
+        log_probs_second: Float[ResidueLogProbabilities, "..."],
+    ) -> Float[torch.Tensor, "..."]:
         """Calculate the Kullback-Liebler divergence between two multinomial distributions.
 
         Args:
@@ -294,9 +324,15 @@ class DiffusionLoss(nn.Module):
             torch.FloatTensor[1]:
                 The KL-divergence averaged over all but the final dimension.
         """
-        return (torch.exp(log_probs_first) * (log_probs_first - log_probs_second)).sum(-1).sum(-1)
+        return (
+            (torch.exp(log_probs_first) * (log_probs_first - log_probs_second))
+            .sum(-1)
+            .sum(-1)
+        )
 
-    def forward(self, x_0: torch.LongTensor, **kwargs: dict) -> torch.FloatTensor:
+    def forward(
+        self, x_0: Integer[Peptide, "batch token"], **kwargs: dict
+    ) -> Float[torch.Tensor, "1"]:
         """Calculate a single Monte Carlo estimate of the multinomial diffusion loss (-ELBO).
 
         Args:
@@ -320,17 +356,24 @@ class DiffusionLoss(nn.Module):
             log_alpha=self.model.cumulative_schedule[self.time_steps - 1]
             .unsqueeze(-1)
             .unsqueeze(-1),
-            log_alpha_complement=self.model.cumulative_schedule_complement[self.time_steps - 1]
+            log_alpha_complement=self.model.cumulative_schedule_complement[
+                self.time_steps - 1
+            ]
             .unsqueeze(-1)
             .unsqueeze(-1),
         )
-        uniform_log_probs = torch.log(torch.ones_like(final_log_probs) / len(self.model.residues))
+        uniform_log_probs = torch.log(
+            torch.ones_like(final_log_probs) / len(self.model.residues)
+        )
         kl_loss = self.kl_divergence(final_log_probs, uniform_log_probs).mean()
         return loss + kl_loss
 
     def _compute_loss(
-        self, x_0: torch.LongTensor, t: torch.LongTensor, **kwargs: dict
-    ) -> torch.FloatTensor:
+        self,
+        x_0: Integer[Peptide, "batch token"],
+        t: Integer[TimeStep, " batch"],
+        **kwargs: dict,
+    ) -> Float[torch.Tensor, " batch"]:
         # 1. sample x_{t+1}
         log_x_0 = torch.log(one_hot(x_0, num_classes=len(self.model.residues)))
         log_probs = self.model.mixture_categorical(
@@ -345,7 +388,11 @@ class DiffusionLoss(nn.Module):
         # 2. Calculate loss
         log_dist = self.model.reverse_distribution(x_t=x_next, time=t, **kwargs)
 
-        nll_loss = -(one_hot(x_0, num_classes=len(self.model.residues)) * log_dist).sum(-1).sum(-1)
+        nll_loss = (
+            -(one_hot(x_0, num_classes=len(self.model.residues)) * log_dist)
+            .sum(-1)
+            .sum(-1)
+        )
 
         log_posterior = self.model(
             log_x_0=log_x_0, log_x_t=torch.log(one_hot(x_next, log_probs.size(-1))), t=t
