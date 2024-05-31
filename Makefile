@@ -127,7 +127,7 @@ push-ci-dev:
 ## Compile all the pinned requirements*.txt files from the unpinned requirements*.in files
 compile:
 	pip install --upgrade uv
-	rm requirements/*.txt
+	rm -f requirements/*.txt
 	uv pip compile requirements/requirements.in --emit-index-url  --output-file=requirements/requirements.txt --extra-index-url https://pypi.cs.uni-tuebingen.de/simple/pyopenms/
 	uv pip compile requirements/requirements-dev.in --output-file=requirements/requirements-dev.txt
 	uv pip compile requirements/requirements-docs.in --output-file=requirements/requirements-docs.txt

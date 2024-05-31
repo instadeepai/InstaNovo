@@ -19,3 +19,4 @@ tensorboard
 torch
 tqdm
 transfusion-asr
+python-dotenv
