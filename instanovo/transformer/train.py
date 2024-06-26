@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 from typing import Any
 from typing import Tuple
+from typing import cast
 
 import hydra
 import neptune
@@ -14,7 +15,6 @@ import pandas as pd
 import polars as pl
 import pytorch_lightning as ptl
 import torch
-import yaml
 from jaxtyping import Bool
 from jaxtyping import Float
 from jaxtyping import Integer
@@ -29,7 +29,7 @@ from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
 import instanovo.utils.s3 as s3
-from instanovo.inference.beam_search import BeamSearchDecoder
+from instanovo.inference.beam_search import ScoredSequence, BeamSearchDecoder
 from instanovo.transformer.dataset import collate_batch
 from instanovo.transformer.dataset import load_ipc_shards
 from instanovo.transformer.dataset import SpectrumDataset
@@ -86,7 +86,7 @@ class PTModule(ptl.LightningModule):
         peptides: list[str] | Integer[Peptide, " batch"],
         spectra_mask: Bool[SpectrumMask, " batch"],
         peptides_mask: Bool[PeptideMask, " batch"],
-    ) -> Tuple[Float[ResidueLogits, " batch"], Integer[Peptide, " batch"]]:
+    ) -> Float[ResidueLogits, " batch token+1"]:
         """Model forward pass."""
         return self.model(spectra, precursors, peptides, spectra_mask, peptides_mask)  # type: ignore
 
@@ -96,7 +96,7 @@ class PTModule(ptl.LightningModule):
             Float[Spectrum, " batch"],
             Float[PrecursorFeatures, " batch"],
             Bool[SpectrumMask, " batch"],
-            list[str] | Integer[Peptide, " batch"],
+            Integer[Peptide, " batch"],
             Bool[PeptideMask, " batch"],
         ],
     ) -> Float[Tensor, " batch"]:
@@ -130,7 +130,8 @@ class PTModule(ptl.LightningModule):
             self.running_loss = 0.99 * self.running_loss + (1 - 0.99) * loss.item()
 
         if (
-            (self.steps + 1) % int(self.config.get("console_logging_steps", 2000) * self.step_scale)
+            (self.steps + 1)
+            % int(self.config.get("console_logging_steps", 2000) * self.step_scale)
         ) == 0:
             lr = self.trainer.lr_scheduler_configs[0].scheduler.get_last_lr()[0]
             logger.info(
@@ -144,7 +145,9 @@ class PTModule(ptl.LightningModule):
             self.sw.add_scalar("train/loss_raw", loss.item(), self.steps + 1)
             self.sw.add_scalar("train/loss_smooth", self.running_loss, self.steps + 1)
             self.sw.add_scalar("optim/lr", lr, self.steps + 1)
-            self.sw.add_scalar("optim/epoch", self.trainer.current_epoch, self.steps + 1)
+            self.sw.add_scalar(
+                "optim/epoch", self.trainer.current_epoch, self.steps + 1
+            )
 
         self.steps += 1
 
@@ -156,7 +159,7 @@ class PTModule(ptl.LightningModule):
             Float[Spectrum, " batch"],
             Float[PrecursorFeatures, " batch"],
             Bool[SpectrumMask, " batch"],
-            list[str] | Integer[Peptide, " batch"],
+            Integer[Peptide, " batch"],
             Bool[PeptideMask, " batch"],
         ],
         *args: Any,
@@ -173,7 +176,9 @@ class PTModule(ptl.LightningModule):
         peptides = peptides.to(self.device)
 
         with torch.no_grad():
-            preds = self.forward(spectra, precursors, peptides, spectra_mask, peptides_mask)
+            preds = self.forward(
+                spectra, precursors, peptides, spectra_mask, peptides_mask
+            )
         # Cut off EOS's prediction, ignore_index should take care of masking
         preds = preds[:, :-1].reshape(-1, preds.shape[-1])
         loss = self.loss_fn(preds, peptides.flatten())
@@ -186,8 +191,9 @@ class PTModule(ptl.LightningModule):
                 beam_size=self.config["n_beams"],
                 max_length=self.config["max_length"],
             )
+            p = cast(list[ScoredSequence], p)
 
-        y = [x.sequence if type(x) != list else "" for x in p]
+        y = [x.sequence if isinstance(x, ScoredSequence) else "" for x in p]
         targets = [s for s in self.model.batch_idx_to_aa(peptides, reverse=True)]
 
         aa_prec, aa_recall, pep_recall, _ = self.metrics.compute_precision_recall(
@@ -301,7 +307,9 @@ def train(
             logger.info("Validation path not specified, generating from training set")
             train_unique = train_df["modified_sequence"].unique().sort()
             train_seq, valid_seq = train_test_split(
-                train_unique, test_size=config.get("valid_subset_of_train"), random_state=42
+                train_unique,
+                test_size=config.get("valid_subset_of_train"),
+                random_state=42,
             )
             valid_df = train_df.filter(train_df["modified_sequence"].is_in(valid_seq))
             train_df = train_df.filter(train_df["modified_sequence"].is_in(train_seq))
@@ -309,13 +317,14 @@ def train(
             # TODO: Optionally load the data splits
             # TODO: Allow loading of data splits in `predict.py`
             # TODO: Upload to Aichor
-            split_path = Path(config.get("model_save_folder_path", "./checkpoints")).joinpath(
-                "splits.csv"
-            )
+            split_path = Path(
+                config.get("model_save_folder_path", "./checkpoints")
+            ).joinpath("splits.csv")
             pd.DataFrame(
                 {
                     "modified_sequence": list(train_seq) + list(valid_seq),
-                    "split": ["train"] * train_seq.shape[0] + ["valid"] * valid_seq.shape[0],
+                    "split": ["train"] * train_seq.shape[0]
+                    + ["valid"] * valid_seq.shape[0],
                 }
             ).to_csv(str(split_path), index=False)
             logger.info(f"Data splits saved to {split_path}")
@@ -333,7 +342,9 @@ def train(
         train_df = train_df.with_columns(
             pl.col("modified_sequence")
             .map_elements(
-                lambda x: all([y in supported_residues for y in residue_set.tokenize(x)]),
+                lambda x: all(
+                    [y in supported_residues for y in residue_set.tokenize(x)]
+                ),
                 return_dtype=pl.Boolean,
             )
             .alias("supported")
@@ -341,7 +352,9 @@ def train(
         valid_df = valid_df.with_columns(
             pl.col("modified_sequence")
             .map_elements(
-                lambda x: all([y in supported_residues for y in residue_set.tokenize(x)]),
+                lambda x: all(
+                    [y in supported_residues for y in residue_set.tokenize(x)]
+                ),
                 return_dtype=pl.Boolean,
             )
             .alias("supported")
@@ -378,8 +391,12 @@ def train(
         valid_df = pd.read_csv(valid_path)
         valid_df = valid_df.sample(frac=config["valid_subset"], random_state=42)
 
-    train_ds = SpectrumDataset(train_df, residue_set, config["n_peaks"], return_str=False)
-    valid_ds = SpectrumDataset(valid_df, residue_set, config["n_peaks"], return_str=False)
+    train_ds = SpectrumDataset(
+        train_df, residue_set, config["n_peaks"], return_str=False
+    )
+    valid_ds = SpectrumDataset(
+        valid_df, residue_set, config["n_peaks"], return_str=False
+    )
 
     logger.info(
         f"Data loaded: {len(train_ds):,} training samples; {len(valid_ds):,} validation samples"
@@ -390,7 +407,9 @@ def train(
     logger.info("Checking if any validation set overlaps with training set...")
     leakage = any(valid_df["modified_sequence"].is_in(train_df["modified_sequence"]))
     if leakage:
-        raise ValueError("Portion of validation set sequences overlaps with training set.")
+        raise ValueError(
+            "Portion of validation set sequences overlaps with training set."
+        )
     else:
         logger.info("No data leakage!")
 
@@ -418,7 +437,6 @@ def train(
 
     batch = next(iter(train_dl))
     spectra, precursors, spectra_mask, peptides, peptides_mask = batch
-
     logger.info("Sample batch:")
     logger.info(f" - spectra.shape={spectra.shape}")
     logger.info(f" - precursors.shape={precursors.shape}")
@@ -457,7 +475,9 @@ def train(
             logger.warning(
                 f"Model expects vocab size of {len(residue_set)}, checkpoint has {aa_embed_size}."
             )
-            logger.warning("Assuming a change was made to the residues in the configuration file.")
+            logger.warning(
+                "Assuming a change was made to the residues in the configuration file."
+            )
             logger.warning(f"Automatically converting {state_keys} to match expected.")
 
             new_model_state = model.state_dict()
@@ -480,10 +500,14 @@ def train(
                 elif resolution == "random":
                     model_state[k] = tmp
                 elif resolution == "partial":
-                    tmp[:aa_embed_size] = model_state[k][: min(tmp.shape[0], aa_embed_size)]
+                    tmp[:aa_embed_size] = model_state[k][
+                        : min(tmp.shape[0], aa_embed_size)
+                    ]
                     model_state[k] = tmp
                 else:
-                    raise ValueError(f"Unknown residue_conflict_resolution type '{resolution}'")
+                    raise ValueError(
+                        f"Unknown residue_conflict_resolution type '{resolution}'"
+                    )
 
             logger.warning(
                 f"Model checkpoint has {len(state_keys)} weights updated with '{resolution}' conflict resolution"
@@ -556,7 +580,9 @@ def train(
                 )
             ]
 
-        logger.info(f"Saving every {config['ckpt_interval']} training steps to {ckpt_path}")
+        logger.info(
+            f"Saving every {config['ckpt_interval']} training steps to {ckpt_path}"
+        )
     else:
         logger.info("Model saving disabled")
         callbacks = None
@@ -605,7 +631,9 @@ class NeptuneSummaryWriter(SummaryWriter):
         super().__init__(log_dir=log_dir)
         self.run = run
 
-    def add_scalar(self, tag: str, scalar_value: float, global_step: int | None = None) -> None:
+    def add_scalar(
+        self, tag: str, scalar_value: float, global_step: int | None = None
+    ) -> None:
         """Record scalar to tensorboard and Neptune."""
         super().add_scalar(
             tag=tag,

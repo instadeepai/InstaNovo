@@ -97,7 +97,9 @@ class SpectrumDataset(Dataset):
             if self.annotated:
                 peptide = row["modified_sequence"]
 
-        spectrum = self._process_peaks(mz_array, int_array, precursor_mz, precursor_charge)
+        spectrum = self._process_peaks(
+            mz_array, int_array, precursor_mz, precursor_charge
+        )
 
         if not self.return_str:
             peptide_tokenized = self.residue_set.tokenize(peptide)
@@ -207,7 +209,7 @@ def collate_batch(
     Bool[PeptideMask, " batch"],
 ]:
     """Collate batch of samples."""
-    spectra, precursor_mzs, precursor_charges, peptides = zip(*batch)
+    spectra, precursor_mzs, precursor_charges, peptides_batch = zip(*batch)
 
     # Pad spectra
     ll = torch.tensor([x.shape[0] for x in spectra], dtype=torch.long)
@@ -217,11 +219,11 @@ def collate_batch(
     )
 
     # Pad peptide
-    if isinstance(peptides[0], str):
+    if isinstance(peptides_batch[0], str):
         peptides_mask = None
     else:
-        ll = torch.tensor([x.shape[0] for x in peptides], dtype=torch.long)
-        peptides = nn.utils.rnn.pad_sequence(peptides, batch_first=True)
+        ll = torch.tensor([x.shape[0] for x in peptides_batch], dtype=torch.long)
+        peptides = nn.utils.rnn.pad_sequence(peptides_batch, batch_first=True)
         peptides_mask = (
             torch.arange(peptides.shape[1], dtype=torch.long)[None, :] >= ll[:, None]
         )

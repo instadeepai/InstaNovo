@@ -196,7 +196,10 @@ def load_preds(
         model, config = instanovo_model
 
         ds = SpectrumDataset(
-            df=dataset, residue_set=model.residue_set, n_peaks=config["n_peaks"], return_str=True
+            df=dataset,
+            residue_set=model.residue_set,
+            n_peaks=config["n_peaks"],
+            return_str=True,
         )
         dl = DataLoader(ds, batch_size=64, shuffle=False, collate_fn=collate_batch)
 
@@ -216,7 +219,9 @@ def load_preds(
                         max_length=config["max_length"],
                     )
 
-                preds += ["".join(x.sequence) if not isinstance(x, list) else "" for x in p]
+                preds += [
+                    "".join(x.sequence) if not isinstance(x, list) else "" for x in p
+                ]
 
             json.dump(preds, json_file)
     return preds

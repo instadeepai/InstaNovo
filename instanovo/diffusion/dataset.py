@@ -111,25 +111,34 @@ def collate_batches(
     """
 
     def fn(
-        batch: list[tuple[Spectrum, float, int, str]],
+        batch: list[tuple[Spectrum, float, int]]
+        | list[tuple[Spectrum, float, int, str]],
     ) -> SpectrumBatch | AnnotatedSpectrumBatch:
         if annotated:
-            spectra, precursor_mz, precursor_charge, peptides = list(zip(*batch))
+            (
+                spectrum_batch,
+                precursor_mz_batch,
+                precursor_charge_batch,
+                peptides_batch,
+            ) = list(zip(*batch))
         else:
-            spectra, precursor_mz, precursor_charge = list(zip(*batch))
+            spectrum_batch, precursor_mz_batch, precursor_charge_batch = list(
+                zip(*batch)
+            )
 
-        spectra = torch.nn.utils.rnn.pad_sequence(spectra, batch_first=True)
+        spectra = torch.nn.utils.rnn.pad_sequence(spectrum_batch, batch_first=True)
         spectra_padding_mask = spectra[:, :, 0] == 0.0
 
-        precursor_mz = torch.tensor(precursor_mz)
-        precursor_charge = torch.FloatTensor(precursor_charge)
+        precursor_mz = torch.tensor(precursor_mz_batch)
+        precursor_charge = torch.FloatTensor(precursor_charge_batch)
         precursor_masses = (precursor_mz - PROTON_MASS_AMU) * precursor_charge
         precursors = torch.stack(
             [precursor_masses, precursor_charge, precursor_mz], -1
         ).float()
         if annotated:
             peptides = [
-                sequence if isinstance(sequence, str) else "$" for sequence in peptides
+                sequence if isinstance(sequence, str) else "$"
+                for sequence in peptides_batch
             ]
             peptides = [sequence if len(sequence) > 0 else "$" for sequence in peptides]
             peptides = torch.stack(

@@ -23,7 +23,9 @@ class ResidueSet:
     """
 
     def __init__(
-        self, residue_masses: dict[str, float], residue_remapping: dict[str, str] | None = None
+        self,
+        residue_masses: dict[str, float],
+        residue_remapping: dict[str, str] | None = None,
     ) -> None:
         self.residue_masses = residue_masses
         self.residue_remapping = residue_remapping if residue_remapping else {}
@@ -37,8 +39,12 @@ class ResidueSet:
         self.vocab = self.special_tokens + list(self.residue_masses.keys())
 
         # Create mappings
-        self.residue_to_index = {residue: index for index, residue in enumerate(self.vocab)}
-        self.index_to_residue = {index: residue for index, residue in enumerate(self.vocab)}
+        self.residue_to_index = {
+            residue: index for index, residue in enumerate(self.vocab)
+        }
+        self.index_to_residue = {
+            index: residue for index, residue in enumerate(self.vocab)
+        }
         # Split on amino acids allowing for modifications eg. AM(ox)Z -> [A, M(ox), Z]
         # Groups A-Z with any suffix
         # self.tokenizer_regex = r"(?<=.)(?=[A-Z])"
@@ -172,7 +178,9 @@ class ResidueSet:
         else:
             return encoded_list
 
-    def decode(self, sequence: torch.LongTensor | list[int], reverse: bool = False) -> list[str]:
+    def decode(
+        self, sequence: torch.LongTensor | list[int], reverse: bool = False
+    ) -> list[str]:
         """Map a sequence of indices to the corresponding sequence of residues.
 
         Args:

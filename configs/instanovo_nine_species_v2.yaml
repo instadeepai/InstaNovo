@@ -1,0 +1,34 @@
+defaults:
+  - instanovo
+  - _self_
+  - override model: instanovo_species_v2
+  - override dataset: nine_species_v2
+  - override residues: extended
+
+# Overwritten when using Aichor
+tb_summarywriter: "./logs/instanovo/instanovo-nine-species-v2"
+
+# Training parameters
+warmup_iters: 5000
+learning_rate: 5e-5
+weight_decay: 5e-5
+train_batch_size: 128 # 256
+
+epochs: 3
+run_name: instanovo_nine_species_v2_ft_yeast_test # instanovo_nine_species_v2_finetune_yeast
+
+train_subset: 1
+valid_subset: 0.05 # 1
+
+save_model: True
+model_save_folder_path: "checkpoints/instanovo-ft-nine-species-v2-excl-yeast"
+save_weights_only: False
+ckpt_interval: 10000
+train_from_scratch: False
+resume_checkpoint: "./checkpoints/model.ckpt"
+residue_conflict_resolution: delete # delete, random, partial
+
+subset: 1.0
+# bs 128
+# excl yeast: 14,234 steps/epoch
+# excl apis:

@@ -27,7 +27,9 @@ def get_shards(
             elif len(current_shard) + len(df) < max_shard_size:
                 current_shard = pd.concat([current_shard, df])
             else:
-                yield pd.concat([current_shard, df[: (max_shard_size - len(current_shard))]])
+                yield pd.concat(
+                    [current_shard, df[: (max_shard_size - len(current_shard))]]
+                )
                 current_shard = df[(max_shard_size - len(current_shard)) :]
     yield current_shard
 
@@ -52,7 +54,9 @@ def main(
 
     split_options = splits["Split"].unique()
     if split not in split_options:
-        raise ValueError(f"Unknown split {split}. Please select one of {list(split_options)}.")
+        raise ValueError(
+            f"Unknown split {split}. Please select one of {list(split_options)}."
+        )
 
     # TODO: find a better way to configure this.
     col_map = {
@@ -77,7 +81,9 @@ def main(
     ]
 
     filter_sequences = set(splits[splits["Split"] == split]["Sequence"].to_list())
-    shards = get_shards(path=data_path, seq_filter=filter_sequences, max_shard_size=max_size)
+    shards = get_shards(
+        path=data_path, seq_filter=filter_sequences, max_shard_size=max_size
+    )
     os.makedirs(output_path, exist_ok=True)
     for index, shard in enumerate(shards):
         polars_df = pl.DataFrame(shard)
@@ -85,8 +91,12 @@ def main(
             polars_df = polars_df.rename(
                 {k: v for k, v in col_map.items() if k in polars_df.columns}
             )
-            polars_df = polars_df.drop([col for col in drop_cols if col in polars_df.columns])
-            polars_df = polars_df.with_columns(pl.col("modified_sequence").apply(lambda x: x[1:-1]))
+            polars_df = polars_df.drop(
+                [col for col in drop_cols if col in polars_df.columns]
+            )
+            polars_df = polars_df.with_columns(
+                pl.col("modified_sequence").apply(lambda x: x[1:-1])
+            )
         polars_df.write_ipc(os.path.join(output_path, f"{split}_shard_{index}.ipc"))
 
 
