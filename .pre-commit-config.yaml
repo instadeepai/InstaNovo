@@ -35,12 +35,6 @@ repos:
       - id: mixed-line-ending # Replace or checks mixed line ending
       - id: trailing-whitespace # This hook trims trailing whitespace
 
-  - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.6.0
-    hooks:
-      - id: mypy
-        additional_dependencies: ["types-requests", "types-PyYAML"]
-
   - repo: https://github.com/compilerla/conventional-pre-commit
     rev: v3.2.0
     hooks:
@@ -94,5 +88,5 @@ repos:
     rev: 'v1.9.0'
     hooks:
       - id: mypy
-        additional_dependencies: [types-requests]
+        additional_dependencies: [types-requests, types-PyYAML]
         args: [--ignore-missing-imports, "--exclude=(notebooks|tests)", --disable-error-code, "name-defined"]

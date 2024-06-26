@@ -247,6 +247,8 @@ isoduration==20.11.0
     # via jsonschema
 iterative-telemetry==0.0.8
     # via dvc
+jaxtyping==0.2.28
+    # via -r requirements/requirements.in
 jinja2==3.1.4
     # via torch
 jiwer==3.0.4
@@ -332,6 +334,7 @@ numpy==1.24.4
     #   -r requirements/requirements.in
     #   contourpy
     #   datasets
+    #   jaxtyping
     #   matchms
     #   matplotlib
     #   numba
@@ -645,6 +648,8 @@ transfusion-asr==0.1.0
     # via -r requirements/requirements.in
 triton==2.3.0
     # via torch
+typeguard==2.13.3
+    # via jaxtyping
 typer==0.12.3
     # via gto
 types-python-dateutil==2.9.0.20240316

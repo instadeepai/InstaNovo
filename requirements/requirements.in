@@ -2,6 +2,7 @@ click
 datasets
 dvc
 dvc-gs
+jaxtyping
 jiwer
 matchms
 neptune

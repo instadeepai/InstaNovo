@@ -186,9 +186,9 @@ def convert_mzml_mzxml_ipc(
         filenames = list(source.iterdir())
 
     for filepath in filenames:
-        if not filepath.suffix.lower().endswith("mzml") and not filepath.suffix.lower().endswith(
-            "mzxml"
-        ):
+        if not filepath.suffix.lower().endswith(
+            "mzml"
+        ) and not filepath.suffix.lower().endswith("mzxml"):
             logger.info(f"Skipping {filepath}... Not a mzml or mzXML file...")
             continue
 

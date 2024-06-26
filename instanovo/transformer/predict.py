@@ -4,25 +4,23 @@ import logging
 import os
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import click
 import numpy as np
 import polars as pl
 import torch
-import yaml
 from omegaconf import open_dict
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-from instanovo.inference.beam_search import BeamSearchDecoder
+from instanovo.inference.beam_search import ScoredSequence
 from instanovo.inference.knapsack import Knapsack
 from instanovo.inference.knapsack_beam_search import KnapsackBeamSearchDecoder
 from instanovo.transformer.dataset import collate_batch
 from instanovo.transformer.dataset import SpectrumDataset
 from instanovo.transformer.model import InstaNovo
 from instanovo.utils.metrics import Metrics
-from instanovo.utils.residues import ResidueSet
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -96,7 +94,9 @@ def get_preds(
         df = df.with_columns(
             pl.col("modified_sequence")
             .map_elements(
-                lambda x: all([y in supported_residues for y in residue_set.tokenize(x)])
+                lambda x: all(
+                    [y in supported_residues for y in residue_set.tokenize(x)]
+                )
             )  # TODO: set return_dtype
             .alias("supported")
         )
@@ -110,14 +110,16 @@ def get_preds(
             logger.warning(f"Residues found: \n{df_residues-supported_residues}")
             logger.warning(f"Residues supported: \n{supported_residues}")
             logger.warning(
-                f"Please check residue remapping if a different convention has been used."
+                "Please check residue remapping if a different convention has been used."
             )
             original_size = df.shape[0]
             df = df.filter(pl.col("supported"))
             logger.warning(f"{original_size-df.shape[0]:,d} rows have been dropped.")
-            logger.warning(f"Peptide recall should be manually updated accordingly.")
+            logger.warning("Peptide recall should be manually updated accordingly.")
 
-    ds = SpectrumDataset(df, residue_set, config["n_peaks"], return_str=True, annotated=not denovo)
+    ds = SpectrumDataset(
+        df, residue_set, config["n_peaks"], return_str=True, annotated=not denovo
+    )
 
     dl = DataLoader(
         ds,
@@ -178,10 +180,11 @@ def get_preds(
                 precursors=precursors,
                 beam_size=config["n_beams"],
                 max_length=config["max_length"],
-                return_all_beams=save_beams,
+                return_beam=save_beams,
             )
 
         if save_beams:
+            p = cast(list[list[ScoredSequence]], p)
             for x in p:
                 for i in range(config["n_beams"]):
                     if i >= len(x):
@@ -189,10 +192,13 @@ def get_preds(
                         probs[i].append(-1e6)
                     else:
                         preds[i].append("".join(x[i].sequence))
-                        probs[i].append(x[i].log_probability)
+                        probs[i].append(x[i].sequence_log_probability)
         else:
-            preds[0] += [x.sequence if type(x) != list else "" for x in p]
-            probs[0] += [x.log_probability if type(x) != list else -1e6 for x in p]
+            p = cast(list[ScoredSequence], p)
+            preds[0] += ["".join(x.sequence) if isinstance(x, list) else "" for x in p]
+            probs[0] += [
+                x.sequence_log_probability if isinstance(x, list) else -1e6 for x in p
+            ]
             targs += list(peptides)
 
     delta = time.time() - start
@@ -226,7 +232,9 @@ def get_preds(
             pred_df["targets"], preds[0]
         )
         aa_er = metrics.compute_aa_er(pred_df["targets"], preds[0])
-        auc = metrics.calc_auc(pred_df["targets"], preds[0], np.exp(pred_df["log_probs"]))
+        auc = metrics.calc_auc(
+            pred_df["targets"], preds[0], np.exp(pred_df["log_probs"])
+        )
 
         logging.info(f"Performance on {data_path}:")
         logging.info(f"aa_er       {aa_er}")

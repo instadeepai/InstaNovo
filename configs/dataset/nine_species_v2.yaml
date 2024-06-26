@@ -1,0 +1,9 @@
+use_shards: True
+train_path: data/species_formatted_ipc/
+valid_path: data/species_formatted_ipc/
+valid_subset_of_train:
+
+residue_remapping:
+  "M(ox)": "M(+15.99)"
+  "Q(+0.98)": "Q(+.98)"
+  "N(+0.98)": "N(+.98)"

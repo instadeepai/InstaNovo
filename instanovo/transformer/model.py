@@ -3,18 +3,11 @@ from __future__ import annotations
 from typing import Optional
 from typing import Tuple
 
-import depthcharge.masses
 import torch
-from depthcharge.components import PeptideDecoder
-from depthcharge.components import SpectrumEncoder
-from depthcharge.components.encoders import MassEncoder
-from depthcharge.components.encoders import PeakEncoder
-from depthcharge.components.encoders import PositionalEncoder
 from jaxtyping import Bool
 from jaxtyping import Float
 from jaxtyping import Integer
 from torch import nn
-from torch import Tensor
 
 from instanovo.constants import MAX_SEQUENCE_LENGTH
 from instanovo.transformer.layers import MultiScalePeakEmbedding
@@ -70,7 +63,9 @@ class InstaNovo(nn.Module):
         # Decoder
         self.aa_embed = nn.Embedding(self.vocab_size, dim_model, padding_idx=0)
 
-        self.aa_pos_embed = PositionalEncoding(dim_model, dropout, max_len=MAX_SEQUENCE_LENGTH)
+        self.aa_pos_embed = PositionalEncoding(
+            dim_model, dropout, max_len=MAX_SEQUENCE_LENGTH
+        )
 
         decoder_layer = nn.TransformerDecoderLayer(
             d_model=dim_model,
@@ -133,7 +128,7 @@ class InstaNovo(nn.Module):
         x_mask: Optional[Bool[SpectrumMask, " batch"]] = None,
         y_mask: Optional[Bool[PeptideMask, " batch"]] = None,
         add_bos: bool = True,
-    ) -> Float[Tensor, "batch token+1 residue"]:
+    ) -> Float[ResidueLogits, "batch token+1"]:
         """Model forward pass.
 
         Args:
@@ -184,7 +179,9 @@ class InstaNovo(nn.Module):
         residue_masses = torch.zeros(len(self.residue_set), dtype=torch.int64)
         for index, residue in self.residue_set.index_to_residue.items():
             if residue in self.residue_set.residue_masses:
-                residue_masses[index] = round(mass_scale * self.residue_set.get_mass(residue))
+                residue_masses[index] = round(
+                    mass_scale * self.residue_set.get_mass(residue)
+                )
         return residue_masses
 
     def get_eos_index(self) -> int:
@@ -213,7 +210,9 @@ class InstaNovo(nn.Module):
             t.append(i)
         return [self.i2s[x.item()] for x in t]
 
-    def batch_idx_to_aa(self, idx: Integer[Peptide, " batch"]) -> list[list[str]]:
+    def batch_idx_to_aa(
+        self, idx: Integer[Peptide, " batch"], reverse: bool
+    ) -> list[list[str]]:
         """Decode a batch of indices to aa lists."""
         return [self.residue_set.decode(i, reverse=reverse) for i in idx]
 
@@ -253,15 +252,11 @@ class InstaNovo(nn.Module):
     def _decoder(
         self,
         x: Float[Spectrum, " batch"],
-        p: Float[PrecursorFeatures, " batch"],
         y: Integer[Peptide, " batch"],
         x_mask: Bool[SpectrumMask, " batch"],
         y_mask: Optional[Bool[PeptideMask, " batch"]] = None,
         add_bos: bool = True,
-    ) -> (
-        Tuple[Float[ResidueLogits, " batch"], Integer[Peptide, " batch"]]
-        | Float[ResidueLogits, " batch"]
-    ):
+    ) -> Float[ResidueLogits, " batch"]:
         if y is None:
             y = torch.full((x.shape[0], 1), self.residue_set.SOS_INDEX, device=x.device)
         elif add_bos:

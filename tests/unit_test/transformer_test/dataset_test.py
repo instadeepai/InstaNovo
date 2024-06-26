@@ -357,7 +357,8 @@ def test_collate(
         rtol=1e-04,
     )
     assert torch.allclose(
-        precursors, torch.Tensor([[1598.7540, 2.0000, 800.3843], [1598.7551, 3.0000, 533.9257]])
+        precursors,
+        torch.Tensor([[1598.7540, 2.0000, 800.3843], [1598.7551, 3.0000, 533.9257]]),
     )
     assert torch.equal(
         spectra_mask,

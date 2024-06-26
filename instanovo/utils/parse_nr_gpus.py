@@ -8,7 +8,9 @@ def parse_nr_gpus() -> int:
     """Returns the number of GPUs specified in the manifest.yaml file."""
     with open("manifest.yaml") as f:
         data = yaml.load(f, Loader=SafeLoader)
-        nr_gpus = data["spec"]["types"]["Worker"]["resources"]["accelerators"]["gpu"]["count"]
+        nr_gpus = data["spec"]["types"]["Worker"]["resources"]["accelerators"]["gpu"][
+            "count"
+        ]
     return int(nr_gpus)
 
 
