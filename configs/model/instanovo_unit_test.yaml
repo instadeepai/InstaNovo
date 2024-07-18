@@ -1,0 +1,15 @@
+defaults:
+  - instanovo_8M
+  - _self_
+
+# Model data parameters
+n_peaks: 11
+min_mz: 1.0
+max_mz: 1000.0
+min_intensity: 0.01
+remove_precursor_tol: 2.0
+max_charge: 3
+precursor_mass_tol: 50 # ppm
+isotope_error_range: [0, 1]
+
+max_length: 6

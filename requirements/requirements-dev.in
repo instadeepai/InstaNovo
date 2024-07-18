@@ -1,6 +1,7 @@
 -c requirements.txt
 allure-pytest
 coverage
+gsutil
 pre-commit
 pytest
 pytest-cov

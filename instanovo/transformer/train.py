@@ -3,6 +3,7 @@ from __future__ import annotations
 import datetime
 import logging
 import os
+import sys
 from pathlib import Path
 from typing import Any
 from typing import Tuple
@@ -42,6 +43,7 @@ from instanovo.types import Spectrum
 from instanovo.types import SpectrumMask
 from instanovo.utils.metrics import Metrics
 from instanovo.utils.residues import ResidueSet
+
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -558,6 +560,7 @@ def train(
 
         # returns input if s3 disabled
         ckpt_path = s3.convert_to_s3_output(config["model_save_folder_path"])
+        print("ckpt path: ", ckpt_path)
 
         if s3._s3_enabled():
             callbacks = [
@@ -597,7 +600,9 @@ def train(
         num_sanity_val_steps=config["num_sanity_val_steps"],
         accumulate_grad_batches=config["grad_accumulation"],
         gradient_clip_val=config["gradient_clip_val"],
+        enable_progress_bar=False,
         strategy=strategy,
+        val_check_interval=config["val_check_interval"],
     )
 
     # Train the model.
@@ -622,6 +627,31 @@ def _get_strategy() -> DDPStrategy | str:
         return DDPStrategy(find_unused_parameters=False, static_graph=True)
 
     return "auto"
+
+
+def _set_author_neptune_api_token() -> None:
+    """Set the variable NEPTUNE_API_TOKEN based on the email of commit author.
+
+    It is useful on AIchor to have proper owner of each run.
+    """
+    try:
+        author_email = os.environ["VCS_AUTHOR_EMAIL"]
+    # we are not on AIchor
+    except KeyError:
+        return
+
+    author_email, _ = author_email.split("@")
+    author_email = author_email.replace("-", "_").replace(".", "_").upper()
+
+    logger.info(
+        f"Checking for Neptune API token under {author_email}__NEPTUNE_API_TOKEN."
+    )
+    try:
+        author_api_token = os.environ[f"{author_email}__NEPTUNE_API_TOKEN"]
+        os.environ["NEPTUNE_API_TOKEN"] = author_api_token
+        logger.info(f"Set token for {author_email}.")
+    except KeyError:
+        logger.info(f"Neptune credentials for user {author_email} not found.")
 
 
 class NeptuneSummaryWriter(SummaryWriter):
@@ -667,6 +697,11 @@ class WarmupScheduler(torch.optim.lr_scheduler._LRScheduler):
 def main(config: DictConfig) -> None:
     """Train the model."""
     logger.info("Initializing training.")
+    logger.info(f"Python version: {sys.version}")
+    logger.info(f"Torch version: {torch.__version__}")
+    logger.info(f"CUDA version: {torch.version.cuda}")
+
+    _set_author_neptune_api_token()
 
     # Unnest hydra configs
     # TODO Use the nested configs by default

@@ -5,7 +5,7 @@
 
 absl-py==2.1.0
     # via tensorboard
-aiobotocore==2.13.0
+aiobotocore==2.13.1
     # via s3fs
 aiohttp==3.9.5
     # via
@@ -53,9 +53,9 @@ attrs==23.2.0
     #   sqltrie
 billiard==4.2.0
     # via celery
-boto3==1.34.106
+boto3==1.34.131
     # via neptune
-botocore==1.34.106
+botocore==1.34.131
     # via
     #   aiobotocore
     #   boto3
@@ -70,7 +70,7 @@ celery==5.4.0
     # via
     #   dvc
     #   dvc-task
-certifi==2024.2.2
+certifi==2024.6.2
     # via requests
 cffi==1.16.0
     # via
@@ -100,11 +100,11 @@ configobj==5.0.8
     # via dvc
 contourpy==1.2.1
     # via matplotlib
-cryptography==42.0.7
+cryptography==42.0.8
     # via asyncssh
 cycler==0.12.1
     # via matplotlib
-datasets==2.19.1
+datasets==2.20.0
     # via -r requirements/requirements.in
 decorator==5.1.1
     # via gcsfs
@@ -122,14 +122,14 @@ distro==1.9.0
     # via
     #   dvc
     #   iterative-telemetry
-dpath==2.1.6
+dpath==2.2.0
     # via dvc
 dulwich==0.22.1
     # via
     #   dvc
     #   dvc-studio-client
     #   scmrepo
-dvc==3.51.1
+dvc==3.51.2
     # via
     #   -r requirements/requirements.in
     #   dvc-gs
@@ -145,7 +145,7 @@ dvc-objects==5.1.0
     #   dvc-data
 dvc-render==1.0.2
     # via dvc
-dvc-studio-client==0.20.0
+dvc-studio-client==0.21.0
     # via dvc
 dvc-task==0.4.0
     # via dvc
@@ -153,7 +153,7 @@ entrypoints==0.4
     # via gto
 fastobo==0.12.3
     # via spectrum-utils
-filelock==3.14.0
+filelock==3.15.4
     # via
     #   datasets
     #   huggingface-hub
@@ -164,7 +164,7 @@ flatten-dict==0.4.2
     # via dvc
 flufl-lock==7.1.1
     # via dvc
-fonttools==4.52.4
+fonttools==4.53.0
     # via matplotlib
 fqdn==1.5.1
     # via jsonschema
@@ -172,7 +172,7 @@ frozenlist==1.4.1
     # via
     #   aiohttp
     #   aiosignal
-fsspec==2024.3.1
+fsspec==2024.5.0
     # via
     #   datasets
     #   dvc
@@ -195,7 +195,7 @@ funcy==2.0
     #   scmrepo
 future==1.0.0
     # via neptune
-gcsfs==2024.3.1
+gcsfs==2024.5.0
     # via dvc-gs
 gitdb==4.0.11
     # via gitpython
@@ -203,11 +203,11 @@ gitpython==3.1.43
     # via
     #   neptune
     #   scmrepo
-google-api-core==2.8.0
+google-api-core==2.19.1
     # via
     #   google-cloud-core
     #   google-cloud-storage
-google-auth==2.29.0
+google-auth==2.31.0
     # via
     #   gcsfs
     #   google-api-core
@@ -218,23 +218,23 @@ google-auth-oauthlib==1.2.0
     # via gcsfs
 google-cloud-core==2.4.1
     # via google-cloud-storage
-google-cloud-storage==2.14.0
+google-cloud-storage==2.17.0
     # via gcsfs
 google-crc32c==1.5.0
     # via
     #   google-cloud-storage
     #   google-resumable-media
-google-resumable-media==2.7.0
+google-resumable-media==2.7.1
     # via google-cloud-storage
-googleapis-common-protos==1.56.1
+googleapis-common-protos==1.63.2
     # via google-api-core
 grandalf==0.8
     # via dvc
-grpcio==1.64.0
+grpcio==1.64.1
     # via tensorboard
 gto==1.7.1
     # via dvc
-huggingface-hub==0.23.2
+huggingface-hub==0.23.4
     # via datasets
 hydra-core==1.3.2
     # via dvc
@@ -243,11 +243,13 @@ idna==3.7
     #   jsonschema
     #   requests
     #   yarl
+importlib-resources==6.4.0
+    # via swagger-spec-validator
 isoduration==20.11.0
     # via jsonschema
 iterative-telemetry==0.0.8
     # via dvc
-jaxtyping==0.2.28
+jaxtyping==0.2.31
     # via -r requirements/requirements.in
 jinja2==3.1.4
     # via torch
@@ -259,7 +261,7 @@ jmespath==1.0.1
     #   botocore
 joblib==1.4.2
     # via scikit-learn
-jsonpointer==2.4
+jsonpointer==3.0.0
     # via jsonschema
 jsonref==1.1.0
     # via bravado-core
@@ -278,7 +280,7 @@ kombu==5.3.7
     #   dvc-task
 lark==1.1.9
     # via spectrum-utils
-lightning-utilities==0.11.2
+lightning-utilities==0.11.3.post0
     # via
     #   pytorch-lightning
     #   torchmetrics
@@ -294,7 +296,7 @@ markupsafe==2.1.5
     # via
     #   jinja2
     #   werkzeug
-matchms==0.25.0
+matchms==0.26.4
     # via -r requirements/requirements.in
 matplotlib==3.9.0
     # via
@@ -334,7 +336,6 @@ numpy==1.24.4
     #   -r requirements/requirements.in
     #   contourpy
     #   datasets
-    #   jaxtyping
     #   matchms
     #   matplotlib
     #   numba
@@ -374,7 +375,7 @@ nvidia-cusparse-cu12==12.1.0.106
     #   torch
 nvidia-nccl-cu12==2.20.5
     # via torch
-nvidia-nvjitlink-cu12==12.5.40
+nvidia-nvjitlink-cu12==12.5.82
     # via
     #   nvidia-cusolver-cu12
     #   nvidia-cusparse-cu12
@@ -389,9 +390,9 @@ omegaconf==2.3.0
     #   -r requirements/requirements.in
     #   dvc
     #   hydra-core
-orjson==3.10.3
+orjson==3.10.5
     # via sqltrie
-packaging==24.0
+packaging==24.1
     # via
     #   datasets
     #   dvc
@@ -415,7 +416,7 @@ pathspec==0.12.1
     #   scmrepo
 pickydict==0.4.0
     # via matchms
-pillow==10.3.0
+pillow==10.4.0
     # via
     #   matchms
     #   matplotlib
@@ -423,16 +424,19 @@ pillow==10.3.0
     #   rdkit
 platformdirs==3.11.0
     # via dvc
-polars==0.20.30
+polars==1.0.0
     # via -r requirements/requirements.in
-prompt-toolkit==3.0.45
+prompt-toolkit==3.0.47
     # via click-repl
-protobuf==5.27.0
+proto-plus==1.24.0
+    # via google-api-core
+protobuf==4.25.3
     # via
     #   google-api-core
     #   googleapis-common-protos
+    #   proto-plus
     #   tensorboard
-psutil==5.9.8
+psutil==6.0.0
     # via
     #   dvc
     #   flufl-lock
@@ -451,9 +455,9 @@ pyasn1-modules==0.4.0
     # via google-auth
 pycparser==2.22
     # via cffi
-pydantic==2.7.2
+pydantic==2.8.0
     # via gto
-pydantic-core==2.18.3
+pydantic-core==2.20.0
     # via pydantic
 pydot==2.0.0
     # via dvc
@@ -492,7 +496,7 @@ python-dateutil==2.9.0.post0
     #   pandas
 python-dotenv==1.0.1
     # via -r requirements/requirements.in
-pytorch-lightning==2.2.5
+pytorch-lightning==2.3.1
     # via -r requirements/requirements.in
 pytz==2024.1
     # via
@@ -508,7 +512,7 @@ pyyaml==6.0.1
     #   omegaconf
     #   pytorch-lightning
     #   swagger-spec-validator
-rapidfuzz==3.9.2
+rapidfuzz==3.9.3
     # via jiwer
 rdkit==2023.9.4
     # via matchms
@@ -556,9 +560,9 @@ ruamel-yaml==0.18.6
     #   gto
 ruamel-yaml-clib==0.2.8
     # via ruamel-yaml
-s3fs==2024.3.1
+s3fs==2024.5.0
     # via -r requirements/requirements.in
-s3transfer==0.10.1
+s3transfer==0.10.2
     # via boto3
 scikit-learn==1.5.0
     # via -r requirements/requirements.in
@@ -573,7 +577,7 @@ scmrepo==3.3.5
     #   gto
 semver==3.0.2
     # via gto
-setuptools==70.0.0
+setuptools==70.2.0
     # via
     #   lightning-utilities
     #   tensorboard
@@ -608,7 +612,7 @@ spectrum-utils==0.4.2
     # via -r requirements/requirements.in
 sqltrie==0.11.0
     # via dvc-data
-swagger-spec-validator==3.0.3
+swagger-spec-validator==3.0.4
     # via
     #   bravado-core
     #   neptune
@@ -618,7 +622,7 @@ tabulate==0.9.0
     # via
     #   dvc
     #   gto
-tensorboard==2.16.2
+tensorboard==2.17.0
     # via -r requirements/requirements.in
 tensorboard-data-server==0.7.2
     # via tensorboard
@@ -626,7 +630,7 @@ threadpoolctl==3.5.0
     # via scikit-learn
 tomlkit==0.12.5
     # via dvc
-torch==2.3.0
+torch==2.3.1
     # via
     #   -r requirements/requirements.in
     #   pytorch-lightning
@@ -646,7 +650,7 @@ tqdm==4.66.4
     #   scmrepo
 transfusion-asr==0.1.0
     # via -r requirements/requirements.in
-triton==2.3.0
+triton==2.3.1
     # via torch
 typeguard==2.13.3
     # via jaxtyping
@@ -654,7 +658,7 @@ typer==0.12.3
     # via gto
 types-python-dateutil==2.9.0.20240316
     # via arrow
-typing-extensions==4.12.0
+typing-extensions==4.12.2
     # via
     #   asyncssh
     #   bravado
@@ -673,7 +677,7 @@ tzdata==2024.1
     #   pandas
 uri-template==1.3.0
     # via jsonschema
-urllib3==2.2.1
+urllib3==2.2.2
     # via
     #   botocore
     #   dulwich
@@ -684,13 +688,13 @@ vine==5.1.0
     #   amqp
     #   celery
     #   kombu
-voluptuous==0.14.2
+voluptuous==0.15.1
     # via
     #   dvc
     #   dvc-studio-client
 wcwidth==0.2.13
     # via prompt-toolkit
-webcolors==1.13
+webcolors==24.6.0
     # via jsonschema
 websocket-client==1.8.0
     # via neptune

@@ -1,0 +1,6 @@
+use_shards: True
+train_path: ./data/denovo_code_tests/example_data/train.ipc
+valid_path: ./data/denovo_code_tests/example_data/valid.ipc
+valid_subset_of_train:
+
+residue_remapping: {}

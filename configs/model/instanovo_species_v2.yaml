@@ -3,4 +3,4 @@ defaults:
   - _self_
 
 # Model parameters
-dropout: 0.2
+dropout: 0.1

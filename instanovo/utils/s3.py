@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import os
 from pathlib import Path
+import re
 
 import pytorch_lightning as pl
 import s3fs
@@ -77,6 +78,13 @@ def convert_to_s3_output(path: str) -> str:
     return path
 
 
+def clean_filepath(filepath: str) -> str:
+    """Convert file path to AIchor compatible path, without disallowed characters."""
+    pattern = r"[^a-zA-Z0-9\-_\.]"
+    clean_filepath = re.sub(pattern, "", filepath)
+    return clean_filepath
+
+
 class PLCheckpointWrapper(pl.callbacks.ModelCheckpoint):
     """Wrapper for PL ModelCheckpoint callback to upload checkpoints to s3."""
 
@@ -121,9 +129,12 @@ class PLCheckpointWrapper(pl.callbacks.ModelCheckpoint):
             return
 
         # upload checkpoint to s3
-        if self.strategy:
+        if self.strategy and not isinstance(self.strategy, str):
             self.strategy.barrier()
-        target = f"{self.s3_ckpt_path}/{filepath.split('/')[-1]}"
+
+        # Special characters are not allowed in AIchor bucket names. See: https://docs.aichor.ai/docs/user-manual/buckets/
+        suffix = clean_filepath(filepath.split("/")[-1])
+        target = f"{self.s3_ckpt_path}/{suffix}"
 
         upload(filepath, target)
 

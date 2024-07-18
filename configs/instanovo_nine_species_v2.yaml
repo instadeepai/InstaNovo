@@ -10,25 +10,29 @@ tb_summarywriter: "./logs/instanovo/instanovo-nine-species-v2"
 
 # Training parameters
 warmup_iters: 5000
-learning_rate: 5e-5
-weight_decay: 5e-5
+learning_rate: 5e-5 # 5e-6
+weight_decay: 0 # 5e-6
 train_batch_size: 128 # 256
+predict_batch_size: 64
 
-epochs: 3
-run_name: instanovo_nine_species_v2_ft_yeast_test # instanovo_nine_species_v2_finetune_yeast
+epochs: 1
+run_name: instanovo_nine_species_v2_ft
 
 train_subset: 1
 valid_subset: 0.05 # 1
 
+val_check_interval: 500
 save_model: True
-model_save_folder_path: "checkpoints/instanovo-ft-nine-species-v2-excl-yeast"
+model_save_folder_path: "checkpoints/instanovo-ft-nine-species-v2"
 save_weights_only: False
-ckpt_interval: 10000
+ckpt_interval: 2000
 train_from_scratch: False
 resume_checkpoint: "./checkpoints/model.ckpt"
 residue_conflict_resolution: delete # delete, random, partial
 
-subset: 1.0
+subset: 0.07 # 1.0
+
 # bs 128
 # excl yeast: 14,234 steps/epoch
 # excl apis:
+# excl vigna: 17,275 steps/epoch

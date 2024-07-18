@@ -219,14 +219,15 @@ def collate_batch(
     )
 
     # Pad peptide
-    if isinstance(peptides_batch[0], str):
-        peptides_mask = None
-    else:
+    if not isinstance(peptides_batch[0], str):
         ll = torch.tensor([x.shape[0] for x in peptides_batch], dtype=torch.long)
         peptides = nn.utils.rnn.pad_sequence(peptides_batch, batch_first=True)
         peptides_mask = (
             torch.arange(peptides.shape[1], dtype=torch.long)[None, :] >= ll[:, None]
         )
+    else:
+        peptides = peptides_batch
+        peptides_mask = None
 
     precursor_mzs = torch.tensor(precursor_mzs)
     precursor_charges = torch.tensor(precursor_charges)
@@ -301,9 +302,17 @@ def _clean_and_remap(df: pl.DataFrame) -> pl.DataFrame:
 
     df = df.rename({k: v for k, v in col_map.items() if k in df.columns})
     if df.select(pl.first("modified_sequence")).item()[0] == "_":
-        df = df.with_columns(pl.col("modified_sequence").apply(lambda x: x[1:-1]))
+        df = df.with_columns(
+            pl.col("modified_sequence").map_elements(
+                lambda x: x[1:-1], return_dtype=pl.Utf8
+            )
+        )
     if df.select(pl.first("modified_sequence")).item()[0] == ".":
-        df = df.with_columns(pl.col("modified_sequence").apply(lambda x: x[1:-1]))
+        df = df.with_columns(
+            pl.col("modified_sequence").map_elements(
+                lambda x: x[1:-1], return_dtype=pl.Utf8
+            )
+        )
 
     df = df.drop([col for col in df.columns if col not in list(col_dtypes.keys())])
 
