@@ -1,31 +1,84 @@
 from __future__ import annotations
 
+import os
+
 import pandas as pd
 import polars as pl
 import pytest
 import torch
-from datasets.arrow_dataset import Dataset
-from datasets.dataset_dict import DatasetDict
-from datasets.dataset_dict import IterableDatasetDict
-from datasets.iterable_dataset import IterableDataset
 
 from instanovo.diffusion.dataset import AnnotatedPolarsSpectrumDataset
+from instanovo.diffusion.dataset import AnnotatedSpectrumBatch
 from instanovo.diffusion.dataset import PolarsSpectrumDataset
+from instanovo.diffusion.dataset import SpectrumBatch
 
 
-@pytest.mark.skip(reason="Skip diffusion tests for the moment")
-def test_preds(load_preds: list[str]) -> None:
-    """Test InstaNovo predictions type."""
-    assert isinstance(load_preds, list)
-    assert all(isinstance(x, str) for x in load_preds)
+def test_spectrum_batch() -> None:
+    """Test spectrum batch function."""
+    spectra = torch.tensor(
+        [[[1.0, 1.0], [3.0, 0.7], [2.0, 0.75]], [[4.0, 0.3], [14.0, 0.35], [2.0, 0.9]]]
+    )
+    spectra_padding_mask = torch.tensor(
+        [
+            [[True, True], [True, True], [True, True]],
+            [[True, True], [True, True], [True, True]],
+        ]
+    )
+    precursors = torch.tensor([100.0, 200.0])
+
+    sb = SpectrumBatch(
+        spectra=spectra,
+        spectra_padding_mask=spectra_padding_mask,
+        precursors=precursors,
+    )
+
+    assert torch.equal(sb.spectra, spectra)
+    assert torch.equal(sb.spectra_padding_mask, spectra_padding_mask)
+    assert torch.equal(sb.precursors, precursors)
 
 
-def test_polar_spectrum(
-    dataset: DatasetDict | Dataset | IterableDatasetDict | IterableDataset,
-) -> None:
+def test_annotated_spectrum_batch() -> None:
+    """Test annotated spectrum batch function."""
+    spectra = torch.tensor(
+        [[[1.0, 1.0], [3.0, 0.7], [2.0, 0.75]], [[4.0, 0.3], [14.0, 0.35], [2.0, 0.9]]]
+    )
+    spectra_padding_mask = torch.tensor(
+        [
+            [[True, True], [True, True], [True, True]],
+            [[True, True], [True, True], [True, True]],
+        ]
+    )
+    precursors = torch.tensor([100.0, 200.0])
+    peptides = torch.tensor([[1, 2, 3], [4, 5, 6]])
+    peptide_padding_mask = torch.tensor([[True, True, False], [True, True, True]])
+
+    asb = AnnotatedSpectrumBatch(
+        spectra=spectra,
+        spectra_padding_mask=spectra_padding_mask,
+        precursors=precursors,
+        peptides=peptides,
+        peptide_padding_mask=peptide_padding_mask,
+    )
+
+    assert torch.equal(asb.spectra, spectra)
+    assert torch.equal(asb.spectra_padding_mask, spectra_padding_mask)
+    assert torch.equal(asb.precursors, precursors)
+    assert torch.equal(asb.peptides, peptides)
+    assert torch.equal(asb.peptide_padding_mask, peptide_padding_mask)
+
+
+@pytest.mark.skipif(
+    os.getenv("GOOGLE_APPLICATION_CREDENTIALS") is None,
+    reason="Google application credentials are required to run this test.",
+)
+@pytest.mark.usefixtures("_get_gcp_test_bucket")
+def test_polar_spectrum(dir_paths: tuple[str, str]) -> None:
     """Test polars sepectrum dataset."""
-    diffusion_dataset = PolarsSpectrumDataset(pl.from_pandas(pd.DataFrame(dataset)))
-    assert len(diffusion_dataset) == 271
+    root_dir, data_dir = dir_paths
+    diffusion_dataset = PolarsSpectrumDataset(
+        pl.read_ipc(os.path.join(data_dir, "train.ipc"))
+    )
+    assert len(diffusion_dataset) == 15500
 
     spectrum, precursor_mz, precursor_charge = diffusion_dataset[0]
 
@@ -33,60 +86,39 @@ def test_polar_spectrum(
         spectrum,
         torch.tensor(
             [
-                [1.0096e02, 6.4273e-03],
-                [1.1006e02, 6.0129e-03],
-                [1.1646e02, 5.7488e-03],
-                [1.2910e02, 2.5723e-02],
-                [1.3009e02, 2.5281e-02],
-                [1.4711e02, 3.0318e-02],
-                [1.7309e02, 6.7769e-03],
-                [1.8612e02, 1.3652e-02],
-                [2.0413e02, 2.9710e-02],
-                [2.7303e02, 7.5393e-03],
-                [2.8318e02, 1.7115e-02],
-                [3.0119e02, 3.4304e-01],
-                [3.2845e02, 8.4199e-03],
-                [3.7222e02, 4.9525e-02],
-                [4.7877e02, 7.6899e-03],
-                [5.2873e02, 9.7643e-03],
-                [5.7176e02, 1.0661e-02],
-                [5.7975e02, 1.1832e-02],
-                [6.1527e02, 9.5337e-03],
-                [6.5630e02, 1.2352e-02],
-                [7.7837e02, 2.2391e-02],
-                [7.7887e02, 7.0299e-02],
-                [7.7938e02, 5.1397e-03],
-                [7.9137e02, 1.6256e-02],
-                [7.9189e02, 1.6157e-02],
-                [8.0088e02, 6.5557e-02],
-                [1.0365e03, 1.1454e-02],
-                [1.1015e03, 1.2202e-02],
-                [1.1395e03, 5.5224e-02],
-                [1.1895e03, 1.2289e-02],
-                [1.2285e03, 2.2203e-02],
-                [1.2556e03, 1.8892e-02],
-                [1.2565e03, 2.0319e-02],
-                [1.2716e03, 1.0596e-01],
-                [1.2996e03, 3.2774e-01],
-                [1.5998e03, 1.0000e00],
+                [34.6979, 1.0000],
+                [24.0176, 1.0000],
+                [67.7779, 1.0000],
+                [32.7176, 0.5000],
+                [18.0375, 0.5000],
+                [31.3479, 0.5000],
+                [27.3741, 0.2500],
+                [0.0000, 0.0000],
+                [0.0000, 0.0000],
+                [0.0000, 0.0000],
+                [0.0000, 0.0000],
             ]
         ),
         rtol=1e-04,
     )
-    assert precursor_mz == 800.38427734375
-    assert precursor_charge == 2.0
+    assert precursor_mz == 27.374142666666668
+    assert precursor_charge == 3.0
 
 
-@pytest.mark.skip(reason="Skip diffusion tests for the moment")
-def test_ann_polar_spectrum(
-    load_preds: list[str],
-    dataset: DatasetDict | Dataset | IterableDatasetDict | IterableDataset,
-) -> None:
+@pytest.mark.skipif(
+    os.getenv("GOOGLE_APPLICATION_CREDENTIALS") is None,
+    reason="Google application credentials are required to run this test.",
+)
+@pytest.mark.usefixtures("_get_gcp_test_bucket")
+def test_ann_polar_spectrum(dir_paths: tuple[str, str]) -> None:
     """Test annotated polars sepectrum dataset."""
+    root_dir, data_dir = dir_paths
+    df = pd.read_csv(os.path.join(root_dir, "predictions.csv"))
+    preds = df["preds"].tolist()
     diffusion_dataset = AnnotatedPolarsSpectrumDataset(
-        pl.from_pandas(pd.DataFrame(dataset)), peptides=load_preds
+        pl.read_ipc(os.path.join(data_dir, "train.ipc")), peptides=preds
     )
-    assert len(diffusion_dataset) == 271
+    assert len(diffusion_dataset) == 15500
 
     spectrum, precursor_mz, precursor_charge, peptide = diffusion_dataset[0]
 
@@ -94,46 +126,21 @@ def test_ann_polar_spectrum(
         spectrum,
         torch.tensor(
             [
-                [1.0096e02, 6.4273e-03],
-                [1.1006e02, 6.0129e-03],
-                [1.1646e02, 5.7488e-03],
-                [1.2910e02, 2.5723e-02],
-                [1.3009e02, 2.5281e-02],
-                [1.4711e02, 3.0318e-02],
-                [1.7309e02, 6.7769e-03],
-                [1.8612e02, 1.3652e-02],
-                [2.0413e02, 2.9710e-02],
-                [2.7303e02, 7.5393e-03],
-                [2.8318e02, 1.7115e-02],
-                [3.0119e02, 3.4304e-01],
-                [3.2845e02, 8.4199e-03],
-                [3.7222e02, 4.9525e-02],
-                [4.7877e02, 7.6899e-03],
-                [5.2873e02, 9.7643e-03],
-                [5.7176e02, 1.0661e-02],
-                [5.7975e02, 1.1832e-02],
-                [6.1527e02, 9.5337e-03],
-                [6.5630e02, 1.2352e-02],
-                [7.7837e02, 2.2391e-02],
-                [7.7887e02, 7.0299e-02],
-                [7.7938e02, 5.1397e-03],
-                [7.9137e02, 1.6256e-02],
-                [7.9189e02, 1.6157e-02],
-                [8.0088e02, 6.5557e-02],
-                [1.0365e03, 1.1454e-02],
-                [1.1015e03, 1.2202e-02],
-                [1.1395e03, 5.5224e-02],
-                [1.1895e03, 1.2289e-02],
-                [1.2285e03, 2.2203e-02],
-                [1.2556e03, 1.8892e-02],
-                [1.2565e03, 2.0319e-02],
-                [1.2716e03, 1.0596e-01],
-                [1.2996e03, 3.2774e-01],
-                [1.5998e03, 1.0000e00],
+                [34.6979, 1.0000],
+                [24.0176, 1.0000],
+                [67.7779, 1.0000],
+                [32.7176, 0.5000],
+                [18.0375, 0.5000],
+                [31.3479, 0.5000],
+                [27.3741, 0.2500],
+                [0.0000, 0.0000],
+                [0.0000, 0.0000],
+                [0.0000, 0.0000],
+                [0.0000, 0.0000],
             ]
         ),
         rtol=1e-04,
     )
-    assert precursor_mz == 800.38427734375
-    assert precursor_charge == 2.0
-    assert peptide == "NRNVGDQNGC(+57.02)LAPGK"
+    assert precursor_mz == 27.374142666666668
+    assert precursor_charge == 3.0
+    assert peptide == "DCECAB"

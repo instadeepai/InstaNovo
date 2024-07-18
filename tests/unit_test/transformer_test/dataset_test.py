@@ -1,91 +1,82 @@
 from __future__ import annotations
 
+import os
+from typing import Any
+
+import pandas as pd
+import polars as pl
 import pytest
 import torch
-from datasets.arrow_dataset import Dataset
-from datasets.dataset_dict import DatasetDict
-from datasets.dataset_dict import IterableDatasetDict
-from datasets.iterable_dataset import IterableDataset
-from torch.utils.data import DataLoader
 
+from instanovo.transformer.dataset import _clean_and_remap
 from instanovo.transformer.dataset import collate_batch
+from instanovo.transformer.dataset import load_ipc_shards
 from instanovo.transformer.dataset import SpectrumDataset
-from instanovo.transformer.model import InstaNovo
 
 
-@pytest.mark.skip(reason="Skip diffusion tests for the moment")
-def test_vocab(instanovo_model: InstaNovo) -> None:
-    """Test InstaNovo model vocab."""
-    model, config = instanovo_model
-    s2i = {v: k for k, v in model.i2s.items()}
-
-    assert s2i == {
-        "A": 1,
-        "C(+57.02)": 6,
-        "D": 10,
-        "E": 13,
-        "F": 16,
-        "G": 0,
-        "H": 15,
-        "I": 8,
-        "K": 12,
-        "L": 7,
-        "M": 14,
-        "M(+15.99)": 20,
-        "N": 9,
-        "N(+.98)": 21,
-        "P": 3,
-        "Q": 11,
-        "Q(+.98)": 22,
-        "R": 17,
-        "S": 2,
-        "T": 5,
-        "V": 4,
-        "W": 19,
-        "Y": 18,
+@pytest.mark.skipif(
+    os.getenv("GOOGLE_APPLICATION_CREDENTIALS") is None,
+    reason="Google application credentials are required to run this test.",
+)
+def test_dataset_default_init(residue_set: Any) -> None:
+    """Test spectrum dataset default initialisation."""
+    data = {
+        "mz_array": [
+            [7.84, 18.215, 20.8, 28.64, 66.6, 38.55, 29.81, 49.965, 51.25, 27.25]
+        ],
+        "intensity_array": [[1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]],
+        "precursor_mz": [35.83],
+        "precursor_charge": [2],
+        "modified_sequence": "ABCDEAAABC",
     }
+    df = pl.DataFrame(data)
+
+    sd = SpectrumDataset(df=df, residue_set=residue_set)
+
+    assert sd.n_peaks == 200
+    assert sd.min_mz == 50
+    assert sd.max_mz == 2500
+    assert sd.min_intensity == 0.01
+    assert sd.remove_precursor_tol == 2.0
+    assert sd.reverse_peptide
+    assert sd.annotated
+    assert not sd.return_str
+    assert sd.data_type == "pl"
+
+    assert len(sd) == 1
+
+    spectrum, precursor_mz, precursor_charge, peptide = sd[0]
+
+    assert torch.allclose(
+        spectrum,
+        torch.Tensor([[51.2500, 0.7071], [66.6000, 0.7071]]),
+        rtol=1e-04,
+    )
+    assert precursor_mz == 35.83
+    assert precursor_charge == 2
+    assert torch.allclose(peptide, torch.tensor([5, 4, 3, 3, 3, 7, 6, 5, 4, 3, 2]))
 
 
-@pytest.mark.skip(reason="Skip diffusion tests for the moment")
-def test_config_peaks(instanovo_model: InstaNovo) -> None:
-    """Test InstaNovo config peaks."""
-    model, config = instanovo_model
-    n_peaks = config["n_peaks"]
+@pytest.mark.skipif(
+    os.getenv("GOOGLE_APPLICATION_CREDENTIALS") is None,
+    reason="Google application credentials are required to run this test.",
+)
+def test_dataset_spec_init(residue_set: Any) -> None:
+    """Test spectrum dataset specified initialisation."""
+    data = {
+        "mz_array": [
+            [7.84, 18.215, 20.8, 28.64, 66.6, 38.55, 29.81, 49.965, 51.25, 27.25]
+        ],
+        "intensity_array": [[1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]],
+        "precursor_mz": [35.83],
+        "precursor_charge": [2],
+        "modified_sequence": "ABCDEAAABC",
+    }
+    df = pl.DataFrame(data)
 
-    assert n_peaks == 200
-
-
-@pytest.mark.skip(reason="Skip diffusion tests for the moment")
-def test_dataset_default_init(
-    instanovo_model: InstaNovo,
-    dataset: DatasetDict | Dataset | IterableDatasetDict | IterableDataset,
-) -> None:
-    """Test InstaNovo dataset default initialisation."""
-    model, config = instanovo_model
-
-    ds = SpectrumDataset(df=dataset, residue_set=model.residue_set)
-
-    assert ds.n_peaks == 200
-    assert ds.min_mz == 50
-    assert ds.max_mz == 2500
-    assert ds.min_intensity == 0.01
-    assert ds.remove_precursor_tol == 2.0
-    assert ds.reverse_peptide
-    assert ds.annotated
-    assert not ds.return_str
-
-
-@pytest.mark.skip(reason="Skip diffusion tests for the moment")
-def test_dataset_spec_init(
-    instanovo_model: InstaNovo,
-    dataset: DatasetDict | Dataset | IterableDatasetDict | IterableDataset,
-) -> None:
-    """Test InstaNovo dataset specified initialisation."""
-    model, config = instanovo_model
-
-    ds = SpectrumDataset(
-        df=dataset,
-        residue_set=model.residue_set,
+    sd = SpectrumDataset(
+        df=df,
+        residue_set=residue_set,
         n_peaks=100,
         min_mz=25,
         max_mz=1000,
@@ -96,433 +87,159 @@ def test_dataset_spec_init(
         return_str=True,
     )
 
-    assert ds.n_peaks == 100
-    assert ds.min_mz == 25
-    assert ds.max_mz == 1000
-    assert ds.min_intensity == 0.01
-    assert ds.remove_precursor_tol == 1.0
-    assert not ds.reverse_peptide
-    assert ds.EOS_ID == -1
-    assert not ds.annotated
-    assert ds.return_str
+    assert sd.n_peaks == 100
+    assert sd.min_mz == 25
+    assert sd.max_mz == 1000
+    assert sd.min_intensity == 0.01
+    assert sd.remove_precursor_tol == 1.0
+    assert not sd.reverse_peptide
+    assert not sd.annotated
+    assert sd.return_str
+    assert sd.data_type == "pl"
+
+    assert len(sd) == 1
+
+    _, _, _, peptide = sd[0]
+
+    assert peptide == ""
 
 
-@pytest.mark.skip(reason="Skip diffusion tests for the moment")
-def test_dataset_length(
-    instanovo_model: InstaNovo,
-    dataset: DatasetDict | Dataset | IterableDatasetDict | IterableDataset,
-) -> None:
-    """Test InstaNovo dataset length."""
-    model, config = instanovo_model
+@pytest.mark.skipif(
+    os.getenv("GOOGLE_APPLICATION_CREDENTIALS") is None,
+    reason="Google application credentials are required to run this test.",
+)
+def test_process_peaks_with_pandas(residue_set: Any) -> None:
+    """Test spectrum dataset default initialisation."""
+    data = {
+        "mz_array": [
+            [7.84, 18.215, 20.8, 28.64, 66.6, 38.55, 29.81, 49.965, 51.25, 27.25]
+        ],
+        "intensity_array": [[1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]],
+        "precursor_mz": [35.83],
+        "precursor_charge": [2],
+        "modified_sequence": "ABCDEAAABC",
+    }
 
-    ds = SpectrumDataset(dataset, model.residue_set, config["n_peaks"], return_str=True)
-    assert len(ds) == 271
+    df = pd.DataFrame(data)
 
+    sd = SpectrumDataset(df=df, residue_set=residue_set, n_peaks=10, min_mz=25)
+    assert sd.data_type == "pd"
 
-@pytest.mark.skip(reason="Skip diffusion tests for the moment")
-def test_dataset_batch(
-    instanovo_model: InstaNovo,
-    dataset: DatasetDict | Dataset | IterableDatasetDict | IterableDataset,
-) -> None:
-    """Test InstaNovo dataset batch."""
-    model, config = instanovo_model
+    assert len(sd) == 1
 
-    ds = SpectrumDataset(dataset, model.residue_set, config["n_peaks"], return_str=True)
-    spectrum, precursor_mz, precursor_charge, peptide = ds[0]
+    row = df.iloc[0]
+    proc_spectrum = sd._process_peaks(
+        mz_array=torch.Tensor(row["mz_array"]),
+        int_array=torch.Tensor(row["intensity_array"]),
+        precursor_mz=row["precursor_mz"],
+        precursor_charge=row["precursor_charge"],
+    )
+
+    assert torch.allclose(
+        proc_spectrum,
+        torch.Tensor(
+            [
+                [27.2500, 0.3780],
+                [28.6400, 0.3780],
+                [29.8100, 0.3780],
+                [38.5500, 0.3780],
+                [49.9650, 0.3780],
+                [51.2500, 0.3780],
+                [66.6000, 0.3780],
+            ]
+        ),
+        rtol=1e-04,
+    )
+
+    spectrum, precursor_mz, precursor_charge, peptide = sd[0]
+
     assert torch.allclose(
         spectrum,
-        torch.Tensor(
-            [
-                [1.0096e02, 6.8907e-02],
-                [1.1006e02, 6.6649e-02],
-                [1.1646e02, 6.5169e-02],
-                [1.2910e02, 1.3785e-01],
-                [1.3009e02, 1.3666e-01],
-                [1.4711e02, 1.4966e-01],
-                [1.7309e02, 7.0756e-02],
-                [1.8612e02, 1.0042e-01],
-                [2.0413e02, 1.4815e-01],
-                [2.7303e02, 7.4630e-02],
-                [2.8318e02, 1.1245e-01],
-                [3.0119e02, 5.0341e-01],
-                [3.2845e02, 7.8869e-02],
-                [3.7222e02, 1.9128e-01],
-                [4.7877e02, 7.5372e-02],
-                [5.2873e02, 8.4931e-02],
-                [5.7176e02, 8.8744e-02],
-                [5.7975e02, 9.3491e-02],
-                [6.1527e02, 8.3923e-02],
-                [6.5630e02, 9.5524e-02],
-                [7.7837e02, 1.2861e-01],
-                [7.7887e02, 2.2789e-01],
-                [7.7938e02, 6.1620e-02],
-                [7.9137e02, 1.0959e-01],
-                [7.9189e02, 1.0925e-01],
-                [1.0365e03, 9.1989e-02],
-                [1.1015e03, 9.4942e-02],
-                [1.1395e03, 2.0198e-01],
-                [1.1895e03, 9.5279e-02],
-                [1.2285e03, 1.2807e-01],
-                [1.2556e03, 1.1814e-01],
-                [1.2565e03, 1.2252e-01],
-                [1.2716e03, 2.7978e-01],
-                [1.2996e03, 4.9205e-01],
-            ]
-        ),
+        proc_spectrum,
         rtol=1e-04,
     )
+    assert precursor_mz == 35.83
+    assert precursor_charge == 2
+    assert torch.allclose(peptide, torch.tensor([5, 4, 3, 3, 3, 7, 6, 5, 4, 3, 2]))
 
-    assert precursor_mz == 800.38427734375
-    assert precursor_charge == 2.0
-    assert peptide == "TPGREDAAEETAAPGK"
+
+@pytest.mark.skipif(
+    os.getenv("GOOGLE_APPLICATION_CREDENTIALS") is None,
+    reason="Google application credentials are required to run this test.",
+)
+def test_dataset_file(residue_set: Any) -> None:
+    """Test spectrum dataset error catching."""
+    data = [1, 1, 1]
+
+    with pytest.raises(Exception, match=r"Unsupported data type <class 'list'>"):
+        _ = SpectrumDataset(df=data, residue_set=residue_set)
+
+    data = {
+        "mz_array": [10, 20, 30],
+        "intensity_array": [0.67, 1.0, 0.5],
+        "precursor_mz": [150, 250, 350],
+        "precursor_charge": [1, 2, 3],
+    }
+    df = pl.DataFrame(data)
+
+    with pytest.raises(
+        ValueError, match="Column missing! Missing column: modified_sequence"
+    ):
+        _ = SpectrumDataset(df=df, residue_set=residue_set)
 
 
-@pytest.mark.skip(reason="Skip diffusion tests for the moment")
-def test_collate(
-    instanovo_model: InstaNovo,
-    dataset: DatasetDict | Dataset | IterableDatasetDict | IterableDataset,
-) -> None:
-    """Test InstaNovo dataloader collate function."""
-    model, config = instanovo_model
+def test_dataset_collate() -> None:
+    """Test spectrum dataset collate function."""
+    spectra = [torch.randn(10, 2), torch.randn(8, 2), torch.randn(15, 2)]
+    precursor_mzs = [100.0, 200.0, 150.0]
+    precursor_charges = [1, 2, 1]
+    peptides = [
+        torch.tensor([1, 5, 2, 1]),
+        torch.tensor([3, 5, 9, 8, 7]),
+        torch.tensor([9, 7, 3]),
+    ]
 
-    ds = SpectrumDataset(dataset, model.residue_set, config["n_peaks"], return_str=True)
-    dl = DataLoader(ds, batch_size=2, shuffle=False, collate_fn=collate_batch)
-    batch = next(iter(dl))
-
-    spectra, precursors, spectra_mask, peptides, _ = batch
-    assert torch.allclose(
-        spectra,
-        torch.Tensor(
-            [
-                [
-                    [1.0096e02, 6.8907e-02],
-                    [1.1006e02, 6.6649e-02],
-                    [1.1646e02, 6.5169e-02],
-                    [1.2910e02, 1.3785e-01],
-                    [1.3009e02, 1.3666e-01],
-                    [1.4711e02, 1.4966e-01],
-                    [1.7309e02, 7.0756e-02],
-                    [1.8612e02, 1.0042e-01],
-                    [2.0413e02, 1.4815e-01],
-                    [2.7303e02, 7.4630e-02],
-                    [2.8318e02, 1.1245e-01],
-                    [3.0119e02, 5.0341e-01],
-                    [3.2845e02, 7.8869e-02],
-                    [3.7222e02, 1.9128e-01],
-                    [4.7877e02, 7.5372e-02],
-                    [5.2873e02, 8.4931e-02],
-                    [5.7176e02, 8.8744e-02],
-                    [5.7975e02, 9.3491e-02],
-                    [6.1527e02, 8.3923e-02],
-                    [6.5630e02, 9.5524e-02],
-                    [7.7837e02, 1.2861e-01],
-                    [7.7887e02, 2.2789e-01],
-                    [7.7938e02, 6.1620e-02],
-                    [7.9137e02, 1.0959e-01],
-                    [7.9189e02, 1.0925e-01],
-                    [1.0365e03, 9.1989e-02],
-                    [1.1015e03, 9.4942e-02],
-                    [1.1395e03, 2.0198e-01],
-                    [1.1895e03, 9.5279e-02],
-                    [1.2285e03, 1.2807e-01],
-                    [1.2556e03, 1.1814e-01],
-                    [1.2565e03, 1.2252e-01],
-                    [1.2716e03, 2.7978e-01],
-                    [1.2996e03, 4.9205e-01],
-                    [0.0000e00, 0.0000e00],
-                    [0.0000e00, 0.0000e00],
-                    [0.0000e00, 0.0000e00],
-                    [0.0000e00, 0.0000e00],
-                    [0.0000e00, 0.0000e00],
-                    [0.0000e00, 0.0000e00],
-                    [0.0000e00, 0.0000e00],
-                    [0.0000e00, 0.0000e00],
-                    [0.0000e00, 0.0000e00],
-                    [0.0000e00, 0.0000e00],
-                    [0.0000e00, 0.0000e00],
-                    [0.0000e00, 0.0000e00],
-                    [0.0000e00, 0.0000e00],
-                    [0.0000e00, 0.0000e00],
-                    [0.0000e00, 0.0000e00],
-                    [0.0000e00, 0.0000e00],
-                    [0.0000e00, 0.0000e00],
-                    [0.0000e00, 0.0000e00],
-                    [0.0000e00, 0.0000e00],
-                    [0.0000e00, 0.0000e00],
-                    [0.0000e00, 0.0000e00],
-                    [0.0000e00, 0.0000e00],
-                    [0.0000e00, 0.0000e00],
-                    [0.0000e00, 0.0000e00],
-                    [0.0000e00, 0.0000e00],
-                    [0.0000e00, 0.0000e00],
-                    [0.0000e00, 0.0000e00],
-                    [0.0000e00, 0.0000e00],
-                    [0.0000e00, 0.0000e00],
-                    [0.0000e00, 0.0000e00],
-                    [0.0000e00, 0.0000e00],
-                    [0.0000e00, 0.0000e00],
-                    [0.0000e00, 0.0000e00],
-                    [0.0000e00, 0.0000e00],
-                    [0.0000e00, 0.0000e00],
-                    [0.0000e00, 0.0000e00],
-                    [0.0000e00, 0.0000e00],
-                    [0.0000e00, 0.0000e00],
-                    [0.0000e00, 0.0000e00],
-                    [0.0000e00, 0.0000e00],
-                    [0.0000e00, 0.0000e00],
-                    [0.0000e00, 0.0000e00],
-                    [0.0000e00, 0.0000e00],
-                ],
-                [
-                    [1.0206e02, 1.5659e-01],
-                    [1.2910e02, 8.5658e-02],
-                    [1.3009e02, 6.9173e-02],
-                    [1.4711e02, 9.2828e-02],
-                    [1.5508e02, 7.6935e-02],
-                    [1.6910e02, 4.4613e-02],
-                    [1.7111e02, 1.0253e-01],
-                    [1.7309e02, 1.0162e-01],
-                    [1.9508e02, 4.1588e-02],
-                    [1.9911e02, 7.1197e-02],
-                    [2.0109e02, 7.8843e-02],
-                    [2.0413e02, 1.0829e-01],
-                    [2.1309e02, 6.7321e-02],
-                    [2.3110e02, 5.2743e-02],
-                    [2.3909e02, 4.1613e-02],
-                    [2.4108e02, 5.1726e-02],
-                    [2.5909e02, 7.4543e-02],
-                    [2.8318e02, 9.6649e-02],
-                    [2.8412e02, 4.9769e-02],
-                    [3.0119e02, 4.0183e-01],
-                    [3.1365e02, 6.9522e-02],
-                    [3.2216e02, 5.1740e-02],
-                    [3.2816e02, 4.3714e-02],
-                    [3.2865e02, 8.4462e-02],
-                    [3.4213e02, 4.7763e-02],
-                    [3.5017e02, 8.2215e-02],
-                    [3.5421e02, 5.3792e-02],
-                    [3.5517e02, 1.0384e-01],
-                    [3.7222e02, 1.6867e-01],
-                    [3.7669e02, 5.1280e-02],
-                    [3.8569e02, 7.6477e-02],
-                    [4.1317e02, 7.4231e-02],
-                    [4.2092e02, 4.0213e-02],
-                    [4.4084e02, 5.2411e-02],
-                    [4.4326e02, 1.5205e-01],
-                    [4.5521e02, 7.7468e-02],
-                    [4.5819e02, 4.3700e-02],
-                    [4.7821e02, 1.0422e-01],
-                    [4.8857e02, 7.0330e-02],
-                    [5.4431e02, 2.1082e-01],
-                    [5.5525e02, 1.6596e-01],
-                    [5.5725e02, 4.2561e-02],
-                    [5.6125e02, 5.4916e-02],
-                    [6.0027e02, 7.5823e-02],
-                    [6.2629e02, 9.8458e-02],
-                    [6.5534e02, 9.4754e-02],
-                    [6.5629e02, 1.0460e-01],
-                    [6.6933e02, 1.2577e-01],
-                    [6.7335e02, 1.8197e-01],
-                    [6.9733e02, 1.7234e-01],
-                    [7.0133e02, 1.1745e-01],
-                    [7.0182e02, 5.1286e-02],
-                    [7.0933e02, 5.0761e-02],
-                    [7.2733e02, 2.1210e-01],
-                    [7.2932e02, 5.3202e-02],
-                    [7.4085e02, 4.9344e-02],
-                    [7.4136e02, 5.5698e-02],
-                    [7.4987e02, 1.0906e-01],
-                    [7.5434e02, 4.2837e-02],
-                    [7.7037e02, 7.6015e-02],
-                    [7.8037e02, 1.1569e-01],
-                    [7.8438e02, 7.9805e-02],
-                    [7.9837e02, 2.4075e-01],
-                    [8.0239e02, 1.4020e-01],
-                    [8.2636e02, 1.7631e-01],
-                    [8.7343e02, 4.6804e-02],
-                    [9.2741e02, 2.3908e-01],
-                    [9.3891e02, 4.2673e-02],
-                    [9.5541e02, 5.4546e-02],
-                    [1.0385e03, 1.2572e-01],
-                    [1.0564e03, 1.6373e-01],
-                    [1.1395e03, 1.2800e-01],
-                    [1.1985e03, 5.0744e-02],
-                    [1.1996e03, 4.8810e-02],
-                    [1.3836e03, 7.1560e-02],
-                    [1.4807e03, 1.4328e-01],
-                    [1.4997e03, 1.1361e-01],
-                ],
-            ]
-        ),
-        rtol=1e-04,
+    batch = list(zip(spectra, precursor_mzs, precursor_charges, peptides))
+    spectra, precursors, spectra_mask, peptides_tensor, peptides_mask = collate_batch(
+        batch
     )
-    assert torch.allclose(
-        precursors,
-        torch.Tensor([[1598.7540, 2.0000, 800.3843], [1598.7551, 3.0000, 533.9257]]),
-    )
-    assert torch.equal(
-        spectra_mask,
-        torch.Tensor(
-            [
-                [
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                    True,
-                    True,
-                    True,
-                    True,
-                    True,
-                    True,
-                    True,
-                    True,
-                    True,
-                    True,
-                    True,
-                    True,
-                    True,
-                    True,
-                    True,
-                    True,
-                    True,
-                    True,
-                    True,
-                    True,
-                    True,
-                    True,
-                    True,
-                    True,
-                    True,
-                    True,
-                    True,
-                    True,
-                    True,
-                    True,
-                    True,
-                    True,
-                    True,
-                    True,
-                    True,
-                    True,
-                    True,
-                    True,
-                    True,
-                    True,
-                    True,
-                    True,
-                    True,
-                ],
-                [
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                ],
-            ]
-        ),
-    )
-    assert peptides == ("TPGREDAAEETAAPGK", "TPGREDAAEETAAPGK")
+
+    assert spectra.shape == torch.Size([3, 15, 2])
+    assert spectra_mask.shape == torch.Size([3, 15])
+    assert peptides_tensor.shape == torch.Size([3, 5])
+    assert peptides_mask.shape == torch.Size([3, 5])
+    assert precursors.shape == torch.Size([3, 3])
+
+
+def test_clean_and_remap() -> None:
+    """Test clean and remap function."""
+    data = {
+        "Mass spectrum": [
+            [7.84, 18.215, 20.8, 28.64, 66.6, 38.55, 29.81, 49.965, 51.25, 27.25]
+        ],
+        "Raw intensity spectrum": [[1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]],
+        "MS/MS m/z": [35.83],
+        "Charge": [2],
+        "Modified sequence": ".ABCDEFGABC.",
+    }
+    old_df = pl.DataFrame(data)
+    new_df = _clean_and_remap(old_df)
+    assert new_df.columns == [
+        "modified_sequence",
+        "precursor_mz",
+        "precursor_charge",
+        "mz_array",
+        "intensity_array",
+    ]
+
+
+@pytest.mark.skipif(
+    os.getenv("GOOGLE_APPLICATION_CREDENTIALS") is None,
+    reason="Google application credentials are required to run this test.",
+)
+@pytest.mark.usefixtures("_get_gcp_test_bucket")
+def test_load_shards(dir_paths: tuple[str, str]) -> None:
+    """A pytest fixture to check the loading of a sharded polards dataframe."""
+    root_dir, data_dir = dir_paths
+    df = load_ipc_shards(data_path=data_dir, split="test")
+    assert len(df) == 1938

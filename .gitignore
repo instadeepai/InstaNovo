@@ -170,3 +170,4 @@ logs/
 mlruns/
 notebooks/checkpoints
 secrets/
+lightning_logs/

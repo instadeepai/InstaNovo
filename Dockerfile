@@ -100,7 +100,8 @@ ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 RUN pip install uv && \
     UV_HTTP_TIMEOUT=600 uv pip install --python $(which python) \
                    --no-cache \
-                   -r requirements/requirements.txt
+                   -r requirements/requirements.txt \
+                   -r requirements/requirements-dev.txt
 
 # Install InstaNovo
 RUN uv pip install --python $(which python) -e .

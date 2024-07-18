@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import bisect
+
 import jiwer
 import numpy as np
 
@@ -133,6 +135,33 @@ class Metrics:
         side = top - height
         return (width * height).sum() + 0.5 * (side * width).sum()  # type: ignore
 
+    def find_recall_at_fdr(
+        self,
+        targs: list[str] | list[list[str]],
+        preds: list[str] | list[list[str]],
+        conf: list[float],
+        fdr: float = 0.05,
+    ) -> tuple[float, float]:
+        """Get model recall and threshold for specified FDR."""
+        conf = np.array(conf)
+        order = conf.argsort()[::-1]
+        matches = np.array(self._get_peptide_matches(targs, preds))
+        matches = matches[order]
+        conf = conf[order]
+
+        csum = np.cumsum(matches)
+        precision = csum / (np.arange(len(matches)) + 1)
+        recall = csum / len(matches)
+
+        # if precision never greater than FDR
+        if all(precision < (1 - fdr)):
+            # recall = 0, threshold = 1
+            return 0.0, 1.0
+
+        # bisect requires ascending order
+        idx = len(precision) - bisect.bisect_right(precision[::-1], 1 - fdr) - 1
+        return recall[idx], conf[idx]
+
     def _split_sequences(self, seq: list[str] | list[list[str]]) -> list[list[str]]:
         return [self.residue_set.tokenize(x) if isinstance(x, str) else x for x in seq]
 
@@ -209,3 +238,18 @@ class Metrics:
             else:
                 j += 1
         return n
+
+    def _get_peptide_matches(
+        self,
+        targets: list[str] | list[list[str]],
+        predictions: list[str] | list[list[str]],
+    ) -> list[bool]:
+        matches: list[bool] = []
+        for i in range(len(targets)):
+            targ = self._split_peptide(targets[i])
+            pred = self._split_peptide(predictions[i])
+            if len(pred) > 0 and pred[0] == "":
+                pred = []
+            n_match = self._novor_match(targ, pred)
+            matches.append(len(pred) == len(targ) and len(targ) == n_match)
+        return matches

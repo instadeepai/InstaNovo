@@ -208,7 +208,7 @@ set-gcp-credentials:
 ## Train commands																#
 #################################################################################
 
-.PHONY: train_acpt train_extended train_nine_species_v1 train_nine_species_v2 finetune_on_hcpt finetune_on_phospho finetune_on_nine_species_v2 eval_abhi
+.PHONY: train_acpt train_extended train_nine_species_v1 train_nine_species_v2 finetune_on_hcpt finetune_on_phospho finetune_on_nine_species_v2 ft_eval_nine_species_v2 zs_eval_nine_species_v2 eval_abhi
 
 ## Train InstaNovo on AC-PT
 train_acpt:
@@ -242,19 +242,14 @@ train_nine_species_v2:
 
 	gsutil -m cp "gs://nine_species_dataset_v2/species_formatted_ipc/species_split.csv" ./data/species_formatted_ipc
 
-# --holdout_file_path "./data/species_formatted_ipc/saccharomyces_cerevisiae.ipc"
 	python -m scripts.splits_and_shards \
 		./data/species_formatted_ipc \
+		--holdout_file_path "./data/species_formatted_ipc/saccharomyces_cerevisiae.ipc"
 		--split_csv_path "./data/species_formatted_ipc/species_split.csv" \
 		--check_split True
 
 	python -m instanovo.transformer.train \
 		--config-name instanovo_nine_species_v2
-
-## Train InstaNovo on fake data
-train_unit_test: # TODO check if this works with fixtures. or add checkpoint once uploaded and change code.
-	python -m instanovo.transformer.train \
-		--config-name instanovo_unit_test
 
 ## Finetune InstaNovo on HC-PT data
 finetune_on_hcpt:
@@ -281,16 +276,14 @@ finetune_on_phospho:
 		--config-name instanovo_phospho
 
 ## Finetune InstaNovo on nine species v2 data
-# holdout options: saccharomyces_cerevisiae, apis_mellifera, vigna_mungo, bacillus_subtilis, solanum_lycopersicum, candidatus_endoloripes, h_sapiens, methanosarcina_mazei, mus_musculus
 finetune_on_nine_species_v2:
-
 	mkdir -p ./data/species_formatted_ipc
 	gsutil -m cp -R gs://nine_species_dataset_v2/species_formatted_ipc/*.ipc ./data/species_formatted_ipc
 
 	gsutil -m cp "gs://nine_species_dataset_v2/species_formatted_ipc/species_split.csv" ./data/species_formatted_ipc
 
 	mkdir -p ./checkpoints
-	gsutil cp gs://denovo_checkpoints/extended_147b2a84/epoch=3-step=800000.ckpt ./checkpoints/model.ckpt
+	gsutil cp gs://denovo_checkpoints/extended_38aa4b76/epoch=3-step=800000.ckpt ./checkpoints/model.ckpt
 
 	python -m scripts.splits_and_shards \
 		./data/species_formatted_ipc \
@@ -301,18 +294,81 @@ finetune_on_nine_species_v2:
 	python -m instanovo.transformer.train \
 		--config-name instanovo_nine_species_v2
 
-## Evaluate InstaNovo on nine species v2 data
-eval_nine_species_v2:
+## Evaluate InstaNovo on nine species v2 data from fine-tuned checkpoint
+ft_eval_nine_species_v2:
 	mkdir -p ./data/species_formatted_ipc
-	gsutil -m cp -R gs://nine_species_dataset_v2/species_formatted_ipc/mus_musculus.ipc ./data/species_formatted_ipc/
+	gsutil -m cp -R gs://nine_species_dataset_v2/species_formatted_ipc/*.ipc ./data/species_formatted_ipc/
 
 	mkdir -p ./checkpoints
-	gsutil cp gs://denovo_checkpoints/extended_147b2a84/epoch=3-step=800000.ckpt ./checkpoints/model.ckpt
+	gsutil cp gs://denovo_checkpoints/ft_v2_yeast_3cab501c/epoch-0-step-2000.ckpt ./checkpoints/model.ckpt
+
+	python -m instanovo.transformer.predict \
+		./data/species_formatted_ipc/saccharomyces_cerevisiae.ipc \
+		./checkpoints/model.ckpt \
+		--subset 0.02 \
+		-o saccharomyces_cerevisiae.csv
+
+## Evaluate InstaNovo on nine species v2 data with zero-shot learning
+zs_eval_nine_species_v2:
+	mkdir -p ./data/species_formatted_ipc
+	gsutil -m cp -R gs://nine_species_dataset_v2/species_formatted_ipc/*.ipc ./data/species_formatted_ipc/
+
+	mkdir -p ./checkpoints
+	gsutil cp gs://denovo_checkpoints/extended_38aa4b76/epoch=3-step=800000.ckpt ./checkpoints/model.ckpt
+
+	python -m instanovo.transformer.predict \
+		./data/species_formatted_ipc/apis_mellifera.ipc \
+		./checkpoints/model.ckpt \
+		--subset 0.1 \
+		-o apis_mellifera.csv
+
+	python -m instanovo.transformer.predict \
+		./data/species_formatted_ipc/bacillus_subtilis.ipc \
+		./checkpoints/model.ckpt \
+		--subset 0.0125 \
+		-o bacillus_subtilis.csv
+
+	python -m instanovo.transformer.predict \
+		./data/species_formatted_ipc/candidatus_endoloripes.ipc \
+		./checkpoints/model.ckpt \
+		--subset 0.5 \
+		-o candidatus_endoloripes.csv
+
+	python -m instanovo.transformer.predict \
+		./data/species_formatted_ipc/h_sapiens.ipc \
+		./checkpoints/model.ckpt \
+		--subset 0.75 \
+		-o h_sapiens.csv
+
+	python -m instanovo.transformer.predict \
+		./data/species_formatted_ipc/methanosarcina_mazei.ipc \
+		./checkpoints/model.ckpt \
+		--subset 0.08 \
+		-o methanosarcina_mazei.csv
 
 	python -m instanovo.transformer.predict \
 		./data/species_formatted_ipc/mus_musculus.ipc \
 		./checkpoints/model.ckpt \
-		--output-path ./checkpoints/preds.csv
+		--subset 1.0 \
+		-o mus_musculus.csv
+
+	python -m instanovo.transformer.predict \
+		./data/species_formatted_ipc/saccharomyces_cerevisiae.ipc \
+		./checkpoints/model.ckpt \
+		--subset 0.02 \
+		-o saccharomyces_cerevisiae.csv
+
+	python -m instanovo.transformer.predict \
+		./data/species_formatted_ipc/solanum_lycopersicum.ipc \
+		./checkpoints/model.ckpt \
+		--subset 0.2 \
+		-o solanum_lycopersicum.csv
+
+	python -m instanovo.transformer.predict \
+		./data/species_formatted_ipc/vigna_mungo.ipc \
+		./checkpoints/model.ckpt \
+		--subset 0.15 \
+		-o vigna_mungo.csv
 
 ## Evaluate InstaNovo on data from Abhi
 eval_abhi:

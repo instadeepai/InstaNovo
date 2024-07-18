@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 import logging
-import os
 import time
 from pathlib import Path
 from typing import Any, cast
 
 import click
 import numpy as np
+import pandas as pd
 import polars as pl
 import torch
 from omegaconf import open_dict
@@ -16,10 +16,13 @@ from tqdm import tqdm
 
 from instanovo.inference.beam_search import ScoredSequence
 from instanovo.inference.knapsack import Knapsack
-from instanovo.inference.knapsack_beam_search import KnapsackBeamSearchDecoder
+from instanovo.inference.beam_search import BeamSearchDecoder
+
 from instanovo.transformer.dataset import collate_batch
 from instanovo.transformer.dataset import SpectrumDataset
 from instanovo.transformer.model import InstaNovo
+from instanovo.transformer.train import _set_author_neptune_api_token
+from instanovo.utils import s3
 from instanovo.utils.metrics import Metrics
 
 logger = logging.getLogger()
@@ -35,6 +38,9 @@ def get_preds(
     output_path: str | None = None,
     knapsack_path: str | None = None,
     save_beams: bool = False,
+    filter_precursor_ppm: float = 20.0,
+    model_confidence_no_pred: float = 0.0001,
+    fdr: float = 0.05,
     device: str = "cuda",
 ) -> None:
     """Get predictions from a trained model."""
@@ -82,10 +88,7 @@ def get_preds(
 
     # TODO: find a better place for this, maybe config?
     residue_set.update_remapping(
-        {
-            "M(+15.99)": "M(ox)",
-            "C(+57.02)": "C",
-        }
+        {"M(ox)": "M(+15.99)", "Q(+0.98)": "Q(+.98)", "N(+0.98)": "N(+.98)"}
     )
 
     if not denovo:
@@ -134,17 +137,17 @@ def get_preds(
 
     # Setup decoder
     # TODO: Add flag to choose decoding type (greedy, beam, knapsack beam)
-    if knapsack_path is None or not os.path.exists(knapsack_path):
-        logging.info("Knapsack path missing or not specified, generating...")
-        knapsack = _setup_knapsack(model)
-        decoder = KnapsackBeamSearchDecoder(model, knapsack)
-        if knapsack_path is not None:
-            logging.info(f"Saving knapsack to {knapsack_path}")
-            knapsack.save(knapsack_path)
-    else:
-        logging.info("Knapsack path found. Loading...")
-        decoder = KnapsackBeamSearchDecoder.from_file(model=model, path=knapsack_path)
-    # decoder = BeamSearchDecoder(model=model)
+    # if knapsack_path is None or not os.path.exists(knapsack_path):
+    #     logging.info("Knapsack path missing or not specified, generating...")
+    #     knapsack = _setup_knapsack(model)
+    #     decoder = KnapsackBeamSearchDecoder(model, knapsack)
+    #     if knapsack_path is not None:
+    #         logging.info(f"Saving knapsack to {knapsack_path}")
+    #         knapsack.save(knapsack_path)
+    # else:
+    #     logging.info("Knapsack path found. Loading...")
+    #     decoder = KnapsackBeamSearchDecoder.from_file(model=model, path=knapsack_path)
+    decoder = BeamSearchDecoder(model=model)
 
     index_cols = [
         "id",
@@ -158,6 +161,8 @@ def get_preds(
         "file",
         "index",
         "fileno",
+        "precursor_mz",
+        "precursor_charge",
     ]
     cols = [x for x in df.columns if x in index_cols]
 
@@ -195,9 +200,12 @@ def get_preds(
                         probs[i].append(x[i].sequence_log_probability)
         else:
             p = cast(list[ScoredSequence], p)
-            preds[0] += ["".join(x.sequence) if isinstance(x, list) else "" for x in p]
+            preds[0] += [
+                "".join(x.sequence) if isinstance(x, ScoredSequence) else "" for x in p
+            ]
             probs[0] += [
-                x.sequence_log_probability if isinstance(x, list) else -1e6 for x in p
+                x.sequence_log_probability if isinstance(x, ScoredSequence) else -1e6
+                for x in p
             ]
             targs += list(peptides)
 
@@ -211,6 +219,7 @@ def get_preds(
     if not denovo:
         pred_df["targets"] = targs
     pred_df["preds"] = ["".join(x) for x in preds[0]]
+    pred_df["preds_tokenised"] = [", ".join(x) for x in preds[0]]
     pred_df["log_probs"] = probs[0]
 
     if save_beams:
@@ -244,6 +253,77 @@ def get_preds(
         logging.info(f"pep_recall  {pep_recall}")
         logging.info(f"auc         {auc}")
 
+        _, threshold = metrics.find_recall_at_fdr(
+            pred_df["targets"], preds[0], np.exp(pred_df["log_probs"]), fdr=fdr
+        )
+        aa_prec, aa_recall, pep_recall, pep_prec = metrics.compute_precision_recall(
+            pred_df["targets"],
+            preds[0],
+            np.exp(pred_df["log_probs"]),
+            threshold=threshold,
+        )
+        logging.info(f"Performance at {fdr*100:.1f}% FDR:")
+        logging.info(f"  aa_prec     {aa_prec:.5f}")
+        logging.info(f"  aa_recall   {aa_recall:.5f}")
+        logging.info(f"  pep_prec    {pep_prec:.5f}")
+        logging.info(f"  pep_recall  {pep_recall:.5f}")
+        logging.info(f"  confidence  {threshold:.5f}")
+
+        # Calculate some additional information for filtering:
+        pred_df["delta_mass_ppm"] = pred_df.apply(
+            lambda row: np.min(
+                np.abs(
+                    metrics.matches_precursor(
+                        preds[0][row.name], row["precursor_mz"], row["precursor_charge"]
+                    )[1]
+                )
+            ),
+            axis=1,
+        )
+
+        idx = pred_df["delta_mass_ppm"] < filter_precursor_ppm
+        filtered_preds = pd.Series(preds[0])
+        filtered_preds[~idx] = ""
+        aa_prec, aa_recall, pep_recall, pep_prec = metrics.compute_precision_recall(
+            pred_df["targets"], filtered_preds
+        )
+        logging.info(
+            f"Performance with filtering at {filter_precursor_ppm} ppm delta mass:"
+        )
+        logging.info(f"  aa_prec     {aa_prec:.5f}")
+        logging.info(f"  aa_recall   {aa_recall:.5f}")
+        logging.info(f"  pep_prec    {pep_prec:.5f}")
+        logging.info(f"  pep_recall  {pep_recall:.5f}")
+        logging.info(
+            f"Rows filtered: {df.shape[0]-np.sum(idx)} ({(df.shape[0]-np.sum(idx))/df.shape[0]*100:.2f}%)"
+        )
+
+        idx = np.exp(pred_df["log_probs"]) > model_confidence_no_pred
+        filtered_preds = pd.Series(preds[0])
+        filtered_preds[~idx] = ""
+        aa_prec, aa_recall, pep_recall, pep_prec = metrics.compute_precision_recall(
+            pred_df["targets"], filtered_preds
+        )
+        logging.info(
+            f"Performance with filtering confidence < {model_confidence_no_pred}"
+        )
+        logging.info(f"  aa_prec     {aa_prec:.5f}")
+        logging.info(f"  aa_recall   {aa_recall:.5f}")
+        logging.info(f"  pep_prec    {pep_prec:.5f}")
+        logging.info(f"  pep_recall  {pep_recall:.5f}")
+        logging.info(
+            f"Rows filtered: {df.shape[0]-np.sum(idx)} ({(df.shape[0]-np.sum(idx))/df.shape[0]*100:.2f}%)"
+        )
+
+    # Save output
+    if output_path is not None:
+        pred_df.to_csv(output_path, index=False)
+        logging.info(f"Predictions saved to {output_path}")
+
+        # Upload to Aichor
+        if s3._s3_enabled():
+            s3.upload(output_path, s3.convert_to_s3_output(output_path))
+
 
 @click.command()
 @click.argument("data-path")
@@ -266,6 +346,7 @@ def main(
 ) -> None:
     """Predict with the model."""
     logging.info("Initializing inference.")
+    _set_author_neptune_api_token()
 
     logging.info(f"Loading model from {model_path}")
     model, config = InstaNovo.load(model_path)

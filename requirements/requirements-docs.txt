@@ -4,7 +4,7 @@ babel==2.15.0
     # via mkdocs-material
 bracex==2.4
     # via wcmatch
-certifi==2024.2.2
+certifi==2024.6.2
     # via
     #   -c requirements/requirements.txt
     #   requests
@@ -32,7 +32,7 @@ gitpython==3.1.43
     # via
     #   -c requirements/requirements.txt
     #   mkdocs-git-revision-date-plugin
-griffe==0.45.2
+griffe==0.47.0
     # via mkdocstrings-python
 idna==3.7
     # via
@@ -81,9 +81,9 @@ mkdocs-get-deps==0.2.0
     # via mkdocs
 mkdocs-git-revision-date-plugin==0.3.2
     # via -r requirements/requirements-docs.in
-mkdocs-include-markdown-plugin==6.0.7
+mkdocs-include-markdown-plugin==6.2.1
     # via -r requirements/requirements-docs.in
-mkdocs-material==9.5.25
+mkdocs-material==9.5.28
     # via
     #   -r requirements/requirements-docs.in
     #   mkdocs-pymdownx-material-extras
@@ -95,9 +95,9 @@ mkdocstrings==0.25.1
     # via
     #   -r requirements/requirements-docs.in
     #   mkdocstrings-python
-mkdocstrings-python==1.10.3
+mkdocstrings-python==1.10.5
     # via -r requirements/requirements-docs.in
-packaging==24.0
+packaging==24.1
     # via
     #   -c requirements/requirements-dev.txt
     #   -c requirements/requirements.txt
@@ -145,13 +145,14 @@ requests==2.32.3
     #   mkdocs-material
 six==1.16.0
     # via
+    #   -c requirements/requirements-dev.txt
     #   -c requirements/requirements.txt
     #   python-dateutil
 smmap==5.0.1
     # via
     #   -c requirements/requirements.txt
     #   gitdb
-urllib3==2.2.1
+urllib3==2.2.2
     # via
     #   -c requirements/requirements.txt
     #   requests

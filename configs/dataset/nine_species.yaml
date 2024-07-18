@@ -1,0 +1,7 @@
+use_shards: True
+train_path: data/new_schema/
+valid_path: data/new_schema/
+valid_subset_of_train:
+
+residue_remapping:
+  "M(ox)": "M(+15.99)"
