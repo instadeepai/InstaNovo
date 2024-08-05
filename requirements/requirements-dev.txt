@@ -6,7 +6,7 @@ allure-python-commons==2.13.5
     # via allure-pytest
 argcomplete==3.4.0
     # via gsutil
-attrs==23.2.0
+attrs==24.1.0
     # via
     #   -c requirements/requirements.txt
     #   allure-python-commons
@@ -19,19 +19,19 @@ cffi==1.16.0
     #   cryptography
 cfgv==3.4.0
     # via pre-commit
-coverage==7.5.4
+coverage==7.6.1
     # via
     #   -r requirements/requirements-dev.in
     #   pytest-cov
 crcmod==1.7
     # via gsutil
-cryptography==42.0.8
+cryptography==43.0.0
     # via
     #   -c requirements/requirements.txt
     #   pyopenssl
 distlib==0.3.8
     # via virtualenv
-exceptiongroup==1.2.1
+exceptiongroup==1.2.2
     # via pytest
 execnet==2.1.1
     # via pytest-xdist
@@ -59,7 +59,7 @@ httplib2==0.22.0
     #   google-apitools
     #   gsutil
     #   oauth2client
-identify==2.5.36
+identify==2.6.0
     # via pre-commit
 importlab==0.8.1
     # via pytype
@@ -95,7 +95,7 @@ pluggy==1.5.0
     # via
     #   allure-python-commons
     #   pytest
-pre-commit==3.7.1
+pre-commit==3.8.0
     # via -r requirements/requirements-dev.in
 pyasn1==0.6.0
     # via
@@ -111,11 +111,11 @@ pycparser==2.22
     # via
     #   -c requirements/requirements.txt
     #   cffi
-pydot==2.0.0
+pydot==3.0.1
     # via
     #   -c requirements/requirements.txt
     #   pytype
-pyopenssl==24.1.0
+pyopenssl==24.2.1
     # via
     #   gcs-oauth2-boto-plugin
     #   gsutil
@@ -124,7 +124,7 @@ pyparsing==3.1.2
     #   -c requirements/requirements.txt
     #   httplib2
     #   pydot
-pytest==8.2.2
+pytest==8.3.2
     # via
     #   -r requirements/requirements-dev.in
     #   allure-pytest

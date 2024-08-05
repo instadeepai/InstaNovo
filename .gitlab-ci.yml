@@ -23,13 +23,15 @@ variables:
 sast:
   stage: sast
   tags:
-    - kao-k8s-runner
+    - kao-products
+    - shared-runner
 include:
   - template: Security/SAST.gitlab-ci.yml
 precommit:
   stage: precommit
   tags:
-    - kao-k8s-runner
+    - kao-products
+    - shared-runner
   before_script:
     - /usr/local/bin/python -m pip install --upgrade uv
     - uv pip install --system -r requirements/requirements.txt
@@ -55,7 +57,8 @@ run_tests:
       paths:
         - checkpoints/knapsack/
   tags:
-    - kao-k8s-runner
+    - kao-products
+    - shared-runner
   artifacts:
     when: always
     paths:
@@ -79,7 +82,8 @@ run_tests:
 minimum_coverage:
   stage: minimum_coverage
   tags:
-    - kao-k8s-runner
+    - kao-products
+    - shared-runner
   before_script:
     - apt-get update && apt-get install jq -y
   script:
@@ -94,7 +98,8 @@ minimum_coverage:
 history_copy:
   stage: history_copy
   tags:
-    - kao-k8s-runner
+    - kao-products
+    - shared-runner
   artifacts:
     when: always
     paths:
@@ -114,7 +119,8 @@ history_copy:
 generate_report:
   stage: generate_report
   tags:
-    - kao-k8s-runner
+    - kao-products
+    - shared-runner
   image: frankescobar/allure-docker-service
   script:
     - allure generate -c allure_results -o allure-report
@@ -129,7 +135,8 @@ generate_report:
 # make_docs:
 #   stage: make_docs
 #   tags:
-#     - kao-k8s-runner
+#      - kao-products
+#      - shared-runner
 #   before_script:
 #     - /usr/local/bin/python -m pip install --upgrade uv
 #     - uv pip install --system -r requirements/requirements-docs.txt
@@ -145,7 +152,8 @@ generate_report:
 # pages:
 #   stage: deploy
 #   tags:
-#     - kao-k8s-runner
+#      - kao-products
+#      - shared-runner
 #   before_script:
 #     - /usr/local/bin/python -m pip install --upgrade uv
 #     - uv pip install --system -r requirements/requirements-docs.txt

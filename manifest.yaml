@@ -36,5 +36,4 @@ spec:
           gpu:
             count: 1
             type: gpu # gpu, mig-1g.10gb, mig-3g.20gb, mig-3g.40gb
-            product: NVIDIA-A100-SXM4-80GB # NVIDIA-A100-SXM-80GB
-            # product: A100-SXM4-80GB # NVIDIA-A100-SXM-80GB
+            product: NVIDIA-A100-SXM4-80GB
