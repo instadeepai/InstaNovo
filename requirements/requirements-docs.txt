@@ -2,9 +2,11 @@
 #    uv pip compile requirements/requirements-docs.in --output-file=requirements/requirements-docs.txt
 babel==2.15.0
     # via mkdocs-material
-bracex==2.4
+backports-strenum==1.3.1
+    # via griffe
+bracex==2.5
     # via wcmatch
-certifi==2024.6.2
+certifi==2024.7.4
     # via
     #   -c requirements/requirements.txt
     #   requests
@@ -32,7 +34,7 @@ gitpython==3.1.43
     # via
     #   -c requirements/requirements.txt
     #   mkdocs-git-revision-date-plugin
-griffe==0.47.0
+griffe==0.48.0
     # via mkdocstrings-python
 idna==3.7
     # via
@@ -83,7 +85,7 @@ mkdocs-git-revision-date-plugin==0.3.2
     # via -r requirements/requirements-docs.in
 mkdocs-include-markdown-plugin==6.2.1
     # via -r requirements/requirements-docs.in
-mkdocs-material==9.5.28
+mkdocs-material==9.5.31
     # via
     #   -r requirements/requirements-docs.in
     #   mkdocs-pymdownx-material-extras
@@ -91,11 +93,11 @@ mkdocs-material-extensions==1.3.1
     # via mkdocs-material
 mkdocs-pymdownx-material-extras==2.5.6
     # via -r requirements/requirements-docs.in
-mkdocstrings==0.25.1
+mkdocstrings==0.25.2
     # via
     #   -r requirements/requirements-docs.in
     #   mkdocstrings-python
-mkdocstrings-python==1.10.5
+mkdocstrings-python==1.10.7
     # via -r requirements/requirements-docs.in
 packaging==24.1
     # via
@@ -118,7 +120,7 @@ pygments==2.18.0
     # via
     #   -c requirements/requirements.txt
     #   mkdocs-material
-pymdown-extensions==10.8.1
+pymdown-extensions==10.9
     # via
     #   -r requirements/requirements-docs.in
     #   mkdocs-material
@@ -137,7 +139,7 @@ pyyaml==6.0.1
     #   pyyaml-env-tag
 pyyaml-env-tag==0.1
     # via mkdocs
-regex==2024.5.15
+regex==2024.7.24
     # via mkdocs-material
 requests==2.32.3
     # via
