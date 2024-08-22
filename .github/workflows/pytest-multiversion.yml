@@ -31,11 +31,13 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt
           python -m pip install -r requirements-dev.txt
-      - name: Test notebooks
+      - name: Test notebooks on non-Windows runners
+        if: runner.os != 'Windows'
         run: |
-          if [ ${{ matrix.os }} == 'windows-latest' ]; then
-            $env:PYDEVD_DISABLE_FILE_VALIDATION=1; python -m ipykernel install --user --name instanovo
-          else
-            PYDEVD_DISABLE_FILE_VALIDATION=1 python -m ipykernel install --user --name instanovo
-          fi
+          PYDEVD_DISABLE_FILE_VALIDATION=1 python -m ipykernel install --user --name instanovo
+          pytest --nbmake "./notebooks"  --nbmake-kernel=instanovo --nbmake-timeout=10000
+      - name: Test notebooks on Windows
+        if: runner.os == 'Windows'
+        run: |
+          $env:PYDEVD_DISABLE_FILE_VALIDATION=1; python -m ipykernel install --user --name instanovo
           pytest --nbmake "./notebooks"  --nbmake-kernel=instanovo --nbmake-timeout=10000
