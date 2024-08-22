@@ -16,7 +16,10 @@ iterative refinement of predicted sequences.
 
 **Links:**
 
-- bioRxiv: https://www.biorxiv.org/content/10.1101/2023.08.30.555055v3
+- bioRxiv:
+  [https://www.biorxiv.org/content/10.1101/2023.08.30.555055v3](https://www.biorxiv.org/content/10.1101/2023.08.30.555055v3)
+- documentation:
+  [https://instadeepai.github.io/InstaNovo/](https://instadeepai.github.io/InstaNovo/)
 
 **Developed by:**
 
@@ -44,7 +47,7 @@ conda env create -f environment.yml
 conda activate instanovo
 ```
 
-Note: InstaNovo is built for Python >= 3.8, <3.12 and tested on Linux and Windows
+Note: InstaNovo is built for Python >= 3.8, <3.12 and tested on Linux and Windows.
 
 ### Training
 
