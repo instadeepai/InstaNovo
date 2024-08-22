@@ -3,6 +3,8 @@
 [![PyPI version](https://badge.fury.io/py/instanovo.svg)](https://badge.fury.io/py/instanovo)
 <a target="_blank" href="https://colab.research.google.com/github/instadeepai/InstaNovo/blob/main/notebooks/getting_started_with_instanovo.ipynb">
 <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/> </a>
+<a target="_blank" href="https://kaggle.com/kernels/welcome?src=https://github.com/instadeepai/InstaNovo/blob/main/notebooks/getting_started_with_instanovo.ipynb">
+<img src="https://kaggle.com/static/images/open-in-kaggle.svg" alt="Open In Kaggle"/> </a>
 
 The official code repository for InstaNovo. This repo contains the code for training and inference
 of InstaNovo and InstaNovo+. InstaNovo is a transformer neural network with the ability to translate
@@ -10,7 +12,7 @@ fragment ion peaks into the sequence of amino acids that make up the studied pep
 inspired by human intuition, is a multinomial diffusion model that further improves performance by
 iterative refinement of predicted sequences.
 
-![Graphical Abstract](https://raw.githubusercontent.com/instadeepai/InstaNovo/main/graphical_abstract.jpeg)
+![Graphical Abstract](https://raw.githubusercontent.com/instadeepai/InstaNovo/main/docs/assets/graphical_abstract.jpeg)
 
 **Links:**
 
