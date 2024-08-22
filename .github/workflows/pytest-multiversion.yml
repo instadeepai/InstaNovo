@@ -39,7 +39,11 @@ jobs:
           pytest -v --alluredir=allure_results  --cov-report=html --cov  --cov-config=.coveragerc --random-order
           coverage report -m
       - name: Test notebooks
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        if: github.event_name == 'push'
         run: |
-          PYDEVD_DISABLE_FILE_VALIDATION=1 python -m ipykernel install --user --name instanovo
+          if [ "${{ matrix.os }}" = "windows-latest" ]; then
+            $env:PYDEVD_DISABLE_FILE_VALIDATION=1; python -m ipykernel install --user --name instanovo
+          else
+            PYDEVD_DISABLE_FILE_VALIDATION=1 python -m ipykernel install --user --name instanovo
+          fi
           pytest --nbmake "./notebooks"  --nbmake-kernel=instanovo --nbmake-timeout=10000
