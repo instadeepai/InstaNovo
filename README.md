@@ -42,7 +42,7 @@ conda env create -f environment.yml
 conda activate instanovo
 ```
 
-Note: InstaNovo is built for Python >= 3.8
+Note: InstaNovo is built for Python >= 3.8, <3.12 and tested on Linux and Windows
 
 ### Training
 
