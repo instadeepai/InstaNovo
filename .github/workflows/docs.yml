@@ -13,7 +13,7 @@ jobs:
       - name: Checkout main
         uses: actions/checkout@v4
       - name: Deploy docs
-        uses: BioGeek/mkdocs-deploy-gh-pages@master
+        uses: mhausenblas/mkdocs-deploy-gh-pages@master
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CONFIG_FILE: mkdocs.yml
