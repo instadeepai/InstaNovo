@@ -39,7 +39,7 @@ jobs:
           pytest -v --alluredir=allure_results  --cov-report=html --cov  --cov-config=.coveragerc --random-order
           coverage report -m
       - name: Test notebooks
-        if: github.event_name == 'push'
+        if: github.ref == 'refs/heads/notebooks_windows' && github.event_name == 'push'
         run: |
           if [ "${{ matrix.os }}" = "windows-latest" ]; then
             $env:PYDEVD_DISABLE_FILE_VALIDATION=1; python -m ipykernel install --user --name instanovo
