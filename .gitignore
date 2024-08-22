@@ -148,6 +148,12 @@ cython_debug/
 .bash_history
 .local/
 
+# Neptune.ai stuff
+.neptune/
+
+# Ruff stuff
+.ruff_cache/
+
 # data folders
 ProteomeTools_data/
 
@@ -162,6 +168,7 @@ public/
 docs/reference
 
 # Other folders
+coverage/
 checkpoints/
 data/
 docs/
@@ -169,5 +176,7 @@ docs_public/
 logs/
 mlruns/
 notebooks/checkpoints
+notebooks/predictions.csv
+outputs/
 secrets/
 lightning_logs/

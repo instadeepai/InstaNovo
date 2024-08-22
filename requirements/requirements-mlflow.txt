@@ -6,7 +6,7 @@ asn1crypto==1.5.1
     # via scramp
 blinker==1.8.2
     # via flask
-cachetools==5.4.0
+cachetools==5.5.0
     # via
     #   -c requirements/requirements.txt
     #   google-auth
@@ -56,7 +56,7 @@ google-api-core==2.19.1
     #   -c requirements/requirements.txt
     #   google-cloud-core
     #   google-cloud-storage
-google-auth==2.32.0
+google-auth==2.34.0
     # via
     #   -c requirements/requirements.txt
     #   google-api-core
@@ -66,7 +66,7 @@ google-cloud-core==2.4.1
     # via
     #   -c requirements/requirements.txt
     #   google-cloud-storage
-google-cloud-storage==2.18.0
+google-cloud-storage==2.18.2
     # via
     #   -c requirements/requirements.txt
     #   -r requirements/requirements-mlflow.in
@@ -75,7 +75,7 @@ google-crc32c==1.5.0
     #   -c requirements/requirements.txt
     #   google-cloud-storage
     #   google-resumable-media
-google-resumable-media==2.7.1
+google-resumable-media==2.7.2
     # via
     #   -c requirements/requirements.txt
     #   google-cloud-storage
@@ -85,7 +85,7 @@ googleapis-common-protos==1.63.2
     #   google-api-core
 greenlet==3.0.3
     # via sqlalchemy
-gunicorn==22.0.0
+gunicorn==23.0.0
     # via
     #   -r requirements/requirements-mlflow.in
     #   mlflow
@@ -94,7 +94,7 @@ idna==3.7
     #   -c requirements/requirements-docs.txt
     #   -c requirements/requirements.txt
     #   requests
-importlib-metadata==8.2.0
+importlib-metadata==8.4.0
     # via mlflow
 itsdangerous==2.2.0
     # via flask
@@ -145,7 +145,7 @@ proto-plus==1.24.0
     # via
     #   -c requirements/requirements.txt
     #   google-api-core
-protobuf==4.25.4
+protobuf==5.27.3
     # via
     #   -c requirements/requirements.txt
     #   google-api-core
@@ -180,7 +180,7 @@ pytz==2024.1
     #   -c requirements/requirements.txt
     #   mlflow
     #   pandas
-pyyaml==6.0.1
+pyyaml==6.0.2
     # via
     #   -c requirements/requirements-dev.txt
     #   -c requirements/requirements-docs.txt
@@ -202,7 +202,7 @@ rsa==4.9
     #   -c requirements/requirements-dev.txt
     #   -c requirements/requirements.txt
     #   google-auth
-scipy==1.14.0
+scipy==1.14.1
     # via
     #   -c requirements/requirements.txt
     #   mlflow
@@ -221,7 +221,7 @@ smmap==5.0.1
     #   -c requirements/requirements-docs.txt
     #   -c requirements/requirements.txt
     #   gitdb
-sqlalchemy==2.0.31
+sqlalchemy==2.0.32
     # via
     #   alembic
     #   mlflow
@@ -229,7 +229,6 @@ sqlparse==0.5.1
     # via mlflow
 tabulate==0.9.0
     # via
-    #   -c requirements/requirements-dev.txt
     #   -c requirements/requirements.txt
     #   databricks-cli
 typing-extensions==4.12.2
@@ -248,13 +247,13 @@ urllib3==2.2.2
     #   databricks-cli
     #   docker
     #   requests
-webob==1.8.7
+webob==1.8.8
     # via wsgi-basic-auth
-werkzeug==3.0.3
+werkzeug==3.0.4
     # via
     #   -c requirements/requirements.txt
     #   flask
 wsgi-basic-auth==1.1.0
     # via -r requirements/requirements-mlflow.in
-zipp==3.19.2
+zipp==3.20.0
     # via importlib-metadata

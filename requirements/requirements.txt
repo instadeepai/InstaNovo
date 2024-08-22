@@ -5,11 +5,11 @@
 
 absl-py==2.1.0
     # via tensorboard
-aiobotocore==2.13.1
+aiobotocore==2.13.2
     # via s3fs
-aiohappyeyeballs==2.3.4
+aiohappyeyeballs==2.4.0
     # via aiohttp
-aiohttp==3.10.1
+aiohttp==3.10.5
     # via
     #   aiobotocore
     #   aiohttp-retry
@@ -41,11 +41,11 @@ arrow==1.3.0
     # via isoduration
 async-timeout==4.0.3
     # via aiohttp
-asyncssh==2.15.0
+asyncssh==2.16.0
     # via scmrepo
 atpublic==5.0
     # via flufl-lock
-attrs==24.1.0
+attrs==24.2.0
     # via
     #   aiohttp
     #   dvc
@@ -66,7 +66,7 @@ bravado==11.0.3
     # via neptune
 bravado-core==6.1.1
     # via bravado
-cachetools==5.4.0
+cachetools==5.5.0
     # via google-auth
 celery==5.4.0
     # via
@@ -74,7 +74,7 @@ celery==5.4.0
     #   dvc-task
 certifi==2024.7.4
     # via requests
-cffi==1.16.0
+cffi==1.17.0
     # via
     #   cryptography
     #   pygit2
@@ -106,7 +106,7 @@ cryptography==43.0.0
     # via asyncssh
 cycler==0.12.1
     # via matplotlib
-datasets==2.20.0
+datasets==2.21.0
     # via -r requirements/requirements.in
 decorator==5.1.1
     # via gcsfs
@@ -131,11 +131,11 @@ dulwich==0.22.1
     #   dvc
     #   dvc-studio-client
     #   scmrepo
-dvc==3.53.0
+dvc==3.54.1
     # via
     #   -r requirements/requirements.in
     #   dvc-gs
-dvc-data==3.15.1
+dvc-data==3.16.4
     # via dvc
 dvc-gs==3.0.1
     # via -r requirements/requirements.in
@@ -174,7 +174,7 @@ frozenlist==1.4.1
     # via
     #   aiohttp
     #   aiosignal
-fsspec==2024.5.0
+fsspec==2024.6.1
     # via
     #   datasets
     #   dvc
@@ -197,7 +197,7 @@ funcy==2.0
     #   scmrepo
 future==1.0.0
     # via neptune
-gcsfs==2024.5.0
+gcsfs==2024.6.1
     # via dvc-gs
 gitdb==4.0.11
     # via gitpython
@@ -209,7 +209,7 @@ google-api-core==2.19.1
     # via
     #   google-cloud-core
     #   google-cloud-storage
-google-auth==2.32.0
+google-auth==2.34.0
     # via
     #   gcsfs
     #   google-api-core
@@ -220,23 +220,23 @@ google-auth-oauthlib==1.2.1
     # via gcsfs
 google-cloud-core==2.4.1
     # via google-cloud-storage
-google-cloud-storage==2.18.0
+google-cloud-storage==2.18.2
     # via gcsfs
 google-crc32c==1.5.0
     # via
     #   google-cloud-storage
     #   google-resumable-media
-google-resumable-media==2.7.1
+google-resumable-media==2.7.2
     # via google-cloud-storage
 googleapis-common-protos==1.63.2
     # via google-api-core
 grandalf==0.8
     # via dvc
-grpcio==1.65.4
+grpcio==1.65.5
     # via tensorboard
 gto==1.7.1
     # via dvc
-huggingface-hub==0.24.5
+huggingface-hub==0.24.6
     # via datasets
 hydra-core==1.3.2
     # via dvc
@@ -245,7 +245,7 @@ idna==3.7
     #   jsonschema
     #   requests
     #   yarl
-importlib-resources==6.4.0
+importlib-resources==6.4.4
     # via swagger-spec-validator
 isoduration==20.11.0
     # via jsonschema
@@ -275,12 +275,12 @@ jsonschema-specifications==2023.12.1
     # via jsonschema
 kiwisolver==1.4.5
     # via matplotlib
-kombu==5.3.7
+kombu==5.4.0
     # via
     #   celery
     #   dvc
     #   dvc-task
-lark==1.1.9
+lark==1.2.2
     # via spectrum-utils
 lightning-utilities==0.11.6
     # via
@@ -290,7 +290,7 @@ llvmlite==0.42.0
     # via numba
 lxml==4.9.4
     # via matchms
-markdown==3.6
+markdown==3.7
     # via tensorboard
 markdown-it-py==3.0.0
     # via rich
@@ -300,7 +300,7 @@ markupsafe==2.1.5
     #   werkzeug
 matchms==0.27.0
     # via -r requirements/requirements.in
-matplotlib==3.9.0
+matplotlib==3.9.2
     # via
     #   matchms
     #   pyopenms
@@ -321,7 +321,7 @@ multidict==6.0.5
     #   yarl
 multiprocess==0.70.16
     # via datasets
-neptune==1.10.4
+neptune==1.11.1
     # via -r requirements/requirements.in
 networkx==3.3
     # via
@@ -344,7 +344,6 @@ numpy==1.26.4
     #   pandas
     #   pyarrow
     #   pyopenms
-    #   pytorch-lightning
     #   rdkit
     #   scikit-learn
     #   scipy
@@ -392,8 +391,10 @@ omegaconf==2.3.0
     #   -r requirements/requirements.in
     #   dvc
     #   hydra-core
-orjson==3.10.6
-    # via sqltrie
+orjson==3.10.7
+    # via
+    #   dvc-data
+    #   sqltrie
 packaging==24.1
     # via
     #   datasets
@@ -404,6 +405,7 @@ packaging==24.1
     #   matplotlib
     #   neptune
     #   pytorch-lightning
+    #   tensorboard
     #   torchmetrics
 pandas==2.2.2
     # via
@@ -426,13 +428,13 @@ pillow==10.4.0
     #   rdkit
 platformdirs==3.11.0
     # via dvc
-polars==1.4.1
+polars==1.5.0
     # via -r requirements/requirements.in
 prompt-toolkit==3.0.47
     # via click-repl
 proto-plus==1.24.0
     # via google-api-core
-protobuf==4.25.4
+protobuf==5.27.3
     # via
     #   google-api-core
     #   googleapis-common-protos
@@ -446,8 +448,6 @@ psutil==6.0.0
 pubchempy==1.0.4
     # via matchms
 pyarrow==17.0.0
-    # via datasets
-pyarrow-hotfix==0.6
     # via datasets
 pyasn1==0.6.0
     # via
@@ -498,13 +498,13 @@ python-dateutil==2.9.0.post0
     #   pandas
 python-dotenv==1.0.1
     # via -r requirements/requirements.in
-pytorch-lightning==2.3.3
+pytorch-lightning==2.4.0
     # via -r requirements/requirements.in
 pytz==2024.1
     # via
     #   bravado-core
     #   pandas
-pyyaml==6.0.1
+pyyaml==6.0.2
     # via
     #   bravado
     #   bravado-core
@@ -514,9 +514,9 @@ pyyaml==6.0.1
     #   omegaconf
     #   pytorch-lightning
     #   swagger-spec-validator
-rapidfuzz==3.9.5
+rapidfuzz==3.9.6
     # via jiwer
-rdkit==2024.3.3
+rdkit==2024.3.5
     # via matchms
 referencing==0.35.1
     # via
@@ -550,7 +550,7 @@ rich==13.7.1
     #   dvc
     #   gto
     #   typer
-rpds-py==0.19.1
+rpds-py==0.20.0
     # via
     #   jsonschema
     #   referencing
@@ -562,24 +562,24 @@ ruamel-yaml==0.18.6
     #   gto
 ruamel-yaml-clib==0.2.8
     # via ruamel-yaml
-s3fs==2024.5.0
+s3fs==2024.6.1
     # via -r requirements/requirements.in
 s3transfer==0.10.2
     # via boto3
 scikit-learn==1.5.1
     # via -r requirements/requirements.in
-scipy==1.14.0
+scipy==1.14.1
     # via
     #   matchms
     #   scikit-learn
     #   sparsestack
-scmrepo==3.3.6
+scmrepo==3.3.7
     # via
     #   dvc
     #   gto
 semver==3.0.2
     # via gto
-setuptools==72.1.0
+setuptools==73.0.1
     # via
     #   lightning-utilities
     #   tensorboard
@@ -592,7 +592,7 @@ shortuuid==1.0.13
     #   dvc-task
 shtab==1.7.1
     # via dvc
-simplejson==3.19.2
+simplejson==3.19.3
     # via
     #   bravado
     #   bravado-core
@@ -618,19 +618,19 @@ swagger-spec-validator==3.0.4
     # via
     #   bravado-core
     #   neptune
-sympy==1.13.1
+sympy==1.13.2
     # via torch
 tabulate==0.9.0
     # via
     #   dvc
     #   gto
-tensorboard==2.17.0
+tensorboard==2.17.1
     # via -r requirements/requirements.in
 tensorboard-data-server==0.7.2
     # via tensorboard
 threadpoolctl==3.5.0
     # via scikit-learn
-tomlkit==0.13.0
+tomlkit==0.13.2
     # via dvc
 torch==2.4.0
     # via
@@ -656,9 +656,9 @@ triton==3.0.0
     # via torch
 typeguard==2.13.3
     # via jaxtyping
-typer==0.12.3
+typer==0.12.4
     # via gto
-types-python-dateutil==2.9.0.20240316
+types-python-dateutil==2.9.0.20240821
     # via arrow
 typing-extensions==4.12.2
     # via
@@ -696,17 +696,17 @@ voluptuous==0.15.2
     #   dvc-studio-client
 wcwidth==0.2.13
     # via prompt-toolkit
-webcolors==24.6.0
+webcolors==24.8.0
     # via jsonschema
 websocket-client==1.8.0
     # via neptune
-werkzeug==3.0.3
+werkzeug==3.0.4
     # via tensorboard
 wrapt==1.16.0
     # via
     #   aiobotocore
     #   deprecated
-xxhash==3.4.1
+xxhash==3.5.0
     # via datasets
 yarl==1.9.4
     # via aiohttp
