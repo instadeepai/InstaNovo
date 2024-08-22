@@ -169,4 +169,5 @@ docs_public/
 logs/
 mlruns/
 notebooks/checkpoints
+notebooks/predictions.csv
 secrets/
