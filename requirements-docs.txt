@@ -1,5 +1,5 @@
 # All of these dependencies are pinned to specific versions to achieve reproducible builds (CI/DEV)
-griffe<0.48.0
+griffe<1.4.0
 mkdocs==1.4.0
 mkdocs-gen-files==0.4.0
 mkdocs-git-revision-date-plugin==0.3.2
