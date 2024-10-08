@@ -4,10 +4,11 @@ import datetime
 import logging
 import os
 import sys
-from pathlib import Path
+import time
+import warnings
 from typing import Any
-from typing import Tuple
 from typing import cast
+from typing import Tuple
 
 import hydra
 import neptune
@@ -23,16 +24,19 @@ from omegaconf import DictConfig
 from omegaconf import OmegaConf
 from omegaconf import open_dict
 from pytorch_lightning.strategies import DDPStrategy
-from sklearn.model_selection import train_test_split
 from torch import nn
 from torch import Tensor
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
+from sklearn.model_selection import train_test_split
 
 import instanovo.utils.s3 as s3
-from instanovo.inference.beam_search import ScoredSequence, BeamSearchDecoder
+
+from instanovo.inference import GreedyDecoder
+from instanovo.inference import Decoder
+from instanovo.inference import ScoredSequence
 from instanovo.transformer.dataset import collate_batch
-from instanovo.transformer.dataset import load_ipc_shards
+from instanovo.transformer.dataset import remove_modifications
 from instanovo.transformer.dataset import SpectrumDataset
 from instanovo.transformer.model import InstaNovo
 from instanovo.types import Peptide
@@ -41,12 +45,15 @@ from instanovo.types import PrecursorFeatures
 from instanovo.types import ResidueLogits
 from instanovo.types import Spectrum
 from instanovo.types import SpectrumMask
-from instanovo.utils.metrics import Metrics
-from instanovo.utils.residues import ResidueSet
+from instanovo.utils import Metrics
+from instanovo.utils import ResidueSet
+from instanovo.utils import SpectrumDataFrame
+from instanovo.constants import ANNOTATION_ERROR, ANNOTATED_COLUMN
 
-
-logger = logging.getLogger()
+logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
+
+warnings.filterwarnings("ignore", message=".*does not have many workers*")
 
 
 class PTModule(ptl.LightningModule):
@@ -54,14 +61,15 @@ class PTModule(ptl.LightningModule):
 
     def __init__(
         self,
-        config: dict[str, Any],
+        config: DictConfig | dict[str, Any],
         model: InstaNovo,
-        decoder: BeamSearchDecoder,
+        decoder: Decoder,
         metrics: Metrics,
         sw: SummaryWriter,
         optim: torch.optim.Optimizer,
         scheduler: torch.optim.lr_scheduler._LRScheduler,
-        # device: str = 'cpu',
+        compile: bool = True,
+        fp16: bool = True,
     ) -> None:
         super().__init__()
         self.config = config
@@ -77,9 +85,29 @@ class PTModule(ptl.LightningModule):
         self.running_loss = None
         self._reset_valid_metrics()
         self.steps = 0
+        self.train_epoch_start_time: float | None = None
+        self.train_start_time: float | None = None
+        self.valid_epoch_start_time: float | None = None
+        self.valid_epoch_step = 0
 
         # Update rates based on bs=32
         self.step_scale = 32 / config["train_batch_size"]
+
+        @torch.compile(dynamic=False, mode="reduce-overhead", disable=~compile)
+        @torch.autocast("cuda", dtype=torch.float16, enabled=fp16)
+        def compiled_forward(
+            spectra: Tensor,
+            precursors: Tensor,
+            peptides: Tensor,
+            spectra_mask: Tensor,
+            peptides_mask: Tensor,
+        ) -> Tensor:
+            """Compiled forward pass."""
+            return self.forward(
+                spectra, precursors, peptides, spectra_mask, peptides_mask
+            )
+
+        self.compiled_forward = compiled_forward
 
     def forward(
         self,
@@ -112,6 +140,12 @@ class PTModule(ptl.LightningModule):
         Returns:
             torch.FloatTensor: training loss
         """
+        if self.train_epoch_start_time is None:
+            self.train_epoch_start_time = time.time()
+            self.valid_epoch_start_time = None
+        if self.train_start_time is None:
+            self.train_start_time = time.time()
+
         spectra, precursors, spectra_mask, peptides, peptides_mask = batch
         spectra = spectra.to(self.device)
         precursors = precursors.to(self.device)
@@ -120,7 +154,11 @@ class PTModule(ptl.LightningModule):
 
         peptides = peptides.to(self.device)
 
-        preds = self.forward(spectra, precursors, peptides, spectra_mask, peptides_mask)
+        # preds = self.forward(spectra, precursors, peptides, spectra_mask, peptides_mask)
+        preds = self.compiled_forward(
+            spectra, precursors, peptides, spectra_mask, peptides_mask
+        )
+
         # Cut off EOS's prediction, ignore_index should take care of masking
         # EOS at positions < sequence_length will have a label of ignore_index
         preds = preds[:, :-1].reshape(-1, preds.shape[-1])
@@ -136,8 +174,18 @@ class PTModule(ptl.LightningModule):
             % int(self.config.get("console_logging_steps", 2000) * self.step_scale)
         ) == 0:
             lr = self.trainer.lr_scheduler_configs[0].scheduler.get_last_lr()[0]
+            delta = time.time() - self.train_epoch_start_time
+            epoch_step = self.steps % len(self.trainer.train_dataloader)
+            est_total = (
+                delta
+                / (epoch_step + 1)
+                * (len(self.trainer.train_dataloader) - epoch_step - 1)
+            )
+
             logger.info(
-                f"[Step {self.steps+1:06d}]: train_loss_raw={loss.item():.4f}, running_loss={self.running_loss:.4f}, LR={lr}"
+                f"[TRAIN] [Epoch {self.trainer.current_epoch:02d}/{self.trainer.max_epochs-1:02d} Step {self.steps+1:06d}] "
+                + f"[Batch {epoch_step + 1:05d}/{len(self.trainer.train_dataloader):05d}] [{_format_time(delta)}/{_format_time(est_total)}, {(delta / (epoch_step + 1)):.3f}s/it]: "
+                + f"train_loss_raw={loss.item():.4f}, running_loss={self.running_loss:.4f}, LR={lr:.6f}"
             )
 
         if (self.steps + 1) % int(
@@ -167,6 +215,12 @@ class PTModule(ptl.LightningModule):
         *args: Any,
     ) -> float:
         """Single validation step."""
+        if self.valid_epoch_start_time is None:
+            logger.info(
+                f"[VALIDATION] [Epoch {self.trainer.current_epoch:02d}/{self.trainer.max_epochs-1:02d}] Starting validation."
+            )
+            self.valid_epoch_start_time = time.time()
+
         spectra, precursors, spectra_mask, peptides, peptides_mask = batch
         spectra = spectra.to(self.device)
         precursors = precursors.to(self.device)
@@ -195,7 +249,7 @@ class PTModule(ptl.LightningModule):
             )
             p = cast(list[ScoredSequence], p)
 
-        y = [x.sequence if isinstance(x, ScoredSequence) else "" for x in p]
+        y = [x.sequence if isinstance(x, ScoredSequence) else [] for x in p]
         targets = [s for s in self.model.batch_idx_to_aa(peptides, reverse=True)]
 
         aa_prec, aa_recall, pep_recall, _ = self.metrics.compute_precision_recall(
@@ -209,6 +263,25 @@ class PTModule(ptl.LightningModule):
         self.valid_metrics["aa_recall"].append(aa_recall)
         self.valid_metrics["pep_recall"].append(pep_recall)
 
+        if (
+            (self.valid_epoch_step + 1)
+            % int(self.config.get("console_logging_steps", 2000) * self.step_scale)
+        ) == 0:
+            delta = time.time() - self.valid_epoch_start_time
+            epoch_step = self.valid_epoch_step % len(self.trainer.val_dataloaders)
+            est_total = (
+                delta
+                / (epoch_step + 1)
+                * (len(self.trainer.val_dataloaders) - epoch_step - 1)
+            )
+
+            logger.info(
+                f"[VALIDATION] [Epoch {self.trainer.current_epoch:02d}/{self.trainer.max_epochs-1:02d} Step {self.steps+1:06d}] "
+                + f"[Batch {epoch_step:05d}/{len(self.trainer.val_dataloaders):05d}] [{_format_time(delta)}/{_format_time(est_total)}, {(delta / (epoch_step + 1)):.3f}s/it]"
+            )
+
+        self.valid_epoch_step += 1
+
         return float(loss.item())
 
     def on_train_epoch_end(self) -> None:
@@ -216,7 +289,16 @@ class PTModule(ptl.LightningModule):
         epoch = self.trainer.current_epoch
         self.sw.add_scalar("eval/train_loss", self.running_loss, epoch)
 
+        delta = time.time() - cast(float, self.train_start_time)
+        epoch = self.trainer.current_epoch
+        est_total = delta / (epoch + 1) * (self.trainer.max_epochs - epoch - 1)
+        logger.info(
+            f"[TRAIN] [Epoch {self.trainer.current_epoch:02d}/{self.trainer.max_epochs-1:02d}] Epoch complete, total time {_format_time(delta)}, remaining time {_format_time(est_total)}, {_format_time(delta / (epoch + 1))} per epoch"
+        )
+
         self.running_loss = None
+        self.train_epoch_start_time = None
+        self.train_epoch_step = 0
 
     def on_validation_epoch_end(self) -> None:
         """Log the validation metrics at the end of each epoch."""
@@ -230,13 +312,19 @@ class PTModule(ptl.LightningModule):
 
         valid_loss = np.mean(self.valid_metrics["valid_loss"])
         logger.info(
-            f"[Epoch {epoch:02d}] train_loss={self.running_loss if self.running_loss else 0:.5f}, valid_loss={valid_loss:.5f}"
+            f"[VALIDATION] [Epoch {epoch:02d}/{self.trainer.max_epochs-1:02d}] train_loss={self.running_loss if self.running_loss else 0:.5f}, valid_loss={valid_loss:.5f}"
         )
-        logger.info(f"[Epoch {epoch:02d}] Metrics:")
+        logger.info(
+            f"[VALIDATION] [Epoch {epoch:02d}/{self.trainer.max_epochs-1:02d}] Metrics:"
+        )
         for metric in ["aa_er", "aa_prec", "aa_recall", "pep_recall"]:
             val = np.mean(self.valid_metrics[metric])
-            logger.info(f"[Epoch {epoch:02d}] - {metric:11s}{val:.3f}")
+            logger.info(
+                f"[VALIDATION] [Epoch {epoch:02d}/{self.trainer.max_epochs-1:02d}] - {metric:11s}{val:.3f}"
+            )
 
+        self.valid_epoch_start_time = None
+        self.valid_epoch_step = 0
         self._reset_valid_metrics()
 
     def on_save_checkpoint(self, checkpoint: dict[str, Any]) -> None:
@@ -300,81 +388,71 @@ def train(
     logger.info(f"Vocab: {residue_set.index_to_residue}")
 
     logger.info("Loading data")
-    train_path = config.get("train_path")
-    valid_path = config.get("valid_path")
-    if config.get("use_shards", False):
-        train_df = load_ipc_shards(train_path, split="train")
-        if valid_path is None:
-            # Split training set if no valid_path is specified, used for nine-species training
-            logger.info("Validation path not specified, generating from training set")
-            train_unique = train_df["modified_sequence"].unique().sort()
-            train_seq, valid_seq = train_test_split(
-                train_unique,
-                test_size=config.get("valid_subset_of_train"),
-                random_state=42,
-            )
-            valid_df = train_df.filter(train_df["modified_sequence"].is_in(valid_seq))
-            train_df = train_df.filter(train_df["modified_sequence"].is_in(train_seq))
-            # Save splits
-            # TODO: Optionally load the data splits
-            # TODO: Allow loading of data splits in `predict.py`
-            # TODO: Upload to Aichor
-            split_path = Path(
-                config.get("model_save_folder_path", "./checkpoints")
-            ).joinpath("splits.csv")
-            pd.DataFrame(
-                {
-                    "modified_sequence": list(train_seq) + list(valid_seq),
-                    "split": ["train"] * train_seq.shape[0]
-                    + ["valid"] * valid_seq.shape[0],
-                }
-            ).to_csv(str(split_path), index=False)
-            logger.info(f"Data splits saved to {split_path}")
-        else:
-            valid_df = load_ipc_shards(valid_path, split="valid")
-        train_df = train_df.sample(fraction=config["train_subset"], seed=42)
-        valid_df = valid_df.sample(fraction=config["valid_subset"], seed=42)
 
-        # Check residues
+    try:
+        train_sdf = SpectrumDataFrame.load(
+            config.get("train_path"),
+            lazy=config.get("lazy_loading", True),
+            is_annotated=True,
+            shuffle=True,
+            partition=config.get("train_partition", None),
+            column_mapping=config.get("column_remapping", None),
+            max_shard_size=config.get("max_shard_size", 100_000),
+        )
+        valid_sdf = SpectrumDataFrame.load(
+            config.get("valid_path", None) or config.get("train_path"),
+            lazy=config.get("lazy_loading", True),
+            is_annotated=True,
+            shuffle=False,
+            partition=config.get("valid_partition", None),
+            column_mapping=config.get("column_remapping", None),
+            max_shard_size=config.get("max_shard_size", 100_000),
+        )
+    except ValueError as e:
+        # More descriptive error message in predict mode.
+        if str(e) == ANNOTATION_ERROR:
+            raise ValueError(
+                "The sequence column is missing annotations, are you trying to run de novo prediction? Add the --denovo flag"
+            )
+        else:
+            raise
+
+    # TODO: Add automatic splitting if no validation set is specified.
+
+    # Check residues
+    if config.get("perform_data_checks", True):
         logger.info(
-            f"Checking for unknown residues in {train_df.shape[0] + valid_df.shape[0]:,d} rows."
+            f"Checking for unknown residues in {len(train_sdf) + len(valid_sdf):,d} rows."
         )
         supported_residues = set(residue_set.vocab)
         supported_residues.update(set(residue_set.residue_remapping.keys()))
-        train_df = train_df.with_columns(
-            pl.col("modified_sequence")
-            .map_elements(
-                lambda x: all(
-                    [y in supported_residues for y in residue_set.tokenize(x)]
-                ),
-                return_dtype=pl.Boolean,
+        data_residues = set()
+        data_residues.update(train_sdf.get_vocabulary(residue_set.tokenize))
+        data_residues.update(valid_sdf.get_vocabulary(residue_set.tokenize))
+        if len(data_residues - supported_residues) > 0:
+            logger.warning(
+                "Unsupported residues found in evaluation set! These rows will be dropped."
             )
-            .alias("supported")
-        )
-        valid_df = valid_df.with_columns(
-            pl.col("modified_sequence")
-            .map_elements(
-                lambda x: all(
-                    [y in supported_residues for y in residue_set.tokenize(x)]
-                ),
-                return_dtype=pl.Boolean,
-            )
-            .alias("supported")
-        )
-
-        if (~train_df["supported"]).sum() > 0 or (~valid_df["supported"]).sum() > 0:
-            logger.warning("Unsupported residues found! These rows will be dropped.")
-            df_residues = set()
-            for x in train_df["modified_sequence"]:
-                df_residues.update(set(residue_set.tokenize(x)))
-            for x in valid_df["modified_sequence"]:
-                df_residues.update(set(residue_set.tokenize(x)))
-            logger.info(f"New residues found: \n{df_residues-supported_residues}")
+            logger.info(f"New residues found: \n{data_residues-supported_residues}")
             logger.info(f"Residues supported: \n{supported_residues}")
-            original_size = (train_df.shape[0], valid_df.shape[0])
-            train_df = train_df.filter(pl.col("supported"))
-            valid_df = valid_df.filter(pl.col("supported"))
-            new_size = (train_df.shape[0], valid_df.shape[0])
+            original_size = (len(train_sdf), len(valid_sdf))
+            train_sdf.filter_rows(
+                lambda row: all(
+                    [
+                        residue in supported_residues
+                        for residue in set(residue_set.tokenize(row[ANNOTATED_COLUMN]))
+                    ]
+                )
+            )
+            valid_sdf.filter_rows(
+                lambda row: all(
+                    [
+                        residue in supported_residues
+                        for residue in set(residue_set.tokenize(row[ANNOTATED_COLUMN]))
+                    ]
+                )
+            )
+            new_size = (len(train_sdf), len(valid_sdf))
             logger.warning(
                 f"{original_size[0]-new_size[0]:,d} ({(original_size[0]-new_size[0])/original_size[0]*100:.2f}%) training rows dropped."
             )
@@ -382,55 +460,140 @@ def train(
                 f"{original_size[1]-new_size[1]:,d} ({(original_size[1]-new_size[1])/original_size[1]*100:.2f}%) validation rows dropped."
             )
 
-    elif train_path.endswith(".ipc"):
-        train_df = pl.read_ipc(train_path)
-        train_df = train_df.sample(fraction=config["train_subset"], seed=42)
-        valid_df = pl.read_ipc(valid_path)
-        valid_df = valid_df.sample(fraction=config["valid_subset"], seed=42)
-    elif train_path.endswith(".csv"):
-        train_df = pd.read_csv(train_path)
-        train_df = train_df.sample(frac=config["train_subset"], random_state=42)
-        valid_df = pd.read_csv(valid_path)
-        valid_df = valid_df.sample(frac=config["valid_subset"], random_state=42)
+    # TODO Modify this code to work in the new SpectrumDataFrame
+    if config.get("valid_path", None) is None:
+        logger.info("Validation path not specified, generating from training set.")
+        sequences = list(train_sdf.get_unique_sequences())
+        sequences = sorted(list(set([remove_modifications(x) for x in sequences])))
+        train_unique, valid_unique = train_test_split(
+            sequences,
+            test_size=config.get("valid_subset_of_train"),
+            random_state=42,
+        )
+        train_unique = set(train_unique)
+        valid_unique = set(valid_unique)
+
+        train_sdf.filter_rows(
+            lambda row: remove_modifications(row["sequence"]) in train_unique
+        )
+        valid_sdf.filter_rows(
+            lambda row: remove_modifications(row["sequence"]) in valid_unique
+        )
+        # Save splits
+        # TODO: Optionally load the data splits
+        # TODO: Allow loading of data splits in `predict.py`
+        # TODO: Upload to Aichor
+        split_path = os.path.join(
+            config.get("model_save_folder_path", "./checkpoints"), "splits.csv"
+        )
+        os.makedirs(os.path.dirname(split_path), exist_ok=True)
+        pd.DataFrame(
+            {
+                "modified_sequence": list(train_unique) + list(valid_unique),
+                "split": ["train"] * len(train_unique) + ["valid"] * len(valid_unique),
+            }
+        ).to_csv(str(split_path), index=False)
+        logger.info(f"Data splits saved to {split_path}")
+
+    train_sdf.sample_subset(fraction=config.get("train_subset", 1.0), seed=42)
+    valid_sdf.sample_subset(fraction=config.get("valid_subset", 1.0), seed=42)
 
     train_ds = SpectrumDataset(
-        train_df, residue_set, config["n_peaks"], return_str=False
+        train_sdf,
+        residue_set,
+        config["n_peaks"],
+        return_str=False,
+        peptide_pad_length=config.get("max_length", 40)
+        if config.get("compile_model", False)
+        else 0,
+        pad_spectrum_max_length=config.get("compile_model", False)
+        or config.get("use_flash_attention", False),
+        bin_spectra=config.get("conv_peak_encoder", False),
     )
     valid_ds = SpectrumDataset(
-        valid_df, residue_set, config["n_peaks"], return_str=False
+        valid_sdf,
+        residue_set,
+        config["n_peaks"],
+        return_str=False,
+        pad_spectrum_max_length=config.get("compile_model", False)
+        or config.get("use_flash_attention", False),
+        bin_spectra=config.get("conv_peak_encoder", False),
     )
 
     logger.info(
         f"Data loaded: {len(train_ds):,} training samples; {len(valid_ds):,} validation samples"
     )
-    logger.info(f"Train columns: {train_df.columns}")
-    logger.info(f"Valid columns: {valid_df.columns}")
+    # logger.info(f"Train columns: {train_df.columns}")
+    # logger.info(f"Valid columns: {valid_df.columns}")
 
-    logger.info("Checking if any validation set overlaps with training set...")
-    leakage = any(valid_df["modified_sequence"].is_in(train_df["modified_sequence"]))
-    if leakage:
-        raise ValueError(
-            "Portion of validation set sequences overlaps with training set."
+    train_sequences = pl.Series(list(train_sdf.get_unique_sequences()))
+    valid_sequences = pl.Series(list(valid_sdf.get_unique_sequences()))
+    if config.get("blacklist", None):
+        logger.info(
+            "Checking if any training set overlaps with blacklisted sequences..."
         )
-    else:
-        logger.info("No data leakage!")
+        blacklist_df = pd.read_csv(config["blacklist"])
+        leakage = any(
+            train_sequences.map_elements(
+                remove_modifications, return_dtype=pl.String
+            ).is_in(blacklist_df["sequence"])
+        )
+        if leakage:
+            raise ValueError(
+                "Portion of training set sequences overlaps with blacklisted sequences."
+            )
+        else:
+            logger.info("No blacklisted sequences!")
+
+    if config.get("perform_data_checks", True):
+        logger.info("Checking if any validation set overlaps with training set...")
+        leakage = any(valid_sequences.is_in(train_sequences))
+        if leakage:
+            raise ValueError(
+                "Portion of validation set sequences overlaps with training set."
+            )
+        else:
+            logger.info("No data leakage!")
+
+    # Check how many times model will save
+    if config.get("save_model", True):
+        total_epochs = config.get("epochs", 30)
+        epochs_per_save = 1 / (
+            len(train_ds)
+            / config.get("train_batch_size", 256)
+            / config.get("ckpt_interval")
+        )
+        if epochs_per_save > total_epochs:
+            logger.warning(
+                f"Model checkpoint will never save. Attempting to save every {epochs_per_save:.2f} epochs but only training for {total_epochs:d} epochs. Check ckpt_interval in config."
+            )
+        else:
+            logger.info(f"Model checkpointing every {epochs_per_save:.2f} epochs.")
+
+    # Check warmup
+    if config.get("warmup_iters", 100_000) > len(train_ds) / config.get(
+        "train_batch_size", 256
+    ):
+        logger.warning(
+            "Model warmup is greater than one epoch of the training set. Check warmup_iters in config"
+        )
 
     train_dl = DataLoader(
         train_ds,
         batch_size=config["train_batch_size"],
-        num_workers=config["n_workers"],
-        shuffle=True,
+        num_workers=0,  # SDF requirement is 0
+        shuffle=False,  # SDF requirement
         collate_fn=collate_batch,
-        multiprocessing_context="fork",
+        # multiprocessing_context="fork",
     )
 
     valid_dl = DataLoader(
         valid_ds,
         batch_size=config["predict_batch_size"],
-        num_workers=config["n_workers"],
+        num_workers=0,  # SDF requirement is 0
         shuffle=False,
         collate_fn=collate_batch,
-        multiprocessing_context="fork",
+        # multiprocessing_context="fork",
     )
 
     # Update rates based on bs=32
@@ -455,6 +618,8 @@ def train(
         n_layers=config["n_layers"],
         dropout=config["dropout"],
         max_charge=config["max_charge"],
+        use_flash_attention=config["use_flash_attention"],
+        conv_peak_encoder=config["conv_peak_encoder"],
     )
 
     if not config["train_from_scratch"]:
@@ -531,18 +696,25 @@ def train(
         f"Model loaded with {np.sum([p.numel() for p in model.parameters()]):,d} parameters"
     )
 
-    logger.info("Test forward pass:")
-    with torch.no_grad():
-        y = model(spectra, precursors, peptides, spectra_mask, peptides_mask)
-        logger.info(f" - y.shape={y.shape}")
+    if not config["conv_peak_encoder"]:
+        logger.info("Test forward pass:")
+        with torch.no_grad():
+            y = model(spectra, precursors, peptides, spectra_mask, peptides_mask)
+            logger.info(f" - y.shape={y.shape}")
 
     # Train on GPU
     device = "cuda:0" if torch.cuda.is_available() else "cpu"
     model = model.to(device)
 
-    # decoder = GreedyDecoder(model, i2s, max_length=config["max_length"])
-    decoder = BeamSearchDecoder(model=model)
+    decoder = GreedyDecoder(model=model)
     metrics = Metrics(residue_set, config["isotope_error_range"])
+
+    # Use as an additional data sanity check
+    if config.get("perform_data_checks", True):
+        logger.info("Sanity checking precursor masses for training set...")
+        train_sdf.validate_precursor_mass(metrics)
+        logger.info("Sanity checking precursor masses for validation set...")
+        valid_sdf.validate_precursor_mass(metrics)
 
     # init optim
     optim = torch.optim.Adam(
@@ -553,7 +725,17 @@ def train(
     scheduler = WarmupScheduler(optim, config["warmup_iters"])
     strategy = _get_strategy()
 
-    ptmodel = PTModule(config, model, decoder, metrics, sw, optim, scheduler)
+    ptmodel = PTModule(
+        config,
+        model,
+        decoder,
+        metrics,
+        sw,
+        optim,
+        scheduler,
+        config["compile_model"],
+        config["fp16"],
+    )
 
     if config["save_model"]:
         logger.info("Model saving enabled")
@@ -593,6 +775,7 @@ def train(
     logger.info("Initializing PL trainer.")
     trainer = ptl.Trainer(
         accelerator="auto",
+        precision="16-mixed" if config["fp16"] else None,
         callbacks=callbacks,
         devices="auto",
         logger=config["logger"],
@@ -606,6 +789,7 @@ def train(
     )
 
     # Train the model.
+    logger.info("Starting PL trainer.")
     trainer.fit(ptmodel, train_dl, valid_dl)
 
     logger.info("Training complete.")
@@ -671,6 +855,11 @@ class NeptuneSummaryWriter(SummaryWriter):
             global_step=global_step,
         )
         self.run[tag].append(scalar_value, step=global_step)
+
+
+def _format_time(seconds: float) -> str:
+    seconds = int(seconds)
+    return f"{seconds//3600:02d}:{(seconds%3600)//60:02d}:{seconds%60:02d}"
 
 
 class WarmupScheduler(torch.optim.lr_scheduler._LRScheduler):

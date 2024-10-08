@@ -48,6 +48,25 @@ WORKDIR $HOME_DIRECTORY
 #   - python3-pip
 #   - git (log git info via neptune and install submodules, requires ssh)
 #   - google-cloud-cli (requires ssh curl wget)
+# RUN apt-get update && \
+#     apt-get install -y --no-install-recommends \
+#         libaio-dev \
+#         curl \
+#         git \
+#         make \
+#         python3 \
+#         python3-pip \
+#         python3-venv \
+#         python3-dev \
+#         ssh \
+#         wget \
+#         && \
+#     echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] http://packages.cloud.google.com/apt cloud-sdk main" | tee -a /etc/apt/sources.list.d/google-cloud-sdk.list && \
+#     curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key --keyring /usr/share/keyrings/cloud.google.gpg add - && \
+#     apt-get update -y && \
+#     apt-get install -y --no-install-recommends google-cloud-cli && \
+#     apt-get clean && \
+#     rm -rf /var/lib/{apt,dpkg,cache,log}
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         libaio-dev \
@@ -57,13 +76,17 @@ RUN apt-get update && \
         python3 \
         python3-pip \
         python3-venv \
+        python3-dev \
         ssh \
         wget \
-        && \
+        apt-transport-https \
+        ca-certificates \
+        gnupg \
+    && \
     echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] http://packages.cloud.google.com/apt cloud-sdk main" | tee -a /etc/apt/sources.list.d/google-cloud-sdk.list && \
     curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key --keyring /usr/share/keyrings/cloud.google.gpg add - && \
     apt-get update -y && \
-    apt-get install -y --no-install-recommends google-cloud-cli && \
+    apt-get install -y google-cloud-sdk=415.0.0-0 && \
     apt-get clean && \
     rm -rf /var/lib/{apt,dpkg,cache,log}
 

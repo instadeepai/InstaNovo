@@ -16,7 +16,7 @@ from omegaconf import DictConfig
 from omegaconf import open_dict
 
 from instanovo.transformer.model import InstaNovo
-from instanovo.utils.set_gcp_credentials import set_credentials
+from instanovo.scripts.set_gcp_credentials import set_credentials
 
 
 # Add the root directory to the PYTHONPATH

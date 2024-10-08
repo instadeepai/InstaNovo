@@ -20,6 +20,7 @@ def convert_mgf_ipc(
     target: Path,
     max_charge: int = 10,
     use_old_schema: bool = False,
+    save: bool = True,
     verbose: bool = True,
 ) -> pl.DataFrame:
     """Convert .mgf file to Polars .ipc."""
@@ -132,8 +133,9 @@ def convert_mgf_ipc(
         )
         df = pl.concat([df, data_df], how="diagonal")
 
-    Path(target).parent.mkdir(parents=True, exist_ok=True)
-    df.write_ipc(target)
+    if save:
+        Path(target).parent.mkdir(parents=True, exist_ok=True)
+        df.write_ipc(target)
 
     return df
 
@@ -144,8 +146,9 @@ def convert_mzml_mzxml_ipc(
     target: Path,
     max_charge: int = 10,
     use_old_schema: bool = False,
+    save: bool = True,
     verbose: bool = True,
-) -> None:
+) -> pl.DataFrame:
     """Convert mzml to polars ipc."""
     schema = {
         "experiment_name": str,
@@ -246,8 +249,11 @@ def convert_mzml_mzxml_ipc(
             evidence_index += 1
         df = pl.concat([df, pl.DataFrame(data, schema=schema)])
 
-    Path(target).parent.mkdir(parents=True, exist_ok=True)
-    df.write_ipc(target)
+    if save:
+        Path(target).parent.mkdir(parents=True, exist_ok=True)
+        df.write_ipc(target)
+
+    return df
 
 
 def main() -> None:

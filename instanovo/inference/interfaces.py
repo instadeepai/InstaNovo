@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 from abc import ABCMeta
 from abc import abstractmethod
 from typing import Any
@@ -11,10 +13,27 @@ from jaxtyping import Integer
 from instanovo.types import Peptide
 from instanovo.types import PrecursorFeatures
 from instanovo.types import Spectrum
+from instanovo.utils.residues import ResidueSet
+
+
+@dataclass
+class ScoredSequence:
+    """This class holds a residue sequence and its log probability."""
+
+    sequence: list[str]
+    mass_error: float
+    sequence_log_probability: float
+    token_log_probabilities: list[float]
 
 
 class Decodable(metaclass=ABCMeta):
     """An interface for models that can be decoded by algorithms that conform to the search interface."""
+
+    @property
+    @abstractmethod
+    def residue_set(self) -> ResidueSet:
+        """Every model must have a `residue_set` attribute."""
+        pass
 
     @abstractmethod
     def init(  # type:ignore
@@ -110,7 +129,7 @@ class Decoder(metaclass=ABCMeta):
         precursors: Float[PrecursorFeatures, "..."],
         *args,
         **kwargs,
-    ) -> list[list[str]]:
+    ) -> list[ScoredSequence] | list[list[ScoredSequence]]:
         """Generate the predicted residue sequence using the decoder's search algorithm.
 
         Args:

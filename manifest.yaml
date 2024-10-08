@@ -11,16 +11,12 @@ spec:
   operator: tf
   image: instanovo
   # command: make set-gcp-credentials && make download_validation && make download_dataset_v2_ipc && make validate_instanovo
-  command: make set-gcp-credentials && make tests && make coverage
+  # command: make set-gcp-credentials && make tests && make coverage
   # command: make set-gcp-credentials && make train_acpt
   # command: make set-gcp-credentials && make finetune_on_hcpt
   # command: make set-gcp-credentials && make finetune_on_phospho
-  # command: make set-gcp-credentials && make train_extended
-  # command: make set-gcp-credentials && make train_nine_species_v1
-  # command: make set-gcp-credentials && make train_nine_species_v2
-  # command: make set-gcp-credentials && make finetune_on_nine_species_v2
-  # command: make set-gcp-credentials && make zs_eval_nine_species_v2
-  # command: make set-gcp-credentials && make ft_eval_nine_species_v2
+  command: make set-gcp-credentials && make train_extended
+  # command: make set-gcp-credentials && make eval_species_zero_shot
 
   tensorboard: # optional, disabled by default
     enabled: true
@@ -36,4 +32,4 @@ spec:
           gpu:
             count: 1
             type: gpu # gpu, mig-1g.10gb, mig-3g.20gb, mig-3g.40gb
-            product: NVIDIA-A100-SXM4-80GB
+            product: NVIDIA-A100-SXM4-80GB # NVIDIA-A100-SXM-80GB NVIDIA-A100-SXM4-40GB

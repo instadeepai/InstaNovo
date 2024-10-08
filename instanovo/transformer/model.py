@@ -7,11 +7,17 @@ import torch
 from jaxtyping import Bool
 from jaxtyping import Float
 from jaxtyping import Integer
+from omegaconf import DictConfig
 from torch import nn
+from torch import Tensor
+from torch.nn.attention import sdpa_kernel
+from torch.nn.attention import SDPBackend
 
 from instanovo.constants import MAX_SEQUENCE_LENGTH
+from instanovo.transformer.layers import ConvPeakEmbedding
 from instanovo.transformer.layers import MultiScalePeakEmbedding
 from instanovo.transformer.layers import PositionalEncoding
+from instanovo.inference import Decodable
 from instanovo.types import DiscretizedMass
 from instanovo.types import Peptide
 from instanovo.types import PeptideMask
@@ -21,11 +27,10 @@ from instanovo.types import ResidueLogProbabilities
 from instanovo.types import Spectrum
 from instanovo.types import SpectrumEmbedding
 from instanovo.types import SpectrumMask
-from transfusion.config import ModelConfig
-from instanovo.utils.residues import ResidueSet
+from instanovo.utils import ResidueSet
 
 
-class InstaNovo(nn.Module):
+class InstaNovo(nn.Module, Decodable):
     """The Instanovo model."""
 
     def __init__(
@@ -37,27 +42,39 @@ class InstaNovo(nn.Module):
         n_layers: int = 9,
         dropout: float = 0.1,
         max_charge: int = 5,
+        use_flash_attention: bool = True,
+        conv_peak_encoder: bool = False,
     ) -> None:
         super().__init__()
-        self.residue_set = residue_set
+        self._residue_set = residue_set
         self.vocab_size = len(residue_set)
+        self.use_flash_attention = use_flash_attention
+        self.conv_peak_encoder = conv_peak_encoder
 
         self.latent_spectrum = nn.Parameter(torch.randn(1, 1, dim_model))
 
+        if self.use_flash_attention:
+            # All input spectra are padded to some max length
+            # Pad spectrum replaces zeros in input spectra
+            # This is for flash attention (no masks allowed)
+            self.pad_spectrum = nn.Parameter(torch.randn(1, 1, dim_model))
+
         # Encoder
         self.peak_encoder = MultiScalePeakEmbedding(dim_model, dropout=dropout)
+        if self.conv_peak_encoder:
+            self.conv_encoder = ConvPeakEmbedding(dim_model, dropout=dropout)
 
         encoder_layer = nn.TransformerEncoderLayer(
             d_model=dim_model,
             nhead=n_head,
             dim_feedforward=dim_feedforward,
             batch_first=True,
-            dropout=dropout,
+            dropout=0 if self.use_flash_attention else dropout,
         )
         self.encoder = nn.TransformerEncoder(
             encoder_layer,
             num_layers=n_layers,
-            enable_nested_tensor=False,
+            # enable_nested_tensor=False, TODO: Figure out the correct way to handle this
         )
 
         # Decoder
@@ -72,7 +89,7 @@ class InstaNovo(nn.Module):
             nhead=n_head,
             dim_feedforward=dim_feedforward,
             batch_first=True,
-            dropout=dropout,
+            dropout=0 if self.use_flash_attention else dropout,
         )
         self.decoder = nn.TransformerDecoder(
             decoder_layer,
@@ -82,20 +99,28 @@ class InstaNovo(nn.Module):
         self.head = nn.Linear(dim_model, self.vocab_size)
         self.charge_encoder = nn.Embedding(max_charge, dim_model)
 
+    @property
+    def residue_set(self) -> ResidueSet:
+        """Every model must have a `residue_set` attribute."""
+        return self._residue_set
+
     @staticmethod
-    def _get_causal_mask(seq_len: int) -> PeptideMask:
+    def _get_causal_mask(seq_len: int, return_float: bool = False) -> PeptideMask:
         mask = (torch.triu(torch.ones(seq_len, seq_len)) == 1).transpose(0, 1)
-        mask = (
-            mask.float()
-            .masked_fill(mask == 0, float("-inf"))
-            .masked_fill(mask == 1, float(0.0))
-        )
-        return mask
+        if return_float:
+            return (
+                mask.float()
+                .masked_fill(mask == 0, float("-inf"))
+                .masked_fill(mask == 1, float(0.0))
+            )
+        return ~mask.bool()
 
     @classmethod
-    def load(cls, path: str) -> Tuple["InstaNovo", "ModelConfig"]:
+    def load(cls, path: str) -> Tuple["InstaNovo", "DictConfig"]:
         """Load model from checkpoint."""
-        ckpt = torch.load(path, map_location="cpu")
+        # Add  to allow list
+        _whitelist_torch_omegaconf()
+        ckpt = torch.load(path, map_location="cpu", weights_only=True)
 
         config = ckpt["config"]
 
@@ -115,6 +140,8 @@ class InstaNovo(nn.Module):
             n_layers=config["n_layers"],
             dropout=config["dropout"],
             max_charge=config["max_charge"],
+            use_flash_attention=config.get("use_flash_attention", False),
+            conv_peak_encoder=config.get("conv_peak_encoder", False),
         )
         model.load_state_dict(ckpt["state_dict"])
 
@@ -143,32 +170,47 @@ class InstaNovo(nn.Module):
             logits: float Tensor (batch, n, vocab_size),
             (batch, n+1, vocab_size) if add_bos==True.
         """
+        if self.use_flash_attention:
+            x, x_mask = self._flash_encoder(x, p, x_mask)
+            return self._flash_decoder(x, y, x_mask, y_mask, add_bos)
+
         x, x_mask = self._encoder(x, p, x_mask)
         return self._decoder(x, y, x_mask, y_mask, add_bos)
 
     def init(
         self,
-        x: Float[Spectrum, " batch"],
-        p: Float[PrecursorFeatures, " batch"],
-        x_mask: Optional[Bool[SpectrumMask, " batch"]] = None,
+        spectra: Float[Spectrum, " batch"],
+        precursors: Float[PrecursorFeatures, " batch"],
+        spectra_mask: Optional[Bool[SpectrumMask, " batch"]] = None,
     ) -> Tuple[
         Tuple[Float[Spectrum, " batch"], Bool[SpectrumMask, " batch"]],
         Float[ResidueLogProbabilities, "batch token"],
     ]:
         """Initialise model encoder."""
-        x, x_mask = self._encoder(x, p, x_mask)
-        logits = self._decoder(x, None, x_mask, None, add_bos=False)
-        return (x, x_mask), torch.log_softmax(logits[:, -1, :], -1)
+        if self.use_flash_attention:
+            spectra, _ = self._encoder(spectra, precursors, None)
+            logits = self._decoder(spectra, None, None, None, add_bos=False)
+            return (
+                spectra,
+                torch.zeros(spectra.shape[0], spectra.shape[1]).to(spectra.device),
+            ), torch.log_softmax(logits[:, -1, :], -1)
+
+        spectra, spectra_mask = self._encoder(spectra, precursors, spectra_mask)
+        logits = self._decoder(spectra, None, spectra_mask, None, add_bos=False)
+        return (spectra, spectra_mask), torch.log_softmax(logits[:, -1, :], -1)
 
     def score_candidates(
         self,
-        y: Integer[Peptide, " batch"],
-        p: Float[PrecursorFeatures, " batch"],
-        x: Float[Spectrum, " batch"],
-        x_mask: Bool[SpectrumMask, " batch"],
+        sequences: Integer[Peptide, " batch"],
+        precursor_mass_charge: Float[PrecursorFeatures, " batch"],
+        spectra: Float[Spectrum, " batch"],
+        spectra_mask: Bool[SpectrumMask, " batch"],
     ) -> Float[ResidueLogProbabilities, "batch token"]:
         """Score a set of candidate sequences."""
-        logits = self._decoder(x, y, x_mask, None, add_bos=True)
+        if self.use_flash_attention:
+            logits = self._flash_decoder(spectra, sequences, None, None, add_bos=True)
+        else:
+            logits = self._decoder(spectra, sequences, spectra_mask, None, add_bos=True)
 
         return torch.log_softmax(logits[:, -1, :], -1)
 
@@ -222,10 +264,13 @@ class InstaNovo(nn.Module):
         p: Float[PrecursorFeatures, " batch"],
         x_mask: Optional[Bool[SpectrumMask, " batch"]] = None,
     ) -> Tuple[Float[SpectrumEmbedding, " batch"], Bool[SpectrumMask, " batch"]]:
-        if x_mask is None:
-            x_mask = ~x.sum(dim=2).bool()
-
-        x = self.peak_encoder(x[:, :, [0]], x[:, :, [1]])
+        if self.conv_peak_encoder:
+            x = self.conv_encoder(x)
+            x_mask = torch.zeros((x.shape[0], x.shape[1]), device=x.device).bool()
+        else:
+            if x_mask is None:
+                x_mask = ~x.sum(dim=2).bool()
+            x = self.peak_encoder(x)
 
         # Self-attention on latent spectra AND peaks
         latent_spectra = self.latent_spectrum.expand(x.shape[0], -1, -1)
@@ -290,3 +335,88 @@ class InstaNovo(nn.Module):
         )
 
         return self.head(y_hat)
+
+    def _flash_encoder(
+        self, x: Tensor, p: Tensor, x_mask: Tensor = None
+    ) -> tuple[Tensor, Tensor]:
+        # Special mask for zero-indices
+        # One is padded, zero is normal
+        x_mask = (~x.sum(dim=2).bool()).float()
+
+        x = self.peak_encoder(x[:, :, [0]], x[:, :, [1]])
+        pad_spectrum = self.pad_spectrum.expand(x.shape[0], x.shape[1], -1)
+
+        # torch.compile doesn't allow dynamic sizes (returned by mask indexing)
+        # x[x_mask] = pad_spectrum[x_mask].to(x.dtype)
+        x = x * (1 - x_mask[:, :, None]) + pad_spectrum * (x_mask[:, :, None])
+
+        # Self-attention on latent spectra AND peaks
+        latent_spectra = self.latent_spectrum.expand(x.shape[0], -1, -1)
+        x = torch.cat([latent_spectra, x], dim=1).contiguous()
+
+        with sdpa_kernel(SDPBackend.FLASH_ATTENTION):
+            x = self.encoder(x)
+
+        # Prepare precursors
+        masses = self.peak_encoder.encode_mass(p[:, None, [0]])
+        charges = self.charge_encoder(p[:, 1].int() - 1)
+        precursors = masses + charges[:, None, :]
+
+        # Concatenate precursors
+        x = torch.cat([precursors, x], dim=1).contiguous()
+
+        return x, None
+
+    def _flash_decoder(
+        self,
+        x: Tensor,
+        y: Tensor,
+        x_mask: Tensor,
+        y_mask: Tensor = None,
+        add_bos: bool = True,
+    ) -> Tensor:
+        if y is None:
+            y = torch.full((x.shape[0], 1), self.residue_set.SOS_INDEX, device=x.device)
+        elif add_bos:
+            bos = (
+                torch.ones((y.shape[0], 1), dtype=y.dtype, device=y.device)
+                * self.residue_set.SOS_INDEX
+            )
+            y = torch.cat([bos, y], dim=1)
+
+        y = self.aa_embed(y)
+
+        # concat bos
+        y = self.aa_pos_embed(y)
+
+        c_mask = self._get_causal_mask(y.shape[1]).to(y.device)
+
+        with sdpa_kernel(SDPBackend.FLASH_ATTENTION):
+            y_hat = self.decoder(y, x, tgt_mask=c_mask)
+
+        return self.head(y_hat)
+
+
+def _whitelist_torch_omegaconf() -> None:
+    """Whitelist specific modules for loading configs from checkpoints."""
+    # This is done to safeguard against arbitrary code execution from checkpoints.
+    from omegaconf.base import ContainerMetadata, Metadata
+    from omegaconf.listconfig import ListConfig
+    from omegaconf.nodes import AnyNode
+    from typing import Any
+    from collections import defaultdict
+
+    torch.serialization.add_safe_globals(
+        [
+            DictConfig,
+            ContainerMetadata,
+            Metadata,
+            ListConfig,
+            AnyNode,
+            Any,  # Only used for type hinting in omegaconf.
+            defaultdict,
+            dict,
+            list,
+            int,
+        ]
+    )
