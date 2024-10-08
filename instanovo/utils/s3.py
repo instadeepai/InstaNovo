@@ -74,11 +74,14 @@ def convert_to_s3_output(path: str) -> str:
     """Convert local directory to s3 output path if possible."""
     if _s3_enabled():
         # Environment variable specific to Aichor compute platform
-        return os.environ["AICHOR_OUTPUT_PATH"] + str(Path(path))
+        output_path = os.environ["AICHOR_OUTPUT_PATH"]
+        if "s3://" not in output_path:
+            output_path = f"s3://{output_path}/output/"
+        return output_path + str(Path(path))
     return path
 
 
-def clean_filepath(filepath: str) -> str:
+def _clean_filepath(filepath: str) -> str:
     """Convert file path to AIchor compatible path, without disallowed characters."""
     pattern = r"[^a-zA-Z0-9\-_\.]"
     clean_filepath = re.sub(pattern, "", filepath)
@@ -133,7 +136,7 @@ class PLCheckpointWrapper(pl.callbacks.ModelCheckpoint):
             self.strategy.barrier()
 
         # Special characters are not allowed in AIchor bucket names. See: https://docs.aichor.ai/docs/user-manual/buckets/
-        suffix = clean_filepath(filepath.split("/")[-1])
+        suffix = _clean_filepath(filepath.split("/")[-1])
         target = f"{self.s3_ckpt_path}/{suffix}"
 
         upload(filepath, target)

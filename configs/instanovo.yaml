@@ -16,10 +16,11 @@ weight_decay: 1e-5
 train_batch_size: 256 #32
 grad_accumulation: 1
 n_gpu: 1
-n_workers: 16
 gradient_clip_val: 10.0
 predict_batch_size: 64
 n_beams: 5
+fp16: True
+compile_model: True
 
 # Logging parameters
 logger:
@@ -34,6 +35,9 @@ run_name: instanovo_acpt_base
 train_subset: 1.0
 valid_subset: 0.01
 val_check_interval: 1.0 # 1.0 This doesn't work
+lazy_loading: True # Use lazy loading mode
+max_shard_size: 100_000 # Max data shard size for lazy loading, may influence shuffling mechanics
+perform_data_checks: True # Check residues, check precursor masses, etc.
 
 # Checkpointing parameters
 save_model: True

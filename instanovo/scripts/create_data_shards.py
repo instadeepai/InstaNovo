@@ -1,3 +1,5 @@
+# DO NOT MERGE TO GITHUB
+
 from __future__ import annotations
 
 import os
@@ -10,6 +12,8 @@ import pandas as pd
 import polars as pl
 import tqdm
 
+from instanovo.transformer.dataset import remove_modifications
+
 
 def get_shards(
     path: str, seq_filter: list[str] | set[str], max_shard_size: int
@@ -20,7 +24,7 @@ def get_shards(
         dst = os.path.join(path, filename)
         with zipfile.ZipFile(dst, "r") as f:
             df = pickle.loads(f.read(f.namelist()[0]))
-            df = df[df.Sequence.isin(seq_filter)].copy()
+            df = df[df["Sequence"].map(remove_modifications).isin(seq_filter)].copy()
             df["Exp"] = "_".join(filename.split("_")[:-3])
             if current_shard is None:
                 current_shard = df
@@ -52,7 +56,7 @@ def main(
     """Split pickle files into .ipc data shards."""
     splits = pd.read_csv(splits_file)
 
-    split_options = splits["Split"].unique()
+    split_options = splits["split"].unique()
     if split not in split_options:
         raise ValueError(
             f"Unknown split {split}. Please select one of {list(split_options)}."
@@ -62,6 +66,7 @@ def main(
     col_map = {
         "Modified sequence": "modified_sequence",
         "MS/MS m/z": "precursor_mz",
+        "Sequence": "sequence",
         "Precursor m/z": "precursor_mz",
         "Theoretical m/z": "theoretical_mz",
         "Mass": "precursor_mass",

@@ -27,14 +27,14 @@ class Metrics:
     def matches_precursor(
         self,
         seq: str | list[str],
-        prec_mass: float,
+        prec_mz: float,
         prec_charge: int,
-        prec_tol: int = 50,
+        prec_tol: float = 50,
     ) -> tuple[bool, list[float]]:
         """Check if a sequence matches the precursor mass within some tolerance."""
-        seq_mass = self._mass(seq, charge=prec_charge)
+        seq_mz = self._mass(seq, charge=prec_charge)
         delta_mass_ppm = [
-            self._calc_mass_error(seq_mass, prec_mass, prec_charge, isotope)
+            self._calc_mass_error(seq_mz, prec_mz, prec_charge, isotope)
             for isotope in range(
                 self.isotope_error_range[0],
                 self.isotope_error_range[1] + 1,
@@ -195,13 +195,6 @@ class Metrics:
         """Calculate a peptide's mass or m/z."""
         seq = self._split_peptide(seq)
         return self.residue_set.get_sequence_mass(seq, charge)  # type: ignore
-        # calc_mass = sum([self.residues[aa] for aa in seq]) + H2O_MASS
-
-        # if charge is not None:
-        #     # Neutral mass
-        #     calc_mass = (calc_mass / charge) + PROTON_MASS_AMU
-
-        # return calc_mass
 
     def _calc_mass_error(
         self, mz_theoretical: float, mz_measured: float, charge: int, isotope: int = 0
@@ -233,7 +226,8 @@ class Metrics:
                 n += int(abs(mass_a[i] - mass_b[j]) < self.ind_mass_threshold)
                 i += 1
                 j += 1
-            elif cum_mass_a[i] > cum_mass_b[j]:
+            # TODO: Check this symbol
+            elif cum_mass_b[j] > cum_mass_a[i]:
                 i += 1
             else:
                 j += 1

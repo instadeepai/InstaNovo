@@ -8,7 +8,7 @@ from jaxtyping import Float
 from torch import nn
 from torch import Tensor
 
-from instanovo.types import SpectrumEmbedding
+from instanovo.types import SpectrumEmbedding, Spectrum
 
 
 class PositionalEncoding(nn.Module):
@@ -65,10 +65,12 @@ class MultiScalePeakEmbedding(nn.Module):
         freqs = 2 * np.pi / torch.logspace(-2, -3, int(h_size / 2), dtype=torch.float64)
         self.register_buffer("freqs", freqs)
 
+    # @torch.autocast("cuda", dtype=torch.float32)
     def forward(
-        self, mz_values: Float[Tensor, " batch"], intensities: Float[Tensor, " batch"]
+        self, spectra: Float[Spectrum, " batch"]
     ) -> Float[SpectrumEmbedding, " batch"]:
         """Encode peaks."""
+        mz_values, intensities = spectra[:, :, [0]], spectra[:, :, [1]]
         x = self.encode_mass(mz_values)
         x = self.mlp(x)
         x = torch.cat([x, intensities], axis=2)
@@ -81,3 +83,27 @@ class MultiScalePeakEmbedding(nn.Module):
         x = self.freqs[None, None, :] * x
         x = torch.cat([torch.sin(x), torch.cos(x)], axis=2)
         return x.float()
+
+
+class ConvPeakEmbedding(nn.Module):
+    """Convolutional peak embedding."""
+
+    def __init__(self, h_size: int, dropout: float = 0) -> None:
+        super().__init__()
+        self.h_size = h_size
+
+        self.conv = nn.Sequential(
+            nn.Conv1d(
+                1, h_size // 4, kernel_size=40_000, stride=100, padding=40_000 // 2 - 1
+            ),
+            nn.ReLU(),
+            nn.Dropout(),
+            nn.Conv1d(h_size // 4, h_size, kernel_size=5, stride=1, padding=1),
+            nn.ReLU(),
+            nn.Dropout(),
+        )
+
+    def forward(self, x: Tensor) -> Tensor:
+        """Conv peak embedding."""
+        x = x.unsqueeze(1)
+        return self.conv(x).transpose(-1, -2)

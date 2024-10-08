@@ -2,133 +2,132 @@ from __future__ import annotations
 
 import logging
 import time
-from pathlib import Path
-from typing import Any, cast
+from typing import cast
 
-import click
+import hydra
 import numpy as np
 import pandas as pd
-import polars as pl
 import torch
+from omegaconf import DictConfig
 from omegaconf import open_dict
 from torch.utils.data import DataLoader
 from tqdm import tqdm
+import os
 
-from instanovo.inference.beam_search import ScoredSequence
-from instanovo.inference.knapsack import Knapsack
-from instanovo.inference.beam_search import BeamSearchDecoder
+from instanovo.inference import BeamSearchDecoder
+from instanovo.inference import GreedyDecoder
+from instanovo.inference import KnapsackBeamSearchDecoder
+from instanovo.inference import Decoder
+from instanovo.inference import ScoredSequence
+from instanovo.inference import Knapsack
 
 from instanovo.transformer.dataset import collate_batch
 from instanovo.transformer.dataset import SpectrumDataset
 from instanovo.transformer.model import InstaNovo
 from instanovo.transformer.train import _set_author_neptune_api_token
 from instanovo.utils import s3
-from instanovo.utils.metrics import Metrics
+from instanovo.utils import Metrics
+from instanovo.utils import SpectrumDataFrame
+from instanovo.constants import MASS_SCALE, ANNOTATION_ERROR, ANNOTATED_COLUMN
 
-logger = logging.getLogger()
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
 
-# flake8: noqa: CR001
+# flake8: noqa: CCR001
 def get_preds(
-    data_path: str,
+    config: DictConfig,
     model: InstaNovo,
-    config: dict[str, Any],
-    denovo: bool = False,
-    output_path: str | None = None,
-    knapsack_path: str | None = None,
-    save_beams: bool = False,
-    filter_precursor_ppm: float = 20.0,
-    model_confidence_no_pred: float = 0.0001,
-    fdr: float = 0.05,
-    device: str = "cuda",
+    model_config: DictConfig,
 ) -> None:
     """Get predictions from a trained model."""
-    if denovo and output_path is None:
+    if config.get("denovo", False) and config.get("output_path", None) is None:
         raise ValueError(
-            "Must specify an output path in denovo mode. Specify an output csv file with --output_path"
+            "Must specify an output csv path in denovo mode. Please specify in config or with the cli flag output_path=`path/to/output.csv`"
         )
 
-    if Path(data_path).suffix.lower() != ".ipc":
-        raise ValueError(
-            f"Unknown filetype of {data_path}. Only Polars .ipc is currently supported."
+    data_path = config["data_path"]
+    output_path = config.get("output_path", None)
+
+    # Some commomly used config variables
+    denovo = config.get("denovo", False)
+    num_beams = config.get("num_beams", 1)
+    use_basic_logging = config.get("use_basic_logging", True)
+    save_beams = config.get("save_beams", False)
+    device = config.get("device", "cuda")
+    fp16 = config.get("fp16", True)
+
+    if fp16 and device.lower() == "cpu":
+        logger.warning("fp16 is enabled but device type is cpu. fp16 will be disabled.")
+        fp16 = False
+
+    logger.info(f"Loading data from {data_path}")
+
+    try:
+        sdf = SpectrumDataFrame.load(
+            data_path,
+            lazy=False,
+            is_annotated=not denovo,
+            column_mapping=config.get("column_map", None),
+            shuffle=False,
         )
+    except ValueError as e:
+        # More descriptive error message in predict mode.
+        if str(e) == ANNOTATION_ERROR:
+            raise ValueError(
+                "The sequence column is missing annotations, are you trying to run de novo prediction? Add the `denovo=True` flag"
+            )
+        else:
+            raise
 
-    logging.info(f"Loading data from {data_path}")
-    df = pl.read_ipc(data_path)
-    col_map = {
-        "Modified sequence": "modified_sequence",
-        "MS/MS m/z": "precursor_mz",
-        "m/z": "precursor_mz",
-        "Mass": "precursor_mass",
-        "Charge": "precursor_charge",
-        "Mass values": "mz_array",
-        "Mass spectrum": "mz_array",
-        "Intensity": "intensity_array",
-        "Raw intensity spectrum": "intensity_array",
-    }
-    if "m/z" in df.columns or "MS/MS m/z" in df.columns:
-        if "MS/MS m/z" in df.columns:
-            col_map["m/z"] = "calc_precursor_mz"
-        df = df.rename({k: v for k, v in col_map.items() if k in df.columns})
-        df = df.with_columns(pl.col("modified_sequence").apply(lambda x: x[1:-1]))
-
-    df = df.sample(fraction=config["subset"], seed=0)
-    logging.info(
-        f"Data loaded, evaluating {config['subset']*100:.1f}%, {df.shape[0]} samples in total."
+    sdf.sample_subset(fraction=config.get("subset", 1.0), seed=42)
+    logger.info(
+        f"Data loaded, evaluating {config.get('subset', 1.0)*100:.1f}%, {len(sdf):,} samples in total."
     )
-
-    if not denovo and (df["modified_sequence"] == "").all():
-        raise ValueError(
-            "The modified_sequence column is empty, are you trying to run de novo prediction? Add the --denovo flag"
-        )
 
     residue_set = model.residue_set
-    logging.info(f"Vocab: {residue_set.index_to_residue}")
+    logger.info(f"Vocab: {residue_set.index_to_residue}")
 
-    # TODO: find a better place for this, maybe config?
-    residue_set.update_remapping(
-        {"M(ox)": "M(+15.99)", "Q(+0.98)": "Q(+.98)", "N(+0.98)": "N(+.98)"}
-    )
+    residue_set.update_remapping(config.get("residue_remapping", {}))
 
     if not denovo:
         supported_residues = set(residue_set.vocab)
         supported_residues.update(set(residue_set.residue_remapping.keys()))
-        df = df.with_columns(
-            pl.col("modified_sequence")
-            .map_elements(
-                lambda x: all(
-                    [y in supported_residues for y in residue_set.tokenize(x)]
-                )
-            )  # TODO: set return_dtype
-            .alias("supported")
-        )
-        if (~df["supported"]).sum() > 0:
+        data_residues = sdf.get_vocabulary(residue_set.tokenize)
+        if len(data_residues - supported_residues) > 0:
             logger.warning(
                 "Unsupported residues found in evaluation set! These rows will be dropped."
             )
-            df_residues = set()
-            for x in df["modified_sequence"]:
-                df_residues.update(set(residue_set.tokenize(x)))
-            logger.warning(f"Residues found: \n{df_residues-supported_residues}")
-            logger.warning(f"Residues supported: \n{supported_residues}")
+            logger.warning(f"Residues found: \n{data_residues-supported_residues}")
             logger.warning(
                 "Please check residue remapping if a different convention has been used."
             )
-            original_size = df.shape[0]
-            df = df.filter(pl.col("supported"))
-            logger.warning(f"{original_size-df.shape[0]:,d} rows have been dropped.")
-            logger.warning("Peptide recall should be manually updated accordingly.")
+            original_size = len(sdf)
+            sdf.filter_rows(
+                lambda row: all(
+                    [
+                        residue in supported_residues
+                        for residue in set(residue_set.tokenize(row[ANNOTATED_COLUMN]))
+                    ]
+                )
+            )
+            logger.warning(f"{original_size-len(sdf):,d} rows have been dropped.")
+            logger.warning("Peptide recall should recalculated accordingly.")
 
     ds = SpectrumDataset(
-        df, residue_set, config["n_peaks"], return_str=True, annotated=not denovo
+        sdf,
+        residue_set,
+        model_config.get("n_peaks", 200),
+        return_str=True,
+        annotated=not denovo,
     )
 
     dl = DataLoader(
         ds,
-        batch_size=config["predict_batch_size"],
-        num_workers=config["n_workers"],
-        shuffle=False,
+        batch_size=config["batch_size"],
+        num_workers=0,  # sdf requirement, handled internally
+        shuffle=False,  # sdf requirement, handled internally
         collate_fn=collate_batch,
     )
 
@@ -136,104 +135,124 @@ def get_preds(
     model = model.eval()
 
     # Setup decoder
-    # TODO: Add flag to choose decoding type (greedy, beam, knapsack beam)
-    # if knapsack_path is None or not os.path.exists(knapsack_path):
-    #     logging.info("Knapsack path missing or not specified, generating...")
-    #     knapsack = _setup_knapsack(model)
-    #     decoder = KnapsackBeamSearchDecoder(model, knapsack)
-    #     if knapsack_path is not None:
-    #         logging.info(f"Saving knapsack to {knapsack_path}")
-    #         knapsack.save(knapsack_path)
-    # else:
-    #     logging.info("Knapsack path found. Loading...")
-    #     decoder = KnapsackBeamSearchDecoder.from_file(model=model, path=knapsack_path)
-    decoder = BeamSearchDecoder(model=model)
 
-    index_cols = [
-        "id",
-        "experiment_name",
-        "evidence_index",
-        "scan_number",
-        "global_index",
-        "spectrum_index",
-        "file_index",
-        "sample",
-        "file",
-        "index",
-        "fileno",
-        "precursor_mz",
-        "precursor_charge",
-    ]
-    cols = [x for x in df.columns if x in index_cols]
+    if config.get("use_knapsack", False):
+        knapsack_path = config.get("knapsack_path", None)
+        if knapsack_path is None or not os.path.exists(knapsack_path):
+            logger.info("Knapsack path missing or not specified, generating...")
+            knapsack = _setup_knapsack(model)
+            decoder: Decoder = KnapsackBeamSearchDecoder(model, knapsack)
+            if knapsack_path is not None:
+                logger.info(f"Saving knapsack to {knapsack_path}")
+                knapsack.save(knapsack_path)
+        else:
+            logger.info("Knapsack path found. Loading...")
+            decoder = KnapsackBeamSearchDecoder.from_file(
+                model=model, path=knapsack_path
+            )
+    elif num_beams > 1:
+        decoder = BeamSearchDecoder(model=model)
+    else:
+        decoder = GreedyDecoder(model=model)
 
-    pred_df = df.to_pandas()[cols].copy()
+    index_cols = config.get("index_columns", ["precursor_mz", "precursor_charge"])
+    cols = [x for x in sdf.df.columns if x in index_cols]
 
-    preds: dict[int, list[str]] = {i: [] for i in range(config["n_beams"])}
+    pred_df = sdf.df.to_pandas()[cols].copy()
+
+    preds: dict[int, list[list[str]]] = {i: [] for i in range(num_beams)}
     targs: list[str] = []
-    probs: dict[int, list[float]] = {i: [] for i in range(config["n_beams"])}
+    sequence_log_probs: dict[int, list[float]] = {i: [] for i in range(num_beams)}
+    token_log_probs: dict[int, list[list[float]]] = {
+        i: [] for i in range(num_beams)
+    }  # TODO
 
     start = time.time()
-    for _, batch in tqdm(enumerate(dl), total=len(dl)):
+
+    iter_dl = enumerate(dl)
+    if not use_basic_logging:
+        iter_dl = tqdm(enumerate(dl), total=len(dl))
+
+    logger.info("Starting evaluation...")
+
+    for i, batch in iter_dl:
         spectra, precursors, spectra_mask, peptides, _ = batch
         spectra = spectra.to(device)
         precursors = precursors.to(device)
         spectra_mask = spectra_mask.to(device)
 
-        with torch.no_grad():
-            p = decoder.decode(
+        with torch.no_grad(), torch.amp.autocast(
+            "cuda", dtype=torch.float16, enabled=fp16
+        ):
+            batch_predictions = decoder.decode(
                 spectra=spectra,
                 precursors=precursors,
-                beam_size=config["n_beams"],
-                max_length=config["max_length"],
+                beam_size=num_beams,
+                max_length=config.get("max_length", 40),
                 return_beam=save_beams,
             )
 
         if save_beams:
-            p = cast(list[list[ScoredSequence]], p)
-            for x in p:
-                for i in range(config["n_beams"]):
-                    if i >= len(x):
-                        preds[i].append("")
-                        probs[i].append(-1e6)
+            batch_predictions = cast(list[list[ScoredSequence]], batch_predictions)
+            for predictions in batch_predictions:
+                for j in range(num_beams):
+                    if j >= len(predictions):
+                        preds[j].append([])
+                        sequence_log_probs[j].append(-float("inf"))
+                        token_log_probs[j].append([])
                     else:
-                        preds[i].append("".join(x[i].sequence))
-                        probs[i].append(x[i].sequence_log_probability)
+                        preds[j].append(predictions[j].sequence)
+                        sequence_log_probs[j].append(
+                            predictions[j].sequence_log_probability
+                        )
+                        token_log_probs[j].append(
+                            predictions[j].token_log_probabilities
+                        )
         else:
-            p = cast(list[ScoredSequence], p)
-            preds[0] += [
-                "".join(x.sequence) if isinstance(x, ScoredSequence) else "" for x in p
-            ]
-            probs[0] += [
-                x.sequence_log_probability if isinstance(x, ScoredSequence) else -1e6
-                for x in p
-            ]
-            targs += list(peptides)
+            batch_predictions = cast(list[ScoredSequence], batch_predictions)
+            for prediction in batch_predictions:
+                if isinstance(prediction, ScoredSequence):
+                    preds[0].append(prediction.sequence)
+                    sequence_log_probs[0].append(prediction.sequence_log_probability)
+                    token_log_probs[0].append(prediction.token_log_probabilities)
+                else:
+                    preds[0].append([])
+                    sequence_log_probs[0].append(-float("inf"))
+                    token_log_probs[0].append([])
+        targs += list(peptides)
+
+        if use_basic_logging and (
+            (i + 1) % config.get("log_interval", 50) == 0 or (i + 1) == len(dl)
+        ):
+            delta = time.time() - start
+            est_total = delta / (i + 1) * (len(dl) - i - 1)
+            logger.info(
+                f"Batch {i+1:05d}/{len(dl):05d}, [{_format_time(delta)}/{_format_time(est_total)}, {(delta / (i + 1)):.3f}s/it]"
+            )
 
     delta = time.time() - start
 
-    logging.info(f"Time taken for {data_path} is {delta:.1f} seconds")
-    logging.info(
-        f"Average time per batch (bs={config['predict_batch_size']}): {delta/len(dl):.1f} seconds"
+    logger.info(f"Time taken for {data_path} is {delta:.1f} seconds")
+    logger.info(
+        f"Average time per batch (bs={config['batch_size']}): {delta/len(dl):.1f} seconds"
     )
 
     if not denovo:
         pred_df["targets"] = targs
     pred_df["preds"] = ["".join(x) for x in preds[0]]
     pred_df["preds_tokenised"] = [", ".join(x) for x in preds[0]]
-    pred_df["log_probs"] = probs[0]
+    pred_df["log_probs"] = sequence_log_probs[0]
+    pred_df["token_log_probs"] = token_log_probs[0]
 
     if save_beams:
-        for i in range(config["n_beams"]):
+        for i in range(num_beams):
             pred_df[f"preds_beam_{i}"] = ["".join(x) for x in preds[i]]
-            pred_df[f"log_probs_beam_{i}"] = probs[i]
+            pred_df[f"log_probs_beam_{i}"] = sequence_log_probs[i]
+            pred_df[f"token_log_probs_{i}"] = token_log_probs[i]
 
-    if output_path is not None:
-        pred_df.to_csv(output_path, index=False)
-        logging.info(f"Predictions saved to {output_path}")
-
-    # calculate metrics
+    # Calculate metrics
     if not denovo:
-        metrics = Metrics(residue_set, config["isotope_error_range"])
+        metrics = Metrics(residue_set, config.get("isotope_error_range", [0, 1]))
 
         # Make sure we pass preds[0] without joining on ""
         # This is to handle cases where n-terminus modifications could be accidentally joined
@@ -245,29 +264,33 @@ def get_preds(
             pred_df["targets"], preds[0], np.exp(pred_df["log_probs"])
         )
 
-        logging.info(f"Performance on {data_path}:")
-        logging.info(f"aa_er       {aa_er}")
-        logging.info(f"aa_prec     {aa_prec}")
-        logging.info(f"aa_recall   {aa_recall}")
-        logging.info(f"pep_prec    {pep_prec}")
-        logging.info(f"pep_recall  {pep_recall}")
-        logging.info(f"auc         {auc}")
+        # TODO: per residue scoring
 
-        _, threshold = metrics.find_recall_at_fdr(
-            pred_df["targets"], preds[0], np.exp(pred_df["log_probs"]), fdr=fdr
-        )
-        aa_prec, aa_recall, pep_recall, pep_prec = metrics.compute_precision_recall(
-            pred_df["targets"],
-            preds[0],
-            np.exp(pred_df["log_probs"]),
-            threshold=threshold,
-        )
-        logging.info(f"Performance at {fdr*100:.1f}% FDR:")
-        logging.info(f"  aa_prec     {aa_prec:.5f}")
-        logging.info(f"  aa_recall   {aa_recall:.5f}")
-        logging.info(f"  pep_prec    {pep_prec:.5f}")
-        logging.info(f"  pep_recall  {pep_recall:.5f}")
-        logging.info(f"  confidence  {threshold:.5f}")
+        logger.info(f"Performance on {data_path}:")
+        logger.info(f"  aa_er       {aa_er:.5f}")
+        logger.info(f"  aa_prec     {aa_prec:.5f}")
+        logger.info(f"  aa_recall   {aa_recall:.5f}")
+        logger.info(f"  pep_prec    {pep_prec:.5f}")
+        logger.info(f"  pep_recall  {pep_recall:.5f}")
+        logger.info(f"  auc         {auc:.5f}")
+
+        fdr = config.get("filter_fdr_threshold", None)
+        if fdr:
+            _, threshold = metrics.find_recall_at_fdr(
+                pred_df["targets"], preds[0], np.exp(pred_df["log_probs"]), fdr=fdr
+            )
+            aa_prec, aa_recall, pep_recall, pep_prec = metrics.compute_precision_recall(
+                pred_df["targets"],
+                preds[0],
+                np.exp(pred_df["log_probs"]),
+                threshold=threshold,
+            )
+            logger.info(f"Performance at {fdr*100:.1f}% FDR:")
+            logger.info(f"  aa_prec     {aa_prec:.5f}")
+            logger.info(f"  aa_recall   {aa_recall:.5f}")
+            logger.info(f"  pep_prec    {pep_prec:.5f}")
+            logger.info(f"  pep_recall  {pep_recall:.5f}")
+            logger.info(f"  confidence  {threshold:.5f}")
 
         # Calculate some additional information for filtering:
         pred_df["delta_mass_ppm"] = pred_df.apply(
@@ -281,87 +304,97 @@ def get_preds(
             axis=1,
         )
 
-        idx = pred_df["delta_mass_ppm"] < filter_precursor_ppm
-        filtered_preds = pd.Series(preds[0])
-        filtered_preds[~idx] = ""
-        aa_prec, aa_recall, pep_recall, pep_prec = metrics.compute_precision_recall(
-            pred_df["targets"], filtered_preds
-        )
-        logging.info(
-            f"Performance with filtering at {filter_precursor_ppm} ppm delta mass:"
-        )
-        logging.info(f"  aa_prec     {aa_prec:.5f}")
-        logging.info(f"  aa_recall   {aa_recall:.5f}")
-        logging.info(f"  pep_prec    {pep_prec:.5f}")
-        logging.info(f"  pep_recall  {pep_recall:.5f}")
-        logging.info(
-            f"Rows filtered: {df.shape[0]-np.sum(idx)} ({(df.shape[0]-np.sum(idx))/df.shape[0]*100:.2f}%)"
-        )
+        filter_precursor_ppm = config.get("filter_precursor_ppm", None)
+        if filter_precursor_ppm:
+            idx = pred_df["delta_mass_ppm"] < filter_precursor_ppm
+            filtered_preds = pd.Series(preds[0])
+            filtered_preds[~idx] = ""
+            aa_prec, aa_recall, pep_recall, pep_prec = metrics.compute_precision_recall(
+                pred_df["targets"], filtered_preds
+            )
+            logger.info(
+                f"Performance with filtering at {filter_precursor_ppm} ppm delta mass:"
+            )
+            logger.info(f"  aa_prec     {aa_prec:.5f}")
+            logger.info(f"  aa_recall   {aa_recall:.5f}")
+            logger.info(f"  pep_prec    {pep_prec:.5f}")
+            logger.info(f"  pep_recall  {pep_recall:.5f}")
+            logger.info(
+                f"Rows filtered: {len(sdf)-np.sum(idx)} ({(len(sdf)-np.sum(idx))/len(sdf)*100:.2f}%)"
+            )
 
-        idx = np.exp(pred_df["log_probs"]) > model_confidence_no_pred
-        filtered_preds = pd.Series(preds[0])
-        filtered_preds[~idx] = ""
-        aa_prec, aa_recall, pep_recall, pep_prec = metrics.compute_precision_recall(
-            pred_df["targets"], filtered_preds
-        )
-        logging.info(
-            f"Performance with filtering confidence < {model_confidence_no_pred}"
-        )
-        logging.info(f"  aa_prec     {aa_prec:.5f}")
-        logging.info(f"  aa_recall   {aa_recall:.5f}")
-        logging.info(f"  pep_prec    {pep_prec:.5f}")
-        logging.info(f"  pep_recall  {pep_recall:.5f}")
-        logging.info(
-            f"Rows filtered: {df.shape[0]-np.sum(idx)} ({(df.shape[0]-np.sum(idx))/df.shape[0]*100:.2f}%)"
-        )
+        model_confidence_no_pred = config.get("filter_confidence", None)
+        if model_confidence_no_pred:
+            idx = np.exp(pred_df["log_probs"]) > model_confidence_no_pred
+            filtered_preds = pd.Series(preds[0])
+            filtered_preds[~idx] = ""
+            aa_prec, aa_recall, pep_recall, pep_prec = metrics.compute_precision_recall(
+                pred_df["targets"], filtered_preds
+            )
+            logger.info(
+                f"Performance with filtering confidence < {model_confidence_no_pred}"
+            )
+            logger.info(f"  aa_prec     {aa_prec:.5f}")
+            logger.info(f"  aa_recall   {aa_recall:.5f}")
+            logger.info(f"  pep_prec    {pep_prec:.5f}")
+            logger.info(f"  pep_recall  {pep_recall:.5f}")
+            logger.info(
+                f"Rows filtered: {len(sdf)-np.sum(idx)} ({(len(sdf)-np.sum(idx))/len(sdf)*100:.2f}%)"
+            )
 
     # Save output
     if output_path is not None:
         pred_df.to_csv(output_path, index=False)
-        logging.info(f"Predictions saved to {output_path}")
+        logger.info(f"Predictions saved to {output_path}")
 
         # Upload to Aichor
         if s3._s3_enabled():
             s3.upload(output_path, s3.convert_to_s3_output(output_path))
 
 
-@click.command()
-@click.argument("data-path")
-@click.argument("model-path")
-@click.option("--output-path", "-o", default=None)
-@click.option("--denovo", "-n", is_flag=True, default=False)
-@click.option("--subset", "-s", default=1.0)
-@click.option("--knapsack-path", "-k", default=None)
-@click.option("--n-workers", "-w", default=16)
-@click.option("--save-beams", "-b", is_flag=True, default=False)
-def main(
-    data_path: str,
-    model_path: str,
-    output_path: str,
-    denovo: bool,
-    subset: float,
-    knapsack_path: str,
-    n_workers: int,
-    save_beams: bool,
-) -> None:
+@hydra.main(
+    config_path="../../configs/inference", version_base=None, config_name="default"
+)
+def main(config: DictConfig) -> None:
     """Predict with the model."""
-    logging.info("Initializing inference.")
+    logger.info("Initializing inference.")
     _set_author_neptune_api_token()
 
-    logging.info(f"Loading model from {model_path}")
-    model, config = InstaNovo.load(model_path)
-    logging.info(f"Config:\n{config}")
+    # Check config inputs
+    if not config.get("data_path", None):
+        raise ValueError(
+            "Expected data_path but found None. Please specify in predict config or with the cli flag `data_path=path/to/data.ipc`"
+        )
 
-    with open_dict(config):
-        config["n_workers"] = int(n_workers)
-        config["subset"] = float(subset)
+    model_path = config.get("model_path", None)
+    if not model_path:
+        raise ValueError(
+            "Expected model_path but found None. Please specify in predict config or with the cli flag `model_path=path/to/model.ckpt`"
+        )
 
-    get_preds(data_path, model, config, denovo, output_path, knapsack_path, save_beams)
+    logger.info(f"Loading model from {model_path}")
+    model, model_config = InstaNovo.load(model_path)
+    logger.info(f"Config:\n{config}")
+    logger.info(f"Model params: {np.sum([p.numel() for p in model.parameters()]):,d}")
+
+    if config.get("save_beams", False) and config.get("num_beams", 1) == 1:
+        logger.warning(
+            "num_beams is 1 and will override save_beams. Only use save_beams in beam search."
+        )
+        with open_dict(config):
+            config["save_beams"] = False
+
+    logger.info(f"Performing search with {config.get('num_beams', 1)} beams")
+    get_preds(config, model, model_config)
 
 
 def _setup_knapsack(model: InstaNovo) -> Knapsack:
-    MASS_SCALE = 10000
     residue_masses = dict(model.residue_set.residue_masses.copy())
+    # TODO: Handle negative masses in knapsack:
+    if any([x < 0 for x in residue_masses.values()]):
+        raise NotImplementedError(
+            "Negative mass found in residues, this will break the knapsack graph. Either disable knapsack or use strictly positive masses"
+        )
     for special_residue in list(model.residue_set.residue_to_index.keys())[:3]:
         residue_masses[special_residue] = 0
     residue_indices = model.residue_set.residue_to_index
@@ -371,6 +404,11 @@ def _setup_knapsack(model: InstaNovo) -> Knapsack:
         max_mass=4000.00,
         mass_scale=MASS_SCALE,
     )
+
+
+def _format_time(seconds: float) -> str:
+    seconds = int(seconds)
+    return f"{seconds//3600:02d}:{(seconds%3600)//60:02d}:{seconds%60:02d}"
 
 
 if __name__ == "__main__":

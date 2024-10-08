@@ -6,7 +6,7 @@ PACKAGE_NAME = instanovo
 # Train variables
 NUM_NODES = 1
 BATCH_SIZE = 12
-NUM_GPUS:= $(shell python -m instanovo.utils.parse_nr_gpus)
+NUM_GPUS:= $(shell python -m instanovo.scripts.parse_nr_gpus)
 
 
 # LAST_COMMIT returns the current HEAD commit
@@ -201,30 +201,35 @@ docs:
 
 ## Set the GCP credentials
 set-gcp-credentials:
-	python -m instanovo.utils.set_gcp_credentials
+	python -m instanovo.scripts.set_gcp_credentials
+	unset BOTO_CONFIG
+	echo $(BOTO_CONFIG)
+	export BOTO_CONFIG=/dev/null
 	gcloud auth activate-service-account dtu-denovo-sa@ext-dtu-denovo-sequencing-gcp.iam.gserviceaccount.com --key-file=ext-dtu-denovo-sequencing-gcp.json --project=ext-dtu-denovo-sequencing-gcp
 
 #################################################################################
 ## Train commands																#
 #################################################################################
 
-.PHONY: train_acpt train_extended train_nine_species_v1 train_nine_species_v2 finetune_on_hcpt finetune_on_phospho finetune_on_nine_species_v2 ft_eval_nine_species_v2 zs_eval_nine_species_v2 eval_abhi
+.PHONY: train_acpt train_extended train_nine_species_v1 train_nine_species_v2 finetune_on_hcpt finetune_on_phospho finetune_on_nine_species_v2 ft_eval_nine_species_v2 zs_eval_nine_species_v2 eval_abhi eval_species_zero_shot
 
 ## Train InstaNovo on AC-PT
 train_acpt:
 	mkdir -p ./data/ac_pt_shards
-	gsutil -m cp -R gs://ac_pt_shards/ ./data
+	gsutil -m cp -R gs://denovo_formatted_ipc/identity_splits/ac_pt_shards/*.ipc ./data/ac_pt_shards
 	python -m instanovo.transformer.train \
 		--config-name instanovo
 
 ## Train InstaNovo on AC-PT, Phospho and PRIDE data
 train_extended:
-	mkdir -p ./data/denovo_formatted_ipc
-	gsutil -m cp -R gs://denovo_formatted_ipc/ ./data
+	mkdir -p ./data
+	gcloud auth list
+	gcloud projects get-iam-policy ext-dtu-denovo-sequencing-gcp
+	gsutil -d -m cp -R gs://denovo_formatted_ipc/identity_splits ./data
 	mkdir -p ./data/extended
-	cp -R ./data/denovo_formatted_ipc/ac_pt_shards/*.ipc ./data/extended
-	python ./scripts/move_shards.py ./data/denovo_formatted_ipc/pride_extended/ ./data/extended/ 100
-	python ./scripts/move_shards.py ./data/denovo_formatted_ipc/phospho/ ./data/extended/ 200
+	cp -R ./data/identity_splits/ac_pt_shards/*.ipc ./data/extended
+	python ./scripts/move_shards.py ./data/identity_splits/pride_extended/ ./data/extended/ 100
+	python ./scripts/move_shards.py ./data/identity_splits/phospho/ ./data/extended/ 200
 	python -m instanovo.transformer.train \
 		--config-name instanovo_extended
 
@@ -385,6 +390,73 @@ eval_abhi:
 		-o instanovo_hlaI_pred.csv \
 		-n -w 8 -b
 	gsutil cp instanovo_hlaI_pred.csv gs://denovo_checkpoints/
+
+eval_species_zero_shot:
+	mkdir -p ./checkpoints/extended_38aa4b76/
+	gsutil -m cp gs://denovo_checkpoints/extended_38aa4b76/epoch=3-step=800000.ckpt ./checkpoints/extended_38aa4b76/
+	mkdir -p ./data/species/
+	gsutil -m cp -R gs://nine_species_dataset_v2/species_formatted_ipc/*.ipc ./data/species/
+	python -m instanovo.transformer.predict \
+		data_path=./data/species/apis_mellifera.ipc \
+		model_path="./checkpoints/extended_38aa4b76/epoch\=3-step\=800000.ckpt" \
+		subset=1.0 \
+		output_path=apis_mellifera.csv \
+		batch_size=256
+#	python -m instanovo.transformer.predict \
+#		./data/species/apis_mellifera.ipc \
+#		./checkpoints/extended_147b2a84/epoch\=3-step\=800000.ckpt \
+#		--subset 0.1 \
+#		-o apis_mellifera.csv \
+#		--fp16
+#	python -m instanovo.transformer.predict \
+#		./data/species/bacillus_subtilis.ipc \
+#		./checkpoints/extended_147b2a84/epoch\=3-step\=800000.ckpt \
+#		--subset 0.0125 \
+#		-o bacillus_subtilis.csv \
+#		--fp16
+#	python -m instanovo.transformer.predict \
+#		./data/species/candidatus_endoloripes.ipc \
+#		./checkpoints/extended_147b2a84/epoch\=3-step\=800000.ckpt \
+#		--subset 0.5 \
+#		-o candidatus_endoloripes.csv \
+#		--fp16
+#	python -m instanovo.transformer.predict \
+#		./data/species/h_sapiens.ipc \
+#		./checkpoints/extended_147b2a84/epoch\=3-step\=800000.ckpt \
+#		--subset 0.75 \
+#		-o h_sapiens.csv \
+#		--fp16
+#	python -m instanovo.transformer.predict \
+#		./data/species/methanosarcina_mazei.ipc \
+#		./checkpoints/extended_147b2a84/epoch\=3-step\=800000.ckpt \
+#		--subset 0.08 \
+#		-o methanosarcina_mazei.csv \
+#		--fp16
+#	python -m instanovo.transformer.predict \
+#		./data/species/mus_musculus.ipc \
+#		./checkpoints/extended_147b2a84/epoch\=3-step\=800000.ckpt \
+#		--subset 1.0 \
+#		-o mus_musculus.csv \
+#		--fp16
+#	python -m instanovo.transformer.predict \
+#		./data/species/saccharomyces_cerevisiae.ipc \
+#		./checkpoints/extended_147b2a84/epoch\=3-step\=800000.ckpt \
+#		--subset 0.02 \
+#		-o saccharomyces_cerevisiae.csv \
+#		--fp16
+#	python -m instanovo.transformer.predict \
+#		./data/species/solanum_lycopersicum.ipc \
+#		./checkpoints/extended_147b2a84/epoch\=3-step\=800000.ckpt \
+#		--subset 0.2 \
+#		-o solanum_lycopersicum.csv \
+#		--fp16
+#	python -m instanovo.transformer.predict \
+#		./data/species/vigna_mungo.ipc \
+#		./checkpoints/extended_147b2a84/epoch\=3-step\=800000.ckpt \
+#		--subset 0.15 \
+#		-o vigna_mungo.csv \
+#		--fp16
+
 
 
 #################################################################################

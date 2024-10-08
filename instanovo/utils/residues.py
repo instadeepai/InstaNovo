@@ -54,6 +54,8 @@ class ResidueSet:
         self.SOS_INDEX: int = self.residue_to_index[SpecialTokens.SOS_TOKEN.value]
         self.EOS_INDEX: int = self.residue_to_index[SpecialTokens.EOS_TOKEN.value]
 
+        # TODO: Add support for specifying which residues are n-terminal only.
+
     def update_remapping(self, mapping: dict[str, str]) -> None:
         """Update the residue remapping for specific datasets.
 
@@ -93,6 +95,7 @@ class ResidueSet:
 
         Returns:
             float: The mass of the residue in Daltons.
+                   If a charge is specified, returns m/z.
         """
         mass = sum([self.get_mass(residue) for residue in sequence]) + H2O_MASS
         if charge:
@@ -109,7 +112,7 @@ class ResidueSet:
             list[str]: The sequence of residues forming the peptide.
         """
         # return re.split(self.tokenizer_regex, sequence)
-        # TODO find a way to handle N-terminal PTMs appearing at any position
+        # TODO: find a way to handle N-terminal PTMs appearing at any position
         return [
             item
             for sublist in re.findall(self.tokenizer_regex, sequence)

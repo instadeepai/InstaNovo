@@ -1,12 +1,11 @@
 from __future__ import annotations
 
 import logging
+import re
 from pathlib import Path
-
-import datasets
-import numpy as np
-import pandas as pd
 import polars as pl
+
+import numpy as np
 import spectrum_utils.spectrum as sus
 import torch
 from jaxtyping import Bool
@@ -16,13 +15,14 @@ from torch import nn
 from torch import Tensor
 from torch.utils.data import Dataset
 
-from instanovo.constants import PROTON_MASS_AMU
+from instanovo.constants import PROTON_MASS_AMU, MSColumns, ANNOTATED_COLUMN
 from instanovo.types import Peptide
 from instanovo.types import PeptideMask
 from instanovo.types import PrecursorFeatures
 from instanovo.types import Spectrum
 from instanovo.types import SpectrumMask
-from instanovo.utils.residues import ResidueSet
+from instanovo.utils import ResidueSet
+from instanovo.utils import SpectrumDataFrame
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -33,16 +33,20 @@ class SpectrumDataset(Dataset):
 
     def __init__(
         self,
-        df: pd.DataFrame | pl.DataFrame,
+        df: SpectrumDataFrame,
         residue_set: ResidueSet,
         n_peaks: int = 200,
         min_mz: float = 50.0,
         max_mz: float = 2500.0,
         min_intensity: float = 0.01,
         remove_precursor_tol: float = 2.0,
+        pad_spectrum_max_length: bool = False,
+        peptide_pad_length: int = 0,
         reverse_peptide: bool = True,
         annotated: bool = True,
         return_str: bool = False,
+        bin_spectra: bool = False,
+        bin_size: float = 0.01,
     ) -> None:
         super().__init__()
         self.df = df
@@ -52,54 +56,48 @@ class SpectrumDataset(Dataset):
         self.max_mz = max_mz
         self.remove_precursor_tol = remove_precursor_tol
         self.min_intensity = min_intensity
+        self.pad_spectrum_max_length = pad_spectrum_max_length
+        self.peptide_pad_length = peptide_pad_length
         self.reverse_peptide = reverse_peptide
         self.annotated = annotated
         self.return_str = return_str
+        self.bin_spectra = bin_spectra
+        self.bin_size = bin_size
 
-        if isinstance(df, pd.DataFrame):
-            self.data_type = "pd"
-        elif isinstance(df, pl.DataFrame):
-            self.data_type = "pl"
-        elif isinstance(df, datasets.Dataset):
-            self.data_type = "hf"
-        else:
-            raise Exception(f"Unsupported data type {type(df)}")
-
-        self._check_expected_cols()
+        if self.bin_spectra:
+            self.bins = torch.arange(0, self.max_mz + self.bin_size, self.bin_size)
 
     def __len__(self) -> int:
-        return int(self.df.shape[0])
+        return len(self.df)
 
     def __getitem__(self, idx: int) -> tuple[Spectrum, float, int, Peptide | list[str]]:
         peptide = ""
 
-        if self.data_type == "pl":
-            mz_array = torch.Tensor(self.df[idx, "mz_array"].to_list())
-            int_array = torch.Tensor(self.df[idx, "intensity_array"].to_list())
-            precursor_mz = self.df[idx, "precursor_mz"]
-            precursor_charge = self.df[idx, "precursor_charge"]
-            if self.annotated:
-                peptide = self.df[idx, "modified_sequence"]
-        elif self.data_type == "pd":
-            row = self.df.iloc[idx]
-            mz_array = torch.Tensor(row["mz_array"])
-            int_array = torch.Tensor(row["intensity_array"])
-            precursor_mz = row["precursor_mz"]
-            precursor_charge = row["precursor_charge"]
-            if self.annotated:
-                peptide = row["modified_sequence"]
-        elif self.data_type == "hf":
-            row = self.df[idx]
-            mz_array = torch.Tensor(row["mz_array"])
-            int_array = torch.Tensor(row["intensity_array"])
-            precursor_mz = float(row["precursor_mz"])
-            precursor_charge = float(row["precursor_charge"])
-            if self.annotated:
-                peptide = row["modified_sequence"]
+        row = self.df[idx]
+
+        mz_array = torch.Tensor(row[MSColumns.MZ_ARRAY.value])
+        int_array = torch.Tensor(row[MSColumns.INTENSITY_ARRAY.value])
+        precursor_mz = row[MSColumns.PRECURSOR_MZ.value]
+        precursor_charge = row[MSColumns.PRECURSOR_CHARGE.value]
+
+        if self.annotated:
+            peptide = row[ANNOTATED_COLUMN]
 
         spectrum = self._process_peaks(
             mz_array, int_array, precursor_mz, precursor_charge
         )
+
+        if self.bin_spectra:
+            spectrum = torch.histogram(
+                spectrum[:, 0], weight=spectrum[:, 1], bins=self.bins
+            ).hist
+
+        if self.pad_spectrum_max_length and not self.bin_spectra:
+            spectrum_padded = torch.zeros(
+                (self.n_peaks, 2), dtype=spectrum.dtype, device=spectrum.device
+            )
+            spectrum_padded[: spectrum.shape[0]] = spectrum
+            spectrum = spectrum_padded
 
         if not self.return_str:
             peptide_tokenized = self.residue_set.tokenize(peptide)
@@ -109,25 +107,16 @@ class SpectrumDataset(Dataset):
             peptide_encoding = self.residue_set.encode(
                 peptide_tokenized, add_eos=True, return_tensor="pt"
             )
-            return spectrum, precursor_mz, precursor_charge, peptide_encoding
+            # Does nothing when peptide_pad_length = 0 (default). This is used for torch.compile
+            peptide_padded = torch.zeros(
+                (max(self.peptide_pad_length, peptide_encoding.shape[0]),),
+                dtype=peptide_encoding.dtype,
+                device=peptide_encoding.device,
+            )
+            peptide_padded[: peptide_encoding.shape[0]] = peptide_encoding
+            return spectrum, precursor_mz, precursor_charge, peptide_padded
 
         return spectrum, precursor_mz, precursor_charge, peptide
-
-    def _check_expected_cols(self) -> None:
-        expected_cols = [
-            "mz_array",
-            "intensity_array",
-            "precursor_mz",
-            "precursor_charge",
-            "modified_sequence",
-        ]
-        missing_cols = [col for col in expected_cols if col not in self.df.columns]
-        if missing_cols:
-            plural_s = "s" if len(missing_cols) > 1 else ""
-            missing_col_names = ", ".join(missing_cols)
-            raise ValueError(
-                f"Column{plural_s} missing! Missing column{plural_s}: {missing_col_names}"
-            )
 
     def _process_peaks(
         self,
@@ -205,7 +194,7 @@ def collate_batch(
     Float[Spectrum, " batch"],
     Float[PrecursorFeatures, " batch"],
     Bool[SpectrumMask, " batch"],
-    Integer[Peptide, " batch"],
+    Integer[Peptide, " batch"] | list[str],
     Bool[PeptideMask, " batch"],
 ]:
     """Collate batch of samples."""
@@ -223,7 +212,7 @@ def collate_batch(
         ll = torch.tensor([x.shape[0] for x in peptides_batch], dtype=torch.long)
         peptides = nn.utils.rnn.pad_sequence(peptides_batch, batch_first=True)
         peptides_mask = (
-            torch.arange(peptides.shape[1], dtype=torch.long)[None, :] >= ll[:, None]
+            torch.arange(peptides.shape[1], dtype=torch.long)[None, :] >= ll[:, None]  # type: ignore
         )
     else:
         peptides = peptides_batch
@@ -276,6 +265,13 @@ def load_ipc_shards(
     df = pl.concat(df_list)
 
     return df
+
+
+def remove_modifications(x: str) -> str:
+    """Remove modifications and map I to L."""
+    x = re.findall(r"[A-Z]", x)
+    x = ["L" if y == "I" else y for y in x]
+    return "".join(x)
 
 
 def _clean_and_remap(df: pl.DataFrame) -> pl.DataFrame:
