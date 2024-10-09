@@ -1,0 +1,73 @@
+# Data paths and output location
+data_path: # type: .mgf, .mzml or any other filetype supported by SpectruMataFrame
+model_path: # type: .ckpt
+output_path: # type: .csv
+knapsack_path: # type: directory
+
+# Data type only used if data_path is a directory.
+data_type: # .csv, .mgf, .mzml, .mzxml
+
+# Inference mode
+denovo: False
+num_beams: 1 # 1 defaults to greedy search with basic filtering
+max_length: 40
+isotope_error_range: [0, 1]
+use_knapsack: False
+save_beams: False
+subset: 1.0 # Subset of dataset to perform inference on, useful for debugging
+
+# Residues whose log probability will be set to -inf
+# Only works in greedy search
+# suppressed_residues: TODO
+
+# Run config
+num_workers: 16
+batch_size: 128
+device: cuda
+fp16: True
+
+# Logging
+log_interval: 50
+use_basic_logging: True
+
+# Metrics config, does not affect saved results
+filter_precursor_ppm: 20
+filter_confidence: 1e-4
+filter_fdr_threshold: 0.05
+
+# Dataset specific configs
+residue_remapping:
+  "M(ox)": "M(+15.99)"
+  "S(p)": "S(+79.97)"
+  "T(p)": "T(+79.97)"
+  "Y(p)": "Y(+79.97)"
+  "Q(+0.98)": "Q(+.98)"
+  "N(+0.98)": "N(+.98)"
+
+column_map:
+  "Modified sequence": "modified_sequence"
+  "MS/MS m/z": "precursor_mz"
+  # "m/z": "precursor_mz"
+  "Mass": "precursor_mass"
+  "Charge": "precursor_charge"
+  "Mass values": "mz_array"
+  "Mass spectrum": "mz_array"
+  "Intensity": "intensity_array"
+  "Raw intensity spectrum": "intensity_array"
+
+# A list of columns that (if found) will be retained in output csv
+index_columns:
+  - "id"
+  - "experiment_name"
+  - "evidence_index"
+  - "scan_number"
+  - "spectrum_id"
+  - "global_index"
+  - "spectrum_index"
+  - "file_index"
+  - "sample"
+  - "file"
+  - "index"
+  - "fileno"
+  - "precursor_mz"
+  - "precursor_charge"

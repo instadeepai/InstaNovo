@@ -2,11 +2,15 @@ from __future__ import annotations
 
 import numpy
 import torch
+from jaxtyping import Float
+from jaxtyping import Integer
 
 from instanovo.constants import CARBON_MASS_DELTA
 from instanovo.inference.beam_search import BeamSearchDecoder
 from instanovo.inference.interfaces import Decodable
 from instanovo.inference.knapsack import Knapsack
+from instanovo.types import DiscretizedMass
+from instanovo.types import ResidueLogProbabilities
 
 
 class KnapsackBeamSearchDecoder(BeamSearchDecoder):
@@ -39,12 +43,12 @@ class KnapsackBeamSearchDecoder(BeamSearchDecoder):
     # flake8: noqa: CR001
     def prefilter_items(
         self,
-        log_probabilities: torch.FloatTensor,
-        remaining_masses: torch.LongTensor,
-        beam_masses: torch.LongTensor,
-        mass_buffer: torch.LongTensor,
+        log_probabilities: Float[ResidueLogProbabilities, "batch beam residue"],
+        remaining_masses: Integer[DiscretizedMass, "batch beam residue"],
+        beam_masses: Integer[DiscretizedMass, "batch beam"],
+        mass_buffer: Integer[DiscretizedMass, "batch 1 1"],
         max_isotope: int,
-    ) -> torch.FloatTensor:
+    ) -> Float[ResidueLogProbabilities, "batch beam residue"]:
         """Filter illegal next token by setting the corresponding log probabilities to `-inf`.
 
         Args:
@@ -53,7 +57,7 @@ class KnapsackBeamSearchDecoder(BeamSearchDecoder):
                 item on the beam and each potential next residue
                 for batch spectrum in the batch.
 
-            remaining_masses (torch.LongTensor[batch size, beam size]):
+            remaining_masses (torch.LongTensor[batch size, beam size, number of residues]):
 
             mass_buffer (torch.LongTensor[batch size, 1, 1]): _description_
 
@@ -81,14 +85,14 @@ class KnapsackBeamSearchDecoder(BeamSearchDecoder):
                         valid_residue = self.chart[
                             beam_lower_bound : (beam_upper_bound + 1), residue
                         ].any()
-
                         if max_isotope > 0:
                             for num_nucleons in range(1, max_isotope + 1):
                                 local_valid_residue = self.chart[
                                     beam_lower_bound
-                                    - num_nucleons
-                                    * scaled_nucleon_mass : (
-                                        beam_upper_bound - num_nucleons * scaled_nucleon_mass + 1
+                                    - num_nucleons * scaled_nucleon_mass : (
+                                        beam_upper_bound
+                                        - num_nucleons * scaled_nucleon_mass
+                                        + 1
                                     ),
                                     residue,
                                 ].any()
@@ -105,7 +109,7 @@ class KnapsackBeamSearchDecoder(BeamSearchDecoder):
         beam_upper_bound: int,
         scaled_nucleon_mass: int,
         num_nucleons: int,
-    ) -> numpy.ndarray:
+    ) -> Float[numpy.ndarray, "mass residue"]:
         return self.chart[
             (beam_lower_bound - num_nucleons * scaled_nucleon_mass) : (
                 beam_upper_bound - num_nucleons * scaled_nucleon_mass + 1
@@ -114,13 +118,15 @@ class KnapsackBeamSearchDecoder(BeamSearchDecoder):
 
     def _init_prefilter(
         self,
-        precursor_masses: torch.FloatTensor,
-        log_probabilities: torch.FloatTensor,
-        mass_buffer: torch.LongTensor,
-    ) -> torch.FloatTensor:
+        precursor_masses: Integer[DiscretizedMass, " batch"],
+        log_probabilities: Float[ResidueLogProbabilities, "batch beam"],
+        mass_buffer: Integer[DiscretizedMass, " batch"],
+    ) -> Float[ResidueLogProbabilities, "batch beam"]:
         mass_lower_bound = torch.clamp(precursor_masses - mass_buffer, min=0)
         mass_upper_bound = precursor_masses + mass_buffer
-        for batch, (lower_bound, upper_bound) in enumerate(zip(mass_lower_bound, mass_upper_bound)):
+        for batch, (lower_bound, upper_bound) in enumerate(
+            zip(mass_lower_bound, mass_upper_bound)
+        ):
             valid_residues = self.chart[lower_bound:upper_bound].any(0)
             log_probabilities[batch, ~valid_residues] = -float("inf")
         return log_probabilities

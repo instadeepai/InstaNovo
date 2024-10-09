@@ -1,0 +1,6 @@
+use_shards: True
+train_path: ./tests/instanovo_test_resources/example_data/train.mgf
+valid_path: ./tests/instanovo_test_resources/example_data/valid.mgf
+valid_subset_of_train:
+
+residue_remapping: {}

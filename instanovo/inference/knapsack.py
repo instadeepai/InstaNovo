@@ -7,7 +7,9 @@ import pickle
 from dataclasses import dataclass
 
 import numpy as np
-import torch
+
+from instanovo.types import KnapsackChart
+from instanovo.types import MassArray
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -41,7 +43,7 @@ class Knapsack:
         masses (numpy.ndarray[number of masses]):
             The set of realisable masses in ascending order.
 
-        chart (torch.BoolTensor[number of masses, number of residues]):
+        chart (numpy.ndarray[number of masses, number of residues]):
             The chart of realisable masses and residues that
             can lead to these masses.
             `chart[mass, residue]` is `True` if and only if
@@ -53,8 +55,8 @@ class Knapsack:
     mass_scale: int
     residues: list[str]
     residue_indices: dict[str, int]
-    masses: np.ndarray
-    chart: torch.BoolTensor
+    masses: MassArray
+    chart: KnapsackChart
 
     def save(self, path: str) -> None:
         """Save the knapsack file to a directory.
@@ -64,15 +66,19 @@ class Knapsack:
                 The path to the directory.
 
         Raises:
-            FileExistsError:
-                If the directory `path` already exists,
+            FileExistsError: If the directory `path` already exists,
                 this message raise an exception.
         """
         if os.path.exists(path):
             raise FileExistsError
 
         os.mkdir(path=path)
-        parameters = (self.max_mass, self.mass_scale, self.residues, self.residue_indices)
+        parameters = (
+            self.max_mass,
+            self.mass_scale,
+            self.residues,
+            self.residue_indices,
+        )
         pickle.dump(parameters, open(os.path.join(path, "parameters.pkl"), "wb"))
         np.save(os.path.join(path, "masses.npy"), self.masses)
         np.save(os.path.join(path, "chart.npy"), self.chart)
@@ -84,7 +90,7 @@ class Knapsack:
         residue_indices: dict[str, int],
         max_mass: float,
         mass_scale: int,
-    ) -> Knapsack:
+    ) -> "Knapsack":
         """Construct a knapsack chart using depth-first search.
 
         Previous construction algorithms have used dynamic
@@ -166,7 +172,7 @@ class Knapsack:
         )
 
     @classmethod
-    def from_file(cls, path: str) -> Knapsack:
+    def from_file(cls, path: str) -> "Knapsack":
         """Load a knapsack saved to a directory.
 
         Args:

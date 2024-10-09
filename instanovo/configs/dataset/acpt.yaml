@@ -1,0 +1,7 @@
+use_shards: True
+train_path: data/ac_pt_shards
+valid_path: data/ac_pt_shards
+valid_subset_of_train:
+
+residue_remapping:
+  "M(ox)": "M(+15.99)"

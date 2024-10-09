@@ -28,9 +28,9 @@ jobs:
           cache-dependency-path: "**/requirements*.txt"
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
-          python -m pip install -r requirements.txt
-          python -m pip install -r requirements-dev.txt
+          python -m pip install --upgrade uv
+          uv -m pip install --system -r requirements/requirements.txt
+          uv -m pip install --system -r requirements/requirements-dev.txt
       - name: Lint with pre-commit
         run: |
           pre-commit run --all-files -c .pre-commit-config.yaml
@@ -38,7 +38,7 @@ jobs:
         run: |
           pytest -v --alluredir=allure_results  --cov-report=html --cov  --cov-config=.coveragerc --random-order
           coverage report -m
-      - name: Test notebooks on non-Windows runners
+      - name: Test notebooks on Linux
         if: runner.os != 'Windows' && github.ref == 'refs/heads/main' && github.event_name == 'push'
         run: |
           PYDEVD_DISABLE_FILE_VALIDATION=1 python -m ipykernel install --user --name instanovo
