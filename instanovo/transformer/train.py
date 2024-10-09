@@ -882,7 +882,7 @@ class WarmupScheduler(torch.optim.lr_scheduler._LRScheduler):
         return lr_factor
 
 
-@hydra.main(config_path="../../configs", version_base=None, config_name="instanovo")
+@hydra.main(config_path="../configs", version_base=None, config_name="instanovo")
 def main(config: DictConfig) -> None:
     """Train the model."""
     logger.info("Initializing training.")

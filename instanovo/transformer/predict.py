@@ -353,7 +353,7 @@ def get_preds(
 
 
 @hydra.main(
-    config_path="../../configs/inference", version_base=None, config_name="default"
+    config_path="../configs/inference", version_base=None, config_name="default"
 )
 def main(config: DictConfig) -> None:
     """Predict with the model."""
