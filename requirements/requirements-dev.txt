@@ -18,10 +18,6 @@ allure-python-commons==2.13.5
     # via allure-pytest
 argcomplete==3.5.1
     # via gsutil
-async-timeout==4.0.3
-    # via
-    #   -c requirements/requirements.txt
-    #   aiohttp
 attrs==24.2.0
     # via
     #   -c requirements/requirements.txt
@@ -59,8 +55,6 @@ defusedxml==0.7.1
     # via genbadge
 distlib==0.3.8
     # via virtualenv
-exceptiongroup==1.2.2
-    # via pytest
 execnet==2.1.1
     # via pytest-xdist
 fasteners==0.19
@@ -250,14 +244,6 @@ tblib==3.0.0
     # via pytest-parallel
 testfixtures==8.3.0
     # via -r requirements/requirements-dev.in
-tomli==2.0.2
-    # via
-    #   coverage
-    #   pytest
-typing-extensions==4.12.2
-    # via
-    #   -c requirements/requirements.txt
-    #   multidict
 urllib3==2.2.3
     # via
     #   -c requirements/requirements.txt
