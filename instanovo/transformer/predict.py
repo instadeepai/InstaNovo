@@ -13,6 +13,7 @@ from omegaconf import DictConfig
 from omegaconf import open_dict
 from torch.utils.data import DataLoader
 from tqdm import tqdm
+from pathlib import Path
 
 from instanovo.inference import BeamSearchDecoder
 from instanovo.inference import GreedyDecoder
@@ -33,6 +34,8 @@ from instanovo.constants import MASS_SCALE, ANNOTATION_ERROR, ANNOTATED_COLUMN
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
+
+CONFIG_PATH = Path(__file__).parent.parent / "configs" / "inference"
 
 
 # flake8: noqa: CCR001
@@ -352,9 +355,7 @@ def get_preds(
             s3.upload(output_path, s3.convert_to_s3_output(output_path))
 
 
-@hydra.main(
-    config_path="../../configs/inference", version_base=None, config_name="default"
-)
+@hydra.main(config_path=str(CONFIG_PATH), version_base=None, config_name="default")
 def main(config: DictConfig) -> None:
     """Predict with the model."""
     logger.info("Initializing inference.")

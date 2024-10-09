@@ -1,6 +1,6 @@
 defaults:
-- default
-- _self_
+  - default
+  - _self_
 
 # Data paths and output location
 data_path: ./tests/instanovo_test_resources/example_data/test_sample.mgf # type: .ipc

@@ -24,6 +24,9 @@ classifiers = [
 ]
 dynamic = ["version", "readme", "dependencies"] # , "optional-dependencies"]
 
+[tool.setuptools]
+include-package-data = true  # To use MANIFEST.in for including extra files
+
 [tool.setuptools.dynamic]
 readme = { file = ["README.md"], content-type = "text/markdown" }
 version = { attr = "instanovo.__version__" }

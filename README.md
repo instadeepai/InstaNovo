@@ -1,6 +1,7 @@
 # _De novo_ peptide sequencing with InstaNovo
 
 [![PyPI version](https://badge.fury.io/py/instanovo.svg)](https://badge.fury.io/py/instanovo)
+
 <!-- [![Tests Status](./reports/junit/tests-badge.svg?dummy=8484744)](./reports/junit/report.html) -->
 <!-- [![Coverage Status](./reports/coverage/coverage-badge.svg?dummy=8484744)](./reports/coverage/index.html) -->
 <a target="_blank" href="https://colab.research.google.com/github/instadeepai/InstaNovo/blob/main/notebooks/getting_started_with_instanovo.ipynb">
@@ -109,27 +110,40 @@ Options:
                     Defaults to `default`
 ```
 
-The configuration file for inference may be found under [/configs/inference/default.yaml](./configs/inference/default.yaml)
+The configuration file for inference may be found under
+[/configs/inference/default.yaml](./configs/inference/default.yaml)
 
 Note: the `denovo=True/False` flag controls whether metrics will be calculated.
 
 ### Spectrum Data Class
 
-InstaNovo introduces a Spectrum Data Class: [SpectrumDataFrame](./instanovo/utils/data_handler.py). This class acts as an interface between many common formats used for storing mass spectrometry, including `.mgf`, `.mzml`, `.mzxml`, and `.csv`. This class also supports reading directly from HuggingFace, Pandas, and Polars.
+InstaNovo introduces a Spectrum Data Class: [SpectrumDataFrame](./instanovo/utils/data_handler.py).
+This class acts as an interface between many common formats used for storing mass spectrometry,
+including `.mgf`, `.mzml`, `.mzxml`, and `.csv`. This class also supports reading directly from
+HuggingFace, Pandas, and Polars.
 
-When using InstaNovo, these formats are natively supported and automatically converted to the internal SpectrumDataFrame supported by InstaNovo for training and inference. Any data path may be specified using [glob notation](https://en.wikipedia.org/wiki/Glob_(programming)). For example you could use the following command to get _de novo_ predictions from all the files in the folder `./experiment`:
+When using InstaNovo, these formats are natively supported and automatically converted to the
+internal SpectrumDataFrame supported by InstaNovo for training and inference. Any data path may be
+specified using [glob notation](<https://en.wikipedia.org/wiki/Glob_(programming)>). For example you
+could use the following command to get _de novo_ predictions from all the files in the folder
+`./experiment`:
 
 ```bash
 python -m instanovo.transformer.predict data_path=./experiment/*.mgf
 ```
 
-Alternatively, a list of files may be specified in the [inference config](./configs/inference/default.yaml).
+Alternatively, a list of files may be specified in the
+[inference config](./configs/inference/default.yaml).
 
-The SpectrumDataFrame also allows for loading of much larger datasets in a lazy way. To do this, the data is loaded and stored as [`.parquet`](https://docs.pola.rs/user-guide/io/parquet/) files in a temporary directory. Alternatively, the data may be saved permanently natively as `.parquet` for optimal loading.
+The SpectrumDataFrame also allows for loading of much larger datasets in a lazy way. To do this, the
+data is loaded and stored as [`.parquet`](https://docs.pola.rs/user-guide/io/parquet/) files in a
+temporary directory. Alternatively, the data may be saved permanently natively as `.parquet` for
+optimal loading.
 
 **Example usage:**
 
 Converting mgf files to the native format:
+
 ```python
 from instanovo.utils import SpectrumDataFrame
 
@@ -139,12 +153,14 @@ sdf.save("path/to/parquet/folder", partition="train", chunk_size=1e6)
 ```
 
 Loading the native format in shuffle mode:
+
 ```python
 # Load a native parquet dataset:
 sdf = SpectrumDataFrame.load("path/to/parquet/folder", partition="train", shuffle=True, lazy=True, is_annotated=True)
 ```
 
 Using the loaded SpectrumDataFrame in a PyTorch DataLoader:
+
 ```python
 from instanovo.transformer.dataset import SpectrumDataset
 from torch.utils.data import DataLoader
@@ -180,12 +196,13 @@ lazy_df = sdf.to_polars(return_lazy=True) # Returns a pl.LazyFrame
 sdf.write_mgf("path/to/output.mgf")
 ```
 
-
 **Additional Features:**
-- The SpectrumDataFrame supports lazy loading with asynchronous prefetching, mitigating wait times between files.
-- Filtering and sampling may be performed non-destructively through on file loading
-- A two-fold shuffling strategy is introduced to optimise sampling during training (shuffling files and shuffling within files).
 
+- The SpectrumDataFrame supports lazy loading with asynchronous prefetching, mitigating wait times
+  between files.
+- Filtering and sampling may be performed non-destructively through on file loading
+- A two-fold shuffling strategy is introduced to optimise sampling during training (shuffling files
+  and shuffling within files).
 
 ### Using your own datasets
 
@@ -212,12 +229,12 @@ For example, the DataFrame for the
 dataset (introduced in [Tran _et al._ 2017](https://www.pnas.org/doi/full/10.1073/pnas.1705691114))
 looks as follows:
 
-|     | sequence             | modified_sequence          | precursor_mz | precursor_charge | mz_array                             | intensity_array                     |
-| --: | :------------------- | :------------------------- | -----------: | ---------------: | :----------------------------------- | :---------------------------------- |
-|   0 | GRVEGMEAR            | GRVEGMEAR                  |      335.502 |                3 | [102.05527 104.052956 113.07079 ...] | [ 767.38837 2324.8787 598.8512 ...] |
-|   1 | IGEYK                | IGEYK                      |      305.165 |                2 | [107.07023 110.071236 111.11693 ...] | [ 1055.4957 2251.3171 35508.96 ...] |
-|   2 | GVSREEIQR            | GVSREEIQR                  |      358.528 |                3 | [103.039444 109.59844 112.08704 ...] | [801.19995 460.65268 808.3431 ...]  |
-|   3 | SSYHADEQVNEASK       | SSYHADEQVNEASK             |      522.234 |                3 | [101.07095 102.0552 110.07163 ...]   | [ 989.45154 2332.653 1170.6191 ...] |
+|     | sequence                   | modified_sequence          | precursor_mz | precursor_charge | mz_array                             | intensity_array                     |
+| --: | :------------------------- | :------------------------- | -----------: | ---------------: | :----------------------------------- | :---------------------------------- |
+|   0 | GRVEGMEAR                  | GRVEGMEAR                  |      335.502 |                3 | [102.05527 104.052956 113.07079 ...] | [ 767.38837 2324.8787 598.8512 ...] |
+|   1 | IGEYK                      | IGEYK                      |      305.165 |                2 | [107.07023 110.071236 111.11693 ...] | [ 1055.4957 2251.3171 35508.96 ...] |
+|   2 | GVSREEIQR                  | GVSREEIQR                  |      358.528 |                3 | [103.039444 109.59844 112.08704 ...] | [801.19995 460.65268 808.3431 ...]  |
+|   3 | SSYHADEQVNEASK             | SSYHADEQVNEASK             |      522.234 |                3 | [101.07095 102.0552 110.07163 ...]   | [ 989.45154 2332.653 1170.6191 ...] |
 |   4 | DTFNTSSTSN(+.98)STSSSSSNSK | DTFNTSSTSN(+.98)STSSSSSNSK |      676.282 |                3 | [119.82458 120.08073 120.2038 ...]   | [ 487.86942 4806.1377 516.8846 ...] |
 
 For _de novo_ prediction, the `sequence` column is not required.
