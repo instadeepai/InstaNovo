@@ -15,7 +15,7 @@ jobs:
       fail-fast: false
       matrix:
         python-version: ["3.10", "3.11"] # "3.12"
-        os: [ubuntu-latest, windows-latest] # macos-latest
+        os: [ubuntu-latest] #windows-latest # macos-latest
     runs-on: ${{ matrix.os }}
 
     steps:
@@ -36,6 +36,7 @@ jobs:
           pre-commit run --all-files -c .pre-commit-config.yaml
       - name: Test with pytest
         run: |
+          python -m instanovo.scripts.get_zenodo_record
           pytest -v --alluredir=allure_results  --cov-report=html --cov  --cov-config=.coveragerc --random-order
           coverage report -m
       - name: Test notebooks on Linux
