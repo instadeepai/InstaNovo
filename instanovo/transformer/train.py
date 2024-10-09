@@ -29,6 +29,7 @@ from torch import Tensor
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from sklearn.model_selection import train_test_split
+from pathlib import Path
 
 import instanovo.utils.s3 as s3
 
@@ -52,6 +53,8 @@ from instanovo.constants import ANNOTATION_ERROR, ANNOTATED_COLUMN
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
+
+CONFIG_PATH = Path(__file__).parent.parent / "configs"
 
 warnings.filterwarnings("ignore", message=".*does not have many workers*")
 
@@ -882,7 +885,7 @@ class WarmupScheduler(torch.optim.lr_scheduler._LRScheduler):
         return lr_factor
 
 
-@hydra.main(config_path="../configs", version_base=None, config_name="instanovo")
+@hydra.main(config_path=CONFIG_PATH, version_base=None, config_name="instanovo")
 def main(config: DictConfig) -> None:
     """Train the model."""
     logger.info("Initializing training.")
