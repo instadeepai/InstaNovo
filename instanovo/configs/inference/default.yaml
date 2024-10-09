@@ -5,7 +5,7 @@ output_path: # type: .csv
 knapsack_path: # type: directory
 
 # Data type only used if data_path is a directory.
-data_type:  # .csv, .mgf, .mzml, .mzxml
+data_type: # .csv, .mgf, .mzml, .mzxml
 
 # Inference mode
 denovo: False
@@ -57,17 +57,17 @@ column_map:
 
 # A list of columns that (if found) will be retained in output csv
 index_columns:
- - "id"
- - "experiment_name"
- - "evidence_index"
- - "scan_number"
- - "spectrum_id"
- - "global_index"
- - "spectrum_index"
- - "file_index"
- - "sample"
- - "file"
- - "index"
- - "fileno"
- - "precursor_mz"
- - "precursor_charge"
+  - "id"
+  - "experiment_name"
+  - "evidence_index"
+  - "scan_number"
+  - "spectrum_id"
+  - "global_index"
+  - "spectrum_index"
+  - "file_index"
+  - "sample"
+  - "file"
+  - "index"
+  - "fileno"
+  - "precursor_mz"
+  - "precursor_charge"
