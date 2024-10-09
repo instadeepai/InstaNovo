@@ -18,3 +18,4 @@ tensorboard
 torch
 tqdm
 python-dotenv
+hydra

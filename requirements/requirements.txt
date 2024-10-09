@@ -95,6 +95,8 @@ grpcio==1.66.2
     # via tensorboard
 huggingface-hub==0.25.2
     # via datasets
+hydra==2.5
+    # via -r requirements/requirements.in
 idna==3.10
     # via
     #   jsonschema
