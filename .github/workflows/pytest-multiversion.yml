@@ -36,6 +36,7 @@ jobs:
           pre-commit run --all-files -c .pre-commit-config.yaml
       - name: Test with pytest
         run: |
+          python -m instanovo.scripts.get_zenodo_record.py
           pytest -v --alluredir=allure_results  --cov-report=html --cov  --cov-config=.coveragerc --random-order
           coverage report -m
       - name: Test notebooks on Linux
