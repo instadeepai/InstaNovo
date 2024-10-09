@@ -1,7 +1,5 @@
 click
 datasets
-dvc
-dvc-gs
 jaxtyping
 jiwer
 matchms
@@ -19,5 +17,4 @@ spectrum_utils
 tensorboard
 torch
 tqdm
-transfusion-asr
 python-dotenv
