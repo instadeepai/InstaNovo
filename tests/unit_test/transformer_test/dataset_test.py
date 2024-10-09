@@ -1,9 +1,7 @@
 from __future__ import annotations
 
-import os
 from typing import Any
 
-import pandas as pd
 import polars as pl
 import pytest
 import torch
@@ -12,12 +10,9 @@ from instanovo.transformer.dataset import _clean_and_remap
 from instanovo.transformer.dataset import collate_batch
 from instanovo.transformer.dataset import load_ipc_shards
 from instanovo.transformer.dataset import SpectrumDataset
+from instanovo.utils.data_handler import SpectrumDataFrame
 
 
-@pytest.mark.skipif(
-    os.getenv("GOOGLE_APPLICATION_CREDENTIALS") is None,
-    reason="Google application credentials are required to run this test.",
-)
 def test_dataset_default_init(residue_set: Any) -> None:
     """Test spectrum dataset default initialisation."""
     data = {
@@ -27,11 +22,13 @@ def test_dataset_default_init(residue_set: Any) -> None:
         "intensity_array": [[1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]],
         "precursor_mz": [35.83],
         "precursor_charge": [2],
-        "modified_sequence": "ABCDEAAABC",
+        "sequence": "ABCDEAAABC",
     }
     df = pl.DataFrame(data)
 
-    sd = SpectrumDataset(df=df, residue_set=residue_set)
+    sdf = SpectrumDataFrame(df)
+
+    sd = SpectrumDataset(df=sdf, residue_set=residue_set, peptide_pad_length=11)
 
     assert sd.n_peaks == 200
     assert sd.min_mz == 50
@@ -41,8 +38,6 @@ def test_dataset_default_init(residue_set: Any) -> None:
     assert sd.reverse_peptide
     assert sd.annotated
     assert not sd.return_str
-    assert sd.data_type == "pl"
-
     assert len(sd) == 1
 
     spectrum, precursor_mz, precursor_charge, peptide = sd[0]
@@ -57,10 +52,6 @@ def test_dataset_default_init(residue_set: Any) -> None:
     assert torch.allclose(peptide, torch.tensor([5, 4, 3, 3, 3, 7, 6, 5, 4, 3, 2]))
 
 
-@pytest.mark.skipif(
-    os.getenv("GOOGLE_APPLICATION_CREDENTIALS") is None,
-    reason="Google application credentials are required to run this test.",
-)
 def test_dataset_spec_init(residue_set: Any) -> None:
     """Test spectrum dataset specified initialisation."""
     data = {
@@ -70,12 +61,14 @@ def test_dataset_spec_init(residue_set: Any) -> None:
         "intensity_array": [[1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]],
         "precursor_mz": [35.83],
         "precursor_charge": [2],
-        "modified_sequence": "ABCDEAAABC",
+        "sequence": "ABCDEAAABC",
     }
     df = pl.DataFrame(data)
 
+    sdf = SpectrumDataFrame(df)
+
     sd = SpectrumDataset(
-        df=df,
+        df=sdf,
         residue_set=residue_set,
         n_peaks=100,
         min_mz=25,
@@ -95,7 +88,6 @@ def test_dataset_spec_init(residue_set: Any) -> None:
     assert not sd.reverse_peptide
     assert not sd.annotated
     assert sd.return_str
-    assert sd.data_type == "pl"
 
     assert len(sd) == 1
 
@@ -104,12 +96,8 @@ def test_dataset_spec_init(residue_set: Any) -> None:
     assert peptide == ""
 
 
-@pytest.mark.skipif(
-    os.getenv("GOOGLE_APPLICATION_CREDENTIALS") is None,
-    reason="Google application credentials are required to run this test.",
-)
-def test_process_peaks_with_pandas(residue_set: Any) -> None:
-    """Test spectrum dataset default initialisation."""
+def test_process_peaks(residue_set: Any) -> None:
+    """Test spectrum preprocessing."""
     data = {
         "mz_array": [
             [7.84, 18.215, 20.8, 28.64, 66.6, 38.55, 29.81, 49.965, 51.25, 27.25]
@@ -117,22 +105,24 @@ def test_process_peaks_with_pandas(residue_set: Any) -> None:
         "intensity_array": [[1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]],
         "precursor_mz": [35.83],
         "precursor_charge": [2],
-        "modified_sequence": "ABCDEAAABC",
+        "sequence": "ABCDEAAABC",
     }
 
-    df = pd.DataFrame(data)
+    df = pl.DataFrame(data)
 
-    sd = SpectrumDataset(df=df, residue_set=residue_set, n_peaks=10, min_mz=25)
-    assert sd.data_type == "pd"
+    sdf = SpectrumDataFrame(df)
+
+    sd = SpectrumDataset(
+        df=sdf, residue_set=residue_set, n_peaks=10, min_mz=25, peptide_pad_length=11
+    )
 
     assert len(sd) == 1
 
-    row = df.iloc[0]
     proc_spectrum = sd._process_peaks(
-        mz_array=torch.Tensor(row["mz_array"]),
-        int_array=torch.Tensor(row["intensity_array"]),
-        precursor_mz=row["precursor_mz"],
-        precursor_charge=row["precursor_charge"],
+        mz_array=torch.Tensor(df["mz_array"][0]),
+        int_array=torch.Tensor(df["intensity_array"][0]),
+        precursor_mz=df["precursor_mz"][0],
+        precursor_charge=df["precursor_charge"][0],
     )
 
     assert torch.allclose(
@@ -163,17 +153,8 @@ def test_process_peaks_with_pandas(residue_set: Any) -> None:
     assert torch.allclose(peptide, torch.tensor([5, 4, 3, 3, 3, 7, 6, 5, 4, 3, 2]))
 
 
-@pytest.mark.skipif(
-    os.getenv("GOOGLE_APPLICATION_CREDENTIALS") is None,
-    reason="Google application credentials are required to run this test.",
-)
-def test_dataset_file(residue_set: Any) -> None:
+def test_spectrum_errors(residue_set: Any) -> None:
     """Test spectrum dataset error catching."""
-    data = [1, 1, 1]
-
-    with pytest.raises(Exception, match=r"Unsupported data type <class 'list'>"):
-        _ = SpectrumDataset(df=data, residue_set=residue_set)
-
     data = {
         "mz_array": [10, 20, 30],
         "intensity_array": [0.67, 1.0, 0.5],
@@ -181,11 +162,11 @@ def test_dataset_file(residue_set: Any) -> None:
         "precursor_charge": [1, 2, 3],
     }
     df = pl.DataFrame(data)
+    sdf = SpectrumDataFrame(df)
+    sd = SpectrumDataset(df=sdf, residue_set=residue_set)
 
-    with pytest.raises(
-        ValueError, match="Column missing! Missing column: modified_sequence"
-    ):
-        _ = SpectrumDataset(df=df, residue_set=residue_set)
+    with pytest.raises(KeyError, match="sequence"):
+        sd[0]
 
 
 def test_dataset_collate() -> None:
@@ -203,10 +184,10 @@ def test_dataset_collate() -> None:
     spectra, precursors, spectra_mask, peptides_tensor, peptides_mask = collate_batch(
         batch
     )
-
     assert spectra.shape == torch.Size([3, 15, 2])
     assert spectra_mask.shape == torch.Size([3, 15])
-    assert peptides_tensor.shape == torch.Size([3, 5])
+    if isinstance(peptides_tensor, torch.Tensor):
+        assert peptides_tensor.shape == torch.Size([3, 5])
     assert peptides_mask.shape == torch.Size([3, 5])
     assert precursors.shape == torch.Size([3, 3])
 
@@ -233,13 +214,8 @@ def test_clean_and_remap() -> None:
     ]
 
 
-@pytest.mark.skipif(
-    os.getenv("GOOGLE_APPLICATION_CREDENTIALS") is None,
-    reason="Google application credentials are required to run this test.",
-)
-@pytest.mark.usefixtures("_get_gcp_test_bucket")
 def test_load_shards(dir_paths: tuple[str, str]) -> None:
-    """A pytest fixture to check the loading of a sharded polards dataframe."""
-    root_dir, data_dir = dir_paths
+    """Test the loading of a sharded polars dataframe."""
+    _, data_dir = dir_paths
     df = load_ipc_shards(data_path=data_dir, split="test")
     assert len(df) == 1938

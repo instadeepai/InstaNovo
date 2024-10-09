@@ -4,7 +4,7 @@ allure-pytest==2.13.5
     # via -r requirements/requirements-dev.in
 allure-python-commons==2.13.5
     # via allure-pytest
-argcomplete==3.5.0
+argcomplete==3.5.1
     # via gsutil
 attrs==24.2.0
     # via
@@ -12,22 +12,36 @@ attrs==24.2.0
     #   allure-python-commons
 boto==2.49.0
     # via gcs-oauth2-boto-plugin
-cffi==1.17.0
+certifi==2024.8.30
+    # via
+    #   -c requirements/requirements.txt
+    #   requests
+cffi==1.17.1
     # via
     #   -c requirements/requirements.txt
     #   cryptography
 cfgv==3.4.0
     # via pre-commit
+charset-normalizer==3.3.2
+    # via
+    #   -c requirements/requirements.txt
+    #   requests
+click==8.1.7
+    # via
+    #   -c requirements/requirements.txt
+    #   genbadge
 coverage==7.6.1
     # via
     #   -r requirements/requirements-dev.in
     #   pytest-cov
 crcmod==1.7
     # via gsutil
-cryptography==43.0.0
+cryptography==43.0.1
     # via
     #   -c requirements/requirements.txt
     #   pyopenssl
+defusedxml==0.7.1
+    # via genbadge
 distlib==0.3.8
     # via virtualenv
 exceptiongroup==1.2.2
@@ -38,12 +52,18 @@ fasteners==0.19
     # via
     #   google-apitools
     #   gsutil
-filelock==3.15.4
+filelock==3.16.1
     # via
     #   -c requirements/requirements.txt
     #   virtualenv
+flake8==7.1.1
+    # via flake8-html
+flake8-html==0.4.3
+    # via genbadge
 gcs-oauth2-boto-plugin==2.7
     # via gsutil
+genbadge==1.1.1
+    # via -r requirements/requirements-dev.in
 google-apitools==0.5.32
     # via gsutil
 google-reauth==0.1.1
@@ -58,10 +78,25 @@ httplib2==0.22.0
     #   google-apitools
     #   gsutil
     #   oauth2client
-identify==2.6.0
+identify==2.6.1
     # via pre-commit
+idna==3.10
+    # via
+    #   -c requirements/requirements.txt
+    #   requests
 iniconfig==2.0.0
     # via pytest
+jinja2==3.1.4
+    # via
+    #   -c requirements/requirements.txt
+    #   flake8-html
+    #   pytest-html
+markupsafe==2.1.5
+    # via
+    #   -c requirements/requirements.txt
+    #   jinja2
+mccabe==0.7.0
+    # via flake8
 monotonic==1.6
     # via
     #   -c requirements/requirements.txt
@@ -76,6 +111,10 @@ packaging==24.1
     # via
     #   -c requirements/requirements.txt
     #   pytest
+pillow==10.4.0
+    # via
+    #   -c requirements/requirements.txt
+    #   genbadge
 platformdirs==3.11.0
     # via
     #   -c requirements/requirements.txt
@@ -84,41 +123,55 @@ pluggy==1.5.0
     # via
     #   allure-python-commons
     #   pytest
-pre-commit==3.8.0
+pre-commit==4.0.0
     # via -r requirements/requirements-dev.in
-pyasn1==0.6.0
+pyasn1==0.6.1
     # via
     #   -c requirements/requirements.txt
     #   oauth2client
     #   pyasn1-modules
     #   rsa
-pyasn1-modules==0.4.0
+pyasn1-modules==0.4.1
     # via
     #   -c requirements/requirements.txt
     #   oauth2client
+pycodestyle==2.12.1
+    # via flake8
 pycparser==2.22
     # via
     #   -c requirements/requirements.txt
     #   cffi
+pyflakes==3.2.0
+    # via flake8
+pygments==2.18.0
+    # via
+    #   -c requirements/requirements.txt
+    #   flake8-html
 pyopenssl==24.2.1
     # via
     #   gcs-oauth2-boto-plugin
     #   gsutil
-pyparsing==3.1.2
+pyparsing==3.1.4
     # via
     #   -c requirements/requirements.txt
     #   httplib2
-pytest==8.3.2
+pytest==8.3.3
     # via
     #   -r requirements/requirements-dev.in
     #   allure-pytest
     #   pytest-cov
+    #   pytest-html
+    #   pytest-metadata
     #   pytest-mock
     #   pytest-parallel
     #   pytest-random-order
     #   pytest-xdist
 pytest-cov==5.0.0
     # via -r requirements/requirements-dev.in
+pytest-html==4.1.1
+    # via -r requirements/requirements-dev.in
+pytest-metadata==3.1.1
+    # via pytest-html
 pytest-mock==3.14.0
     # via -r requirements/requirements-dev.in
 pytest-parallel==0.1.1
@@ -133,6 +186,10 @@ pyyaml==6.0.2
     # via
     #   -c requirements/requirements.txt
     #   pre-commit
+requests==2.32.3
+    # via
+    #   -c requirements/requirements.txt
+    #   genbadge
 retry-decorator==1.1.1
     # via
     #   gcs-oauth2-boto-plugin
@@ -141,6 +198,10 @@ rsa==4.9
     # via
     #   -c requirements/requirements.txt
     #   oauth2client
+setuptools==75.1.0
+    # via
+    #   -c requirements/requirements.txt
+    #   genbadge
 six==1.16.0
     # via
     #   -c requirements/requirements.txt
@@ -153,9 +214,13 @@ tblib==3.0.0
     # via pytest-parallel
 testfixtures==8.3.0
     # via -r requirements/requirements-dev.in
-tomli==2.0.1
+tomli==2.0.2
     # via
     #   coverage
     #   pytest
-virtualenv==20.26.3
+urllib3==2.2.3
+    # via
+    #   -c requirements/requirements.txt
+    #   requests
+virtualenv==20.26.6
     # via pre-commit

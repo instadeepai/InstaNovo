@@ -43,7 +43,7 @@ class Knapsack:
         masses (numpy.ndarray[number of masses]):
             The set of realisable masses in ascending order.
 
-        chart (torch.BoolTensor[number of masses, number of residues]):
+        chart (numpy.ndarray[number of masses, number of residues]):
             The chart of realisable masses and residues that
             can lead to these masses.
             `chart[mass, residue]` is `True` if and only if

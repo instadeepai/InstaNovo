@@ -1,10 +1,12 @@
 -c requirements.txt
 allure-pytest
 coverage
+genbadge[all]
 gsutil
 pre-commit
 pytest
 pytest-cov
+pytest-html
 pytest-mock
 pytest-parallel
 pytest-random-order

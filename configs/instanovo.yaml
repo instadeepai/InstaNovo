@@ -46,3 +46,5 @@ save_weights_only: False
 ckpt_interval: 100_000
 train_from_scratch: True
 resume_checkpoint:
+
+blacklist:

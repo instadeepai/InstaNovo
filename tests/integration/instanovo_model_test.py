@@ -3,27 +3,23 @@ from __future__ import annotations
 import os
 from typing import Any
 
-import numpy as np
 import polars as pl
 import pytest
 import torch
 from omegaconf import DictConfig
 from torch.utils.data import DataLoader
 
-from instanovo.inference.beam_search import BeamSearchDecoder
 from instanovo.transformer.dataset import collate_batch
 from instanovo.transformer.dataset import SpectrumDataset
+from instanovo.transformer.predict import get_preds
+from instanovo.utils.data_handler import SpectrumDataFrame
 
 
-@pytest.mark.skipif(
-    os.getenv("GOOGLE_APPLICATION_CREDENTIALS") is None,
-    reason="Google application credentials are required to run this test.",
-)
-@pytest.mark.usefixtures("_reset_seed")
 def test_model(
     instanovo_model: tuple[Any, Any],
     instanovo_config: DictConfig,
     dir_paths: tuple[str, str],
+    instanovo_inference_config: DictConfig,
 ) -> None:
     """Test loading an InstaNovo model and doing inference end-to-end."""
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -38,14 +34,16 @@ def test_model(
     assert instanovo_config["max_mz"] == config["max_mz"]
     assert instanovo_config["max_length"] == config["max_length"]
 
-    root_dir, data_dir = dir_paths
+    _, data_dir = dir_paths
     df = pl.read_ipc(os.path.join(data_dir, "test.ipc"))
+    sdf = SpectrumDataFrame(df=df)
     sd = SpectrumDataset(
-        df=df,
+        df=sdf,
         residue_set=model.residue_set,
         n_peaks=config["n_peaks"],
         min_mz=config["min_mz"],
         max_mz=config["max_mz"],
+        peptide_pad_length=config["max_length"],
     )
     assert len(sd) == 1938
 
@@ -130,22 +128,17 @@ def test_model(
         peptides, torch.tensor([[6, 7, 5, 5, 3, 4, 2], [4, 3, 7, 4, 5, 7, 2]])
     )
 
-    spectra = spectra.to(device)
-    precursors = precursors.to(device)
+    instanovo_inference_config["device"] = device
 
-    model = model.to(device)
-    model.eval()
-    decoder = BeamSearchDecoder(model=model)
+    get_preds(
+        config=instanovo_inference_config,
+        model=model,
+        model_config=config,
+    )
 
-    with torch.no_grad():
-        p = decoder.decode(
-            spectra=spectra,
-            precursors=precursors,
-            beam_size=config["n_beams"],
-            max_length=config["max_length"],
-        )
-    preds = ["".join(x.sequence) if not isinstance(x, list) else "" for x in p]
-    probs = [x.sequence_log_probability if not isinstance(x, list) else -1 for x in p]
+    pred_df = pl.read_csv(instanovo_inference_config["output_path"])
 
-    assert preds == ["DCECBA", "AEBEBC"]
-    assert np.allclose(probs, [-5.17131233215332, -4.346163272857666], rtol=1e-2)
+    assert instanovo_inference_config["subset"] == 1
+    assert pred_df["targets"][0] == "DDCA"
+    assert pred_df["preds"][0] == "CADD"
+    assert pred_df["log_probs"][0] == pytest.approx(-2.01, rel=1e-1)

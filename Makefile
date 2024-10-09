@@ -167,6 +167,7 @@ sync:
 
 ## Run all tests
 tests:
+	python -m instanovo.scripts.get_zenodo_record
 	$(PYTEST)
 
 ## Calculate the code coverage
@@ -202,9 +203,6 @@ docs:
 ## Set the GCP credentials
 set-gcp-credentials:
 	python -m instanovo.scripts.set_gcp_credentials
-	unset BOTO_CONFIG
-	echo $(BOTO_CONFIG)
-	export BOTO_CONFIG=/dev/null
 	gcloud auth activate-service-account dtu-denovo-sa@ext-dtu-denovo-sequencing-gcp.iam.gserviceaccount.com --key-file=ext-dtu-denovo-sequencing-gcp.json --project=ext-dtu-denovo-sequencing-gcp
 
 #################################################################################
