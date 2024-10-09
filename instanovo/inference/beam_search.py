@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
 
 import torch
+from jaxtyping import Bool
+from jaxtyping import Float
+from jaxtyping import Integer
 from torch.nn.functional import one_hot
 
 from instanovo.constants import CARBON_MASS_DELTA
@@ -14,6 +16,16 @@ from instanovo.constants import PRECURSOR_DIM
 from instanovo.constants import PrecursorDimension
 from instanovo.inference.interfaces import Decodable
 from instanovo.inference.interfaces import Decoder
+from instanovo.inference.interfaces import ScoredSequence
+from instanovo.types import DiscretizedMass
+from instanovo.types import Peptide
+from instanovo.types import PrecursorFeatures
+from instanovo.types import ResidueLogProbabilities
+from instanovo.types import SequenceLogProbabilities
+from instanovo.types import TokenLogProbabilities
+from instanovo.types import Spectrum
+from instanovo.types import SpectrumEmbedding
+from instanovo.types import SpectrumMask
 
 
 @dataclass
@@ -25,9 +37,13 @@ class BeamState:
                     A tensor of the partial sequences on the beam
                     represented as indices into a residue vocabulary.
 
-        log_probabilities (torch.FloatTensor[beam size]):
+        sequence_log_probabilities (torch.FloatTensor[beam size]):
                     The log probabilities of each of the
                     partial sequences on the beam.
+
+        token_log_probabilities (torch.FloatTensor[beam size, sequence length]):
+                    The log probabilities of each token in each
+                    item in the beam.
 
         remaining_masses (torch.LongTensor[beam size]):
                     The remaining mass still to be allocated
@@ -51,46 +67,42 @@ class BeamState:
                     to 0.
     """
 
-    sequences: torch.LongTensor | None
-    log_probabilities: torch.FloatTensor | None
-    remaining_masses: torch.LongTensor | None
-    precursor_mass_charge: torch.FloatTensor
-    spectrum_encoding: torch.FloatTensor
-    spectrum_mask: torch.BoolTensor
+    sequences: Integer[Peptide, "batch beam"]
+    sequence_log_probabilities: Float[SequenceLogProbabilities, "batch beam"]
+    token_log_probabilities: Float[TokenLogProbabilities, "batch beam"]
+    remaining_masses: Integer[DiscretizedMass, "batch beam"]
+    precursor_mass_charge: Float[PrecursorFeatures, " batch"]
+    spectrum_encoding: Float[SpectrumEmbedding, " batch"]
+    spectrum_mask: Bool[SpectrumMask, " batch"]
 
     def is_empty(self) -> bool:
         """Check whether the beam is empty."""
         if self.sequences is None:
-            if (self.log_probabilities is not None) or (self.remaining_masses is not None):
+            if (self.sequence_log_probabilities is not None) or (
+                self.remaining_masses is not None
+            ):
                 raise ValueError(
                     f"""Sequences, log_probabilities and remaining masses
-                                     should all be None or all not None. Sequences
-                                     is None while log_probabilities is
-                                     {self.log_probabilities} and remaining masses is
-                                     {self.remaining_masses}.
-                                     """
+                            should all be None or all not None. Sequences
+                            is None while log_probabilities is
+                            {self.sequence_log_probabilities} and remaining masses is
+                            {self.remaining_masses}.
+                        """
                 )
             return True
         else:
-            if (self.log_probabilities is None) or (self.remaining_masses is None):
+            if (self.sequence_log_probabilities is None) or (
+                self.remaining_masses is None
+            ):
                 raise ValueError(
                     f"""Sequences, log_probabilities and remaining masses
-                                     should all be None or all not None. Sequences
-                                     is not None while log_probabilities is
-                                     {self.log_probabilities} and remaining masses is
-                                     {self.remaining_masses}.
-                                     """
+                            should all be None or all not None. Sequences
+                            is not None while log_probabilities is
+                            {self.sequence_log_probabilities} and remaining masses is
+                            {self.remaining_masses}.
+                        """
                 )
             return False
-
-
-@dataclass
-class ScoredSequence:
-    """This class holds a residue sequence and its log probability."""
-
-    sequence: list[str]
-    mass_error: float
-    log_probability: float
 
 
 class BeamSearchDecoder(Decoder):
@@ -106,8 +118,8 @@ class BeamSearchDecoder(Decoder):
 
     @staticmethod
     def unravel_index(
-        indices: torch.LongTensor, outer_dim: int
-    ) -> tuple[torch.LongTensor, torch.LongTensor]:
+        indices: Integer[torch.LongTensor, "..."], outer_dim: int
+    ) -> tuple[Integer[torch.LongTensor, "..."], Integer[torch.LongTensor, "..."]]:
         """Get row and column coordinates for indices on a pair of dimensions that have been flattened.
 
         Args:
@@ -123,8 +135,10 @@ class BeamSearchDecoder(Decoder):
         return rows, columns
 
     def expand_candidates(
-        self, beam_state: BeamState, residue_masses: torch.LongTensor
-    ) -> torch.FloatTensor:
+        self,
+        beam_state: BeamState,
+        residue_masses: Integer[DiscretizedMass, " residue"],
+    ) -> Float[ResidueLogProbabilities, "batch beam"]:
         """Calculate log probabilities for all candidate next tokens for all sequences in the current beam.
 
         Args:
@@ -136,43 +150,50 @@ class BeamSearchDecoder(Decoder):
             each sequence in the beam for each spectrum in the batch.
 
             Result[i, j, k] is the log probability of token `k` in the vocabulary
-            being the next token given sequence `i` in the beam for batch spectrum
-            `j` is the prefix.
+            being the next token given sequence `j` in the beam for batch spectrum
+            `i` is the prefix.
 
             `exp(Result[i, j]).sum() == 1` for all `i` and `j`.
 
         """
         assert beam_state.remaining_masses is not None
-        remaining_masses = beam_state.remaining_masses.unsqueeze(-1) - residue_masses.unsqueeze(
-            0
-        ).unsqueeze(0)
+        remaining_masses = beam_state.remaining_masses.unsqueeze(
+            -1
+        ) - residue_masses.unsqueeze(0).unsqueeze(0)
 
         assert beam_state.sequences is not None
         sequence_length = beam_state.sequences.shape[-1]
         spectrum_length = beam_state.spectrum_encoding.shape[2]
         hidden_dim = beam_state.spectrum_encoding.shape[3]
+        actual_beam_size = beam_state.sequences.shape[1]
         log_probabilities = self.model.score_candidates(
             beam_state.sequences.reshape(-1, sequence_length),
-            beam_state.precursor_mass_charge.reshape(-1, PRECURSOR_DIM),
-            beam_state.spectrum_encoding.reshape(-1, spectrum_length, hidden_dim),
-            beam_state.spectrum_mask.reshape(-1, spectrum_length),
+            beam_state.precursor_mass_charge[:, :actual_beam_size, :].reshape(
+                -1, PRECURSOR_DIM
+            ),
+            beam_state.spectrum_encoding[:, :actual_beam_size, :, :].reshape(
+                -1, spectrum_length, hidden_dim
+            ),
+            beam_state.spectrum_mask[:, :actual_beam_size, :].reshape(
+                -1, spectrum_length
+            ),
         )
 
-        assert beam_state.log_probabilities is not None
-        batch_size = beam_state.log_probabilities.shape[0]
-        beam_size = beam_state.log_probabilities.shape[1]
+        assert beam_state.sequence_log_probabilities is not None
+        batch_size = beam_state.sequence_log_probabilities.shape[0]
+        beam_size = beam_state.sequence_log_probabilities.shape[1]
         candidate_log_probabilities = log_probabilities.reshape(
             batch_size, beam_size, -1
-        ) + beam_state.log_probabilities.unsqueeze(-1)
+        ) + beam_state.sequence_log_probabilities.unsqueeze(-1)
         return candidate_log_probabilities, remaining_masses
 
     def filter_items(
         self,
         beam_state: BeamState,
-        log_probabilities: torch.FloatTensor,
+        log_probabilities: Float[ResidueLogProbabilities, "batch beam"],
         beam_size: int,
-        remaining_masses: torch.LongTensor,
-        mass_buffer: torch.LongTensor,
+        remaining_masses: Integer[DiscretizedMass, "batch beam"],
+        mass_buffer: Integer[DiscretizedMass, " batch"],
         max_isotope: int,
     ) -> tuple[list[list[ScoredSequence]], BeamState]:
         """Separate and prune incomplete and complete sequences.
@@ -234,25 +255,39 @@ class BeamSearchDecoder(Decoder):
             for num_nucleons in range(1, max_isotope + 1):
                 isotope_is_complete = (
                     reshaped_mass_buffer
-                    >= remaining_masses - num_nucleons * round(self.mass_scale * CARBON_MASS_DELTA)
+                    >= remaining_masses
+                    - num_nucleons * round(self.mass_scale * CARBON_MASS_DELTA)
                 ) & (
-                    remaining_masses - num_nucleons * round(self.mass_scale * CARBON_MASS_DELTA)
+                    remaining_masses
+                    - num_nucleons * round(self.mass_scale * CARBON_MASS_DELTA)
                     >= -reshaped_mass_buffer
                 )
                 item_is_complete = item_is_complete | isotope_is_complete
         item_is_complete = item_is_complete & ~is_eos & log_probabilities.isfinite()
 
         assert beam_state.sequences is not None
-        local_variables = zip(
-            item_is_complete, remaining_masses, log_probabilities, beam_state.sequences
-        )
-        for batch, (is_complete, mass_errors, local_log_probabilities, sequences) in enumerate(
-            local_variables
+        for batch, (
+            is_complete,
+            mass_errors,
+            local_log_probabilities,
+            local_sequence_log_probabilities,
+            local_token_log_probabilities,
+            sequences,
+        ) in enumerate(
+            zip(
+                item_is_complete,
+                remaining_masses,
+                log_probabilities,
+                beam_state.sequence_log_probabilities,
+                beam_state.token_log_probabilities,
+                beam_state.sequences,
+            )
         ):
             if is_complete.any().item():
                 beam_index, residues = torch.where(is_complete)
-                completed_sequences = torch.column_stack((sequences[beam_index], residues))
-
+                completed_sequences = torch.column_stack(
+                    (sequences[beam_index], residues)
+                )
                 eos_log_probabilities = self.model.score_candidates(
                     completed_sequences,
                     beam_state.precursor_mass_charge[batch, beam_index],
@@ -263,17 +298,30 @@ class BeamSearchDecoder(Decoder):
                     local_log_probabilities[beam_index, residues]
                     + eos_log_probabilities[:, self.model.get_eos_index()]
                 )
+                last_token_log_probabilities = (
+                    local_log_probabilities
+                    - local_sequence_log_probabilities.unsqueeze(-1)
+                )
+                completed_token_log_probabilities = torch.column_stack(
+                    (
+                        local_token_log_probabilities[beam_index],
+                        last_token_log_probabilities[beam_index, residues],
+                        eos_log_probabilities[:, self.model.get_eos_index()],
+                    )
+                )
                 completed_mass_errors = mass_errors[beam_index, residues]
                 completed_items[batch].extend(
                     ScoredSequence(
                         sequence=self.model.decode(sequence),
                         mass_error=mass_error.item() / self.mass_scale,
-                        log_probability=log_probability,
+                        sequence_log_probability=log_probability,
+                        token_log_probabilities=token_log_probabilities,
                     )
-                    for sequence, mass_error, log_probability in zip(
+                    for sequence, mass_error, log_probability, token_log_probabilities in zip(
                         completed_sequences,
                         completed_mass_errors,
                         completed_log_probabilities.tolist(),
+                        completed_token_log_probabilities.tolist(),
                     )
                 )
 
@@ -287,20 +335,39 @@ class BeamSearchDecoder(Decoder):
         )
 
         # Prune incomplete items to form next beam
-        beam_log_probabilities, beam_indices = log_probabilities.reshape(batch_size, -1).topk(
-            k=beam_size
-        )
+        beam_log_probabilities, beam_indices = log_probabilities.reshape(
+            batch_size, -1
+        ).topk(k=beam_size)
         beam_sequences = self._append_next_token(
             indices=beam_indices, outer_dim=num_residues, sequences=beam_state.sequences
         )
         remaining_masses = remaining_masses.reshape(batch_size, -1)
         beam_remaining_masses = []
-        for local_remaining_masses, local_indices in zip(remaining_masses, beam_indices):
+        for local_remaining_masses, local_indices in zip(
+            remaining_masses, beam_indices
+        ):
             beam_remaining_masses.append(local_remaining_masses[local_indices])
         beam_remaining_masses = torch.stack(beam_remaining_masses)
+
+        beam_idx, local_residues = self.unravel_index(
+            indices=beam_indices, outer_dim=num_residues
+        )
+        sequence_length = beam_state.token_log_probabilities.size(-1)
+        expanded_beam_idx = beam_idx.unsqueeze(-1).repeat(1, 1, sequence_length)
+        beam_token_log_probs = beam_state.token_log_probabilities.gather(
+            1, expanded_beam_idx
+        )
+        next_token_log_probs = (
+            beam_log_probabilities
+            - beam_state.sequence_log_probabilities.gather(-1, beam_idx)
+        )
+        next_token_log_probabilities = torch.cat(
+            (beam_token_log_probs, next_token_log_probs.unsqueeze(-1)), -1
+        )
         new_beam = BeamState(
             sequences=beam_sequences,
-            log_probabilities=beam_log_probabilities,
+            sequence_log_probabilities=beam_log_probabilities,
+            token_log_probabilities=next_token_log_probabilities,
             remaining_masses=beam_remaining_masses,
             precursor_mass_charge=beam_state.precursor_mass_charge,
             spectrum_encoding=beam_state.spectrum_encoding,
@@ -310,12 +377,12 @@ class BeamSearchDecoder(Decoder):
 
     def prefilter_items(
         self,
-        log_probabilities: torch.FloatTensor,
-        remaining_masses: torch.LongTensor,
-        beam_masses: torch.LongTensor,
-        mass_buffer: torch.LongTensor,
+        log_probabilities: Float[ResidueLogProbabilities, "batch beam"],
+        remaining_masses: Integer[DiscretizedMass, "batch beam"],
+        beam_masses: Integer[DiscretizedMass, "batch beam"],
+        mass_buffer: Integer[DiscretizedMass, "batch 1 1"],
         max_isotope: int,
-    ) -> torch.FloatTensor:
+    ) -> Float[ResidueLogProbabilities, "batch beam"]:
         """Filter illegal next token by setting the corresponding log probabilities to `-inf`.
 
         Args:
@@ -325,11 +392,17 @@ class BeamSearchDecoder(Decoder):
                 for batch spectrum in the batch.
 
             remaining_masses (torch.LongTensor[batch size, beam size]):
+                The precursor mass that has not been accounted for so far
+                by the generated sequence for each item on each batch's
+                beam.
 
-            mass_buffer (torch.LongTensor[batch size, 1, 1]): _description_
+            mass_buffer (torch.LongTensor[batch size, 1, 1]):
+                The mass tolerance for each spectrum.
 
         Returns:
-            torch.FloatTensor: _description_
+            torch.FloatTensor:
+                The log probabilities with filtered values set
+                to `-inf`
         """
         # Filter out the end of sequence token since
         # it is added manually when a sequence's mass
@@ -349,10 +422,10 @@ class BeamSearchDecoder(Decoder):
 
     def init_beam(
         self,
-        spectra: torch.FloatTensor,
-        precursor_mass_charge: torch.FloatTensor,
-        residue_masses: torch.LongTensor,
-        mass_buffers: torch.LongTensor,
+        spectra: Float[Spectrum, " batch"],
+        precursor_mass_charge: Float[PrecursorFeatures, " batch"],
+        residue_masses: Integer[DiscretizedMass, " residue"],
+        mass_buffers: Integer[DiscretizedMass, " batch"],
         beam_size: int,
     ) -> BeamState:
         """Construct the initial beam state.
@@ -361,13 +434,13 @@ class BeamSearchDecoder(Decoder):
         adding the first set of candidate tokens to the beam.
 
         Args:
-            spectra (torch.FloatTensor[]):
+            spectra (torch.FloatTensor[batch size, sequence length, 2]):
                 The spectra to be sequenced.
 
             precursor_mass_charge (torch.FloatTensor[batch size, 3]):
                 The precursor mass, charge and mass-to-charge ratio.
 
-            residue_masses (torch.LongTensor[]):
+            residue_masses (torch.LongTensor[residues]):
                 The masses of the residues in the vocabulary
                 as integers in units of the mass scale.
 
@@ -386,7 +459,8 @@ class BeamSearchDecoder(Decoder):
         # 2. Calculate candidate residue masses and remaining mass budgets
         precursor_masses = (
             torch.round(
-                self.mass_scale * precursor_mass_charge[:, PrecursorDimension.PRECURSOR_MASS.value]
+                self.mass_scale
+                * precursor_mass_charge[:, PrecursorDimension.PRECURSOR_MASS.value]
             )
             .type(INTEGER)
             .to(spectra.device)
@@ -399,17 +473,28 @@ class BeamSearchDecoder(Decoder):
             mass_buffer=mass_buffers,
         )
 
-        beam_log_probabilities = log_probabilities.topk(k=beam_size)
-        beam_masses = residue_masses.to(spectra.device).gather(-1, beam_log_probabilities.indices)
+        num_items = log_probabilities.shape[-1]
+        if num_items <= beam_size:
+            beam_log_probabilities = log_probabilities.sort(descending=True)
+        else:
+            beam_log_probabilities = log_probabilities.topk(k=beam_size)
+        beam_masses = residue_masses.to(spectra.device).gather(
+            -1, beam_log_probabilities.indices
+        )
         remaining_masses = precursor_masses.unsqueeze(-1) - beam_masses
 
         # 3. Copy inputs for beam candidates
-        beam_precursor_mass_charge = precursor_mass_charge.unsqueeze(1).expand(-1, beam_size, -1)
-        beam_spectrum_encoding = spectrum_encoding.unsqueeze(1).expand(-1, beam_size, -1, -1)
+        beam_precursor_mass_charge = precursor_mass_charge.unsqueeze(1).expand(
+            -1, beam_size, -1
+        )
+        beam_spectrum_encoding = spectrum_encoding.unsqueeze(1).expand(
+            -1, beam_size, -1, -1
+        )
         beam_spectrum_mask = spectrum_mask.unsqueeze(1).expand(-1, beam_size, -1)
         return BeamState(
             sequences=beam_log_probabilities.indices.unsqueeze(-1),
-            log_probabilities=beam_log_probabilities.values,
+            sequence_log_probabilities=beam_log_probabilities.values,
+            token_log_probabilities=beam_log_probabilities.values.unsqueeze(-1),
             remaining_masses=remaining_masses,
             precursor_mass_charge=beam_precursor_mass_charge,
             spectrum_encoding=beam_spectrum_encoding,
@@ -418,14 +503,14 @@ class BeamSearchDecoder(Decoder):
 
     def decode(  # type:ignore
         self,
-        spectra: torch.FloatTensor,
-        precursors: torch.FloatTensor,
+        spectra: Float[Spectrum, " batch"],
+        precursors: Float[PrecursorFeatures, " batch"],
         beam_size: int,
         max_length: int,
         mass_tolerance: float = 5e-5,
         max_isotope: int = 1,
-        return_all_beams: bool = False,
-    ) -> list[Any]:
+        return_beam: bool = False,
+    ) -> list[ScoredSequence] | list[list[ScoredSequence]]:
         """Decode predicted residue sequence for a batch of spectra using beam search.
 
         Args:
@@ -453,7 +538,7 @@ class BeamSearchDecoder(Decoder):
                 All additional nucleon numbers from 1 to `max_isotope` inclusive
                 are considered.
 
-            return_all_beams (bool):
+            return_beam (bool):
                 Optionally return all beam-search results, not only the best beam.
 
         Returns:
@@ -469,9 +554,9 @@ class BeamSearchDecoder(Decoder):
             complete_items: list[list[ScoredSequence]] = [[] for _ in range(batch_size)]
 
             # Precompute mass matrix and mass buffers
-            residue_masses = self.model.get_residue_masses(mass_scale=self.mass_scale).to(
-                spectra.device
-            )
+            residue_masses = self.model.get_residue_masses(
+                mass_scale=self.mass_scale
+            ).to(spectra.device)
             num_residues = residue_masses.shape[-1]
             mass_buffers = (
                 (
@@ -487,7 +572,9 @@ class BeamSearchDecoder(Decoder):
             beam: BeamState = self.init_beam(
                 spectra=spectra,
                 precursor_mass_charge=precursors,
-                residue_masses=residue_masses.unsqueeze(0).expand(batch_size, num_residues),
+                residue_masses=residue_masses.unsqueeze(0).expand(
+                    batch_size, num_residues
+                ),
                 beam_size=beam_size,
                 mass_buffers=mass_buffers,
             )
@@ -496,15 +583,14 @@ class BeamSearchDecoder(Decoder):
                 if beam.is_empty():
                     break
 
-                assert beam.log_probabilities is not None
-                if beam.log_probabilities.isinf().all():
+                assert beam.sequence_log_probabilities is not None
+                if beam.sequence_log_probabilities.isinf().all():
                     break
 
                 # 1. Expand candidates
                 log_probabilities, remaining_masses = self.expand_candidates(
                     beam_state=beam, residue_masses=residue_masses
                 )
-
                 # 2. Filter complete items and prune incomplete ones to get the new beam
                 complete_candidates, beam = self.filter_items(
                     log_probabilities=log_probabilities,
@@ -518,32 +604,38 @@ class BeamSearchDecoder(Decoder):
                     complete_items[i].extend(items)
 
             for items in complete_items:
-                items.sort(key=lambda item: item.log_probability, reverse=True)
+                items.sort(key=lambda item: item.sequence_log_probability, reverse=True)
 
-            if not return_all_beams:
-                sequences = [items[0] if len(items) > 0 else [] for items in complete_items]
+            if not return_beam:
+                sequences = [
+                    items[0] if len(items) > 0 else [] for items in complete_items
+                ]
             else:
-                sequences = [items if len(items) > 0 else [] for items in complete_items]
+                sequences = [
+                    items if len(items) > 0 else [] for items in complete_items
+                ]
 
-            return sequences
+            return sequences  # type: ignore
 
     def _init_prefilter(
         self,
-        precursor_masses: torch.LongTensor,
-        log_probabilities: torch.FloatTensor,
-        mass_buffer: torch.LongTensor,
-    ) -> torch.FloatTensor:
+        precursor_masses: Integer[DiscretizedMass, " batch"],
+        log_probabilities: Float[ResidueLogProbabilities, "batch beam"],
+        mass_buffer: Integer[DiscretizedMass, " batch"],
+    ) -> Float[ResidueLogProbabilities, "batch beam"]:
         return log_probabilities
 
     def _append_next_token(
         self,
-        indices: torch.LongTensor,
+        indices: Integer[torch.Tensor, "..."],
         outer_dim: int,
-        sequences: torch.LongTensor,
-    ) -> torch.LongTensor:
+        sequences: Integer[torch.Tensor, "..."],
+    ) -> Integer[torch.Tensor, "..."]:
         beam_items, residues = self.unravel_index(indices, outer_dim)
 
         collected_sequences = []
         for beam_item, residue, sequence in zip(beam_items, residues, sequences):
-            collected_sequences.append(torch.column_stack((sequence[beam_item], residue)))
+            collected_sequences.append(
+                torch.column_stack((sequence[beam_item], residue))
+            )
         return torch.stack(collected_sequences, 0)

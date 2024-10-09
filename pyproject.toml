@@ -1,0 +1,98 @@
+[build-system]
+requires = ["setuptools>=69.1.1"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "instanovo"
+authors = [
+  { name="InstaDeep Ltd", email="hello@instadeep.com" },
+]
+keywords = [
+    "mass spectrometry",
+    "bioinformatics",
+    "machine learning",
+    "deep learning",
+    "transformer",
+    "de novo peptide sequencing"
+]
+description = "De novo sequencing with InstaNovo"
+requires-python = ">=3.10"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+]
+dynamic = ["version", "readme", "dependencies"] # , "optional-dependencies"]
+
+[tool.setuptools]
+include-package-data = true  # To use MANIFEST.in for including extra files
+
+[tool.setuptools.dynamic]
+readme = { file = ["README.md"], content-type = "text/markdown" }
+version = { attr = "instanovo.__version__" }
+dependencies = {file = ["requirements/requirements.in"]}
+optional-dependencies.dev = {file = ["requirements/requirements-dev.txt"]}
+optional-dependencies.docs = {file = ["requirements/requirements-dev.txt"]}
+optional-dependencies.mlflow = {file = ["requirements/requirements-mlflow.txt"]}
+
+[tool.setuptools.packages.find]
+include = ["instanovo*"]
+
+[tool.setuptools.package-data]
+instanovo = ["py.typed"]
+
+[tool.coverage.run]
+source = ["instanovo"]
+omit = ["*/__init__.py", "*_test.py"]
+
+[tool.coverage.report]
+omit = ["__init__.py", "*_test.py"]
+exclude_lines = [
+    # Don't complain if tests don't hit defensive assertion code:
+    "raise AssertionError",
+    "raise NotImplementedError",
+
+    # Don't complain if non-runnable code isn't run:
+    "if 0:",
+    "if __name__ == .__main__.:"]
+
+[tool.coverage.html]
+directory = "coverage"
+
+[tool.flake8]
+exclude = [".git", "**/__pycache__/", "build/", "dist/", "proto/", "*.pyc", "*.egg-info/", ".cache/", ".eggs/"]
+max-line-length = 100
+import-order-style = "google"
+application-import-names = "instanovo"
+doctests = true
+docstring-convention = "google"
+per-file-ignores = ["__init__.py:F401"]
+ignore = ["D107", # Do not require docstrings for __init__
+          "W503", # line break before binary operator (not compatible with black)
+          "E731"  # do not assign a lambda expression, use a def
+        ]
+select = ["A", "B", "C", "D", "E", "F", "G", "I", "N", "T", "W"]
+
+[tool.mypy]
+python_version = "3.10"
+namespace_packages = true
+incremental = false
+cache_dir = ".mypy_cache"
+warn_redundant_casts = true
+warn_return_any = true
+warn_unused_configs = true
+warn_unused_ignores = false
+allow_redefinition = true
+disallow_untyped_calls = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = false
+strict_optional = true
+strict_equality = true
+explicit_package_bases = true
+follow_imports = "skip"
+
+[project.urls]
+Homepage = "https://github.com/instadeepai/InstaNovo"
+Issues = "https://github.com/instadeepai/InstaNovo/issues"

@@ -1,0 +1,22 @@
+# Combination of multiple datasets
+# - ACPT
+# - Pride
+# - Phospho
+
+use_shards: True
+train_path: data/extended/train_shard_*.ipc
+valid_path: data/extended/valid_shard_*.ipc
+valid_subset_of_train:
+# If any train sequences overlap with the blacklist, raise a ValueError
+blacklist: data/identity_splits/blacklist.csv
+train_partition:
+valid_partition:
+
+column_remapping:
+
+# Left gets remapped to right, right should exist in residue set
+residue_remapping:
+  "M(ox)": "M(+15.99)"
+  "S(p)": "S(+79.97)"
+  "T(p)": "T(+79.97)"
+  "Y(p)": "Y(+79.97)"

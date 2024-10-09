@@ -1,171 +1,147 @@
 from __future__ import annotations
 
-import depthcharge.masses
+from typing import Optional
+from typing import Tuple
+
 import torch
-from depthcharge.components import PeptideDecoder
-from depthcharge.components import SpectrumEncoder
-from depthcharge.components.encoders import MassEncoder
-from depthcharge.components.encoders import PeakEncoder
-from depthcharge.components.encoders import PositionalEncoder
+from jaxtyping import Bool
+from jaxtyping import Float
+from jaxtyping import Integer
+from omegaconf import DictConfig
 from torch import nn
 from torch import Tensor
+from torch.nn.attention import sdpa_kernel
+from torch.nn.attention import SDPBackend
 
+from instanovo.constants import MAX_SEQUENCE_LENGTH
+from instanovo.transformer.layers import ConvPeakEmbedding
 from instanovo.transformer.layers import MultiScalePeakEmbedding
 from instanovo.transformer.layers import PositionalEncoding
+from instanovo.inference import Decodable
+from instanovo.types import DiscretizedMass
+from instanovo.types import Peptide
+from instanovo.types import PeptideMask
+from instanovo.types import PrecursorFeatures
+from instanovo.types import ResidueLogits
+from instanovo.types import ResidueLogProbabilities
+from instanovo.types import Spectrum
+from instanovo.types import SpectrumEmbedding
+from instanovo.types import SpectrumMask
+from instanovo.utils import ResidueSet
 
 
-class InstaNovo(nn.Module):
+class InstaNovo(nn.Module, Decodable):
     """The Instanovo model."""
 
     def __init__(
         self,
-        i2s: dict[int, str],
-        residues: dict[str, float],
+        residue_set: ResidueSet,
         dim_model: int = 768,
         n_head: int = 16,
         dim_feedforward: int = 2048,
         n_layers: int = 9,
         dropout: float = 0.1,
-        max_length: int = 30,
         max_charge: int = 5,
-        bos_id: int = 1,
-        eos_id: int = 2,
-        use_depthcharge: bool = True,
-        enc_type: str = "depthcharge",
-        dec_type: str = "depthcharge",
-        dec_precursor_sos: bool = False,
+        use_flash_attention: bool = False,
+        conv_peak_encoder: bool = False,
     ) -> None:
         super().__init__()
-        self.i2s = i2s
-        self.n_vocab = len(self.i2s)
-        self.residues = residues
-        self.bos_id = bos_id  # beginning of sentence ID, prepend to y
-        self.eos_id = eos_id  # stop token
-        self.pad_id = 0
-        self.use_depthcharge = use_depthcharge
-
-        self.enc_type = enc_type
-        self.dec_type = dec_type
-        self.dec_precursor_sos = dec_precursor_sos
-        self.peptide_mass_calculator = depthcharge.masses.PeptideMass(self.residues)
+        self._residue_set = residue_set
+        self.vocab_size = len(residue_set)
+        self.use_flash_attention = use_flash_attention
+        self.conv_peak_encoder = conv_peak_encoder
 
         self.latent_spectrum = nn.Parameter(torch.randn(1, 1, dim_model))
 
+        if self.use_flash_attention:
+            # All input spectra are padded to some max length
+            # Pad spectrum replaces zeros in input spectra
+            # This is for flash attention (no masks allowed)
+            self.pad_spectrum = nn.Parameter(torch.randn(1, 1, dim_model))
+
         # Encoder
-        if self.enc_type == "depthcharge":
-            self.encoder = SpectrumEncoder(
-                dim_model=dim_model,
-                n_head=n_head,
-                dim_feedforward=dim_feedforward,
-                n_layers=n_layers,
-                dropout=dropout,
-                dim_intensity=None,
-            )
-            if not self.dec_precursor_sos:
-                self.mass_encoder = MassEncoder(dim_model)
-                self.charge_encoder = nn.Embedding(max_charge, dim_model)
+        self.peak_encoder = MultiScalePeakEmbedding(dim_model, dropout=dropout)
+        if self.conv_peak_encoder:
+            self.conv_encoder = ConvPeakEmbedding(dim_model, dropout=dropout)
 
-        else:
-            if not self.use_depthcharge:
-                self.peak_encoder = MultiScalePeakEmbedding(dim_model, dropout=dropout)
-                self.mass_encoder = self.peak_encoder.encode_mass
-            else:
-                self.mass_encoder = MassEncoder(dim_model)
-                self.peak_encoder = PeakEncoder(dim_model, dim_intensity=None)
-
-            encoder_layer = nn.TransformerEncoderLayer(
-                d_model=dim_model,
-                nhead=n_head,
-                dim_feedforward=dim_feedforward,
-                batch_first=True,
-                dropout=dropout,
-            )
-            self.encoder = nn.TransformerEncoder(
-                encoder_layer,
-                num_layers=n_layers,
-                enable_nested_tensor=False,
-            )
+        encoder_layer = nn.TransformerEncoderLayer(
+            d_model=dim_model,
+            nhead=n_head,
+            dim_feedforward=dim_feedforward,
+            batch_first=True,
+            dropout=0 if self.use_flash_attention else dropout,
+        )
+        self.encoder = nn.TransformerEncoder(
+            encoder_layer,
+            num_layers=n_layers,
+            # enable_nested_tensor=False, TODO: Figure out the correct way to handle this
+        )
 
         # Decoder
-        if dec_type == "depthcharge":
-            self.decoder = PeptideDecoder(
-                dim_model=dim_model,
-                n_head=n_head,
-                dim_feedforward=dim_feedforward,
-                n_layers=n_layers,
-                dropout=dropout,
-                residues=residues,
-                max_charge=max_charge,
-            )
+        self.aa_embed = nn.Embedding(self.vocab_size, dim_model, padding_idx=0)
 
-            if not dec_precursor_sos:
-                del self.decoder.charge_encoder
-                self.decoder.charge_encoder = lambda x: torch.zeros(
-                    x.shape[0], dim_model, device=x.device
-                )
-                self.sos_embedding = nn.Parameter(torch.randn(1, 1, dim_model))
-                del self.decoder.mass_encoder
-                self.decoder.mass_encoder = lambda x: self.sos_embedding.expand(x.shape[0], -1, -1)
-        else:
-            self.aa_embed = nn.Embedding(self.n_vocab, dim_model, padding_idx=0)
-            if not self.use_depthcharge:
-                self.aa_pos_embed = PositionalEncoding(dim_model, dropout, max_len=200)
-                assert max_length <= 200  # update value if necessary
-            else:
-                self.aa_pos_embed = PositionalEncoder(dim_model)
+        self.aa_pos_embed = PositionalEncoding(
+            dim_model, dropout, max_len=MAX_SEQUENCE_LENGTH
+        )
 
-            decoder_layer = nn.TransformerDecoderLayer(
-                d_model=dim_model,
-                nhead=n_head,
-                dim_feedforward=dim_feedforward,
-                batch_first=True,
-                dropout=dropout,
-                # norm_first=True,
-            )
-            self.decoder = nn.TransformerDecoder(
-                decoder_layer,
-                num_layers=n_layers,
-            )
+        decoder_layer = nn.TransformerDecoderLayer(
+            d_model=dim_model,
+            nhead=n_head,
+            dim_feedforward=dim_feedforward,
+            batch_first=True,
+            dropout=0 if self.use_flash_attention else dropout,
+        )
+        self.decoder = nn.TransformerDecoder(
+            decoder_layer,
+            num_layers=n_layers,
+        )
 
-            self.head = nn.Linear(dim_model, self.n_vocab)
-            self.charge_encoder = nn.Embedding(max_charge, dim_model)
+        self.head = nn.Linear(dim_model, self.vocab_size)
+        self.charge_encoder = nn.Embedding(max_charge, dim_model)
 
-        if self.dec_type == "depthcharge":
-            self.eos_id = self.decoder._aa2idx["$"]
+    @property
+    def residue_set(self) -> ResidueSet:
+        """Every model must have a `residue_set` attribute."""
+        return self._residue_set
 
     @staticmethod
-    def _get_causal_mask(seq_len: int) -> Tensor:
+    def _get_causal_mask(seq_len: int, return_float: bool = False) -> PeptideMask:
         mask = (torch.triu(torch.ones(seq_len, seq_len)) == 1).transpose(0, 1)
-        mask = mask.float().masked_fill(mask == 0, float("-inf")).masked_fill(mask == 1, float(0.0))
-        return mask
+        if return_float:
+            return (
+                mask.float()
+                .masked_fill(mask == 0, float("-inf"))
+                .masked_fill(mask == 1, float(0.0))
+            )
+        return ~mask.bool()
 
     @classmethod
-    def load(cls, path: str) -> nn.Module:
+    def load(cls, path: str) -> Tuple["InstaNovo", "DictConfig"]:
         """Load model from checkpoint."""
-        ckpt = torch.load(path, map_location="cpu")
+        # Add  to allow list
+        _whitelist_torch_omegaconf()
+        ckpt = torch.load(path, map_location="cpu", weights_only=True)
 
         config = ckpt["config"]
 
         # check if PTL checkpoint
         if all([x.startswith("model") for x in ckpt["state_dict"].keys()]):
-            ckpt["state_dict"] = {k.replace("model.", ""): v for k, v in ckpt["state_dict"].items()}
+            ckpt["state_dict"] = {
+                k.replace("model.", ""): v for k, v in ckpt["state_dict"].items()
+            }
 
-        i2s = {i: v for i, v in enumerate(config["vocab"])}
+        residue_set = ResidueSet(config["residues"])
 
         model = cls(
-            i2s=i2s,
-            residues=config["residues"],
+            residue_set=residue_set,
             dim_model=config["dim_model"],
             n_head=config["n_head"],
             dim_feedforward=config["dim_feedforward"],
             n_layers=config["n_layers"],
             dropout=config["dropout"],
-            max_length=config["max_length"],
             max_charge=config["max_charge"],
-            use_depthcharge=config["use_depthcharge"],
-            enc_type=config["enc_type"],
-            dec_type=config["dec_type"],
-            dec_precursor_sos=config["dec_precursor_sos"],
+            use_flash_attention=config.get("use_flash_attention", False),
+            conv_peak_encoder=config.get("conv_peak_encoder", False),
         )
         model.load_state_dict(ckpt["state_dict"])
 
@@ -173,13 +149,13 @@ class InstaNovo(nn.Module):
 
     def forward(
         self,
-        x: Tensor,
-        p: Tensor,
-        y: Tensor,
-        x_mask: Tensor = None,
-        y_mask: Tensor = None,
+        x: Float[Spectrum, " batch"],
+        p: Float[PrecursorFeatures, " batch"],
+        y: Integer[Peptide, " batch"],
+        x_mask: Optional[Bool[SpectrumMask, " batch"]] = None,
+        y_mask: Optional[Bool[PeptideMask, " batch"]] = None,
         add_bos: bool = True,
-    ) -> Tensor:
+    ) -> Float[ResidueLogits, "batch token+1"]:
         """Model forward pass.
 
         Args:
@@ -194,53 +170,77 @@ class InstaNovo(nn.Module):
             logits: float Tensor (batch, n, vocab_size),
             (batch, n+1, vocab_size) if add_bos==True.
         """
+        if self.use_flash_attention:
+            x, x_mask = self._flash_encoder(x, p, x_mask)
+            return self._flash_decoder(x, y, x_mask, y_mask, add_bos)
+
         x, x_mask = self._encoder(x, p, x_mask)
-        return self._decoder(x, p, y, x_mask, y_mask, add_bos)
+        return self._decoder(x, y, x_mask, y_mask, add_bos)
 
     def init(
-        self, x: Tensor, p: Tensor, x_mask: Tensor = None
-    ) -> tuple[tuple[Tensor, Tensor], Tensor]:
+        self,
+        spectra: Float[Spectrum, " batch"],
+        precursors: Float[PrecursorFeatures, " batch"],
+        spectra_mask: Optional[Bool[SpectrumMask, " batch"]] = None,
+    ) -> Tuple[
+        Tuple[Float[Spectrum, " batch"], Bool[SpectrumMask, " batch"]],
+        Float[ResidueLogProbabilities, "batch token"],
+    ]:
         """Initialise model encoder."""
-        x, x_mask = self._encoder(x, p, x_mask)
-        # y = torch.ones((x.shape[0], 1), dtype=torch.long, device=x.device) * self.bos_id
-        logits, _ = self._decoder(x, p, None, x_mask, None, add_bos=False)
-        return (x, x_mask), torch.log_softmax(logits[:, -1, :], -1)
+        if self.use_flash_attention:
+            spectra, _ = self._encoder(spectra, precursors, None)
+            logits = self._decoder(spectra, None, None, None, add_bos=False)
+            return (
+                spectra,
+                torch.zeros(spectra.shape[0], spectra.shape[1]).to(spectra.device),
+            ), torch.log_softmax(logits[:, -1, :], -1)
+
+        spectra, spectra_mask = self._encoder(spectra, precursors, spectra_mask)
+        logits = self._decoder(spectra, None, spectra_mask, None, add_bos=False)
+        return (spectra, spectra_mask), torch.log_softmax(logits[:, -1, :], -1)
 
     def score_candidates(
         self,
-        y: torch.LongTensor,
-        p: torch.FloatTensor,
-        x: torch.FloatTensor,
-        x_mask: torch.BoolTensor,
-    ) -> torch.FloatTensor:
+        sequences: Integer[Peptide, " batch"],
+        precursor_mass_charge: Float[PrecursorFeatures, " batch"],
+        spectra: Float[Spectrum, " batch"],
+        spectra_mask: Bool[SpectrumMask, " batch"],
+    ) -> Float[ResidueLogProbabilities, "batch token"]:
         """Score a set of candidate sequences."""
-        logits, _ = self._decoder(x, p, y, x_mask, None, add_bos=True)
+        if self.use_flash_attention:
+            logits = self._flash_decoder(spectra, sequences, None, None, add_bos=True)
+        else:
+            logits = self._decoder(spectra, sequences, spectra_mask, None, add_bos=True)
 
         return torch.log_softmax(logits[:, -1, :], -1)
 
-    def get_residue_masses(self, mass_scale: int) -> torch.LongTensor:
+    def get_residue_masses(
+        self, mass_scale: int
+    ) -> Integer[DiscretizedMass, " residue"]:
         """Get the scaled masses of all residues."""
-        residue_masses = torch.zeros(max(self.decoder._idx2aa.keys()) + 1).type(torch.int64)
-        for index, residue in self.decoder._idx2aa.items():
-            if residue in self.peptide_mass_calculator.masses:
+        residue_masses = torch.zeros(len(self.residue_set), dtype=torch.int64)
+        for index, residue in self.residue_set.index_to_residue.items():
+            if residue in self.residue_set.residue_masses:
                 residue_masses[index] = round(
-                    mass_scale * self.peptide_mass_calculator.masses[residue]
+                    mass_scale * self.residue_set.get_mass(residue)
                 )
         return residue_masses
 
     def get_eos_index(self) -> int:
         """Get the EOS token ID."""
-        return self.eos_id
+        return int(self.residue_set.EOS_INDEX)
 
     def get_empty_index(self) -> int:
         """Get the PAD token ID."""
-        return 0
+        return int(self.residue_set.PAD_INDEX)
 
-    def decode(self, sequence: torch.LongTensor) -> list[str]:
+    def decode(self, sequence: Peptide) -> list[str]:
         """Decode a single sequence of AA IDs."""
-        return self.decoder.detokenize(sequence)  # type: ignore
+        # Note: Sequence is reversed as InstaNovo predicts right-to-left.
+        # We reverse the sequence again when decoding to ensure the decoder outputs forward sequences.
+        return self.residue_set.decode(sequence, reverse=True)  # type: ignore
 
-    def idx_to_aa(self, idx: Tensor) -> list[str]:
+    def idx_to_aa(self, idx: Peptide) -> list[str]:
         """Decode a single sample of indices to aa list."""
         idx = idx.cpu().numpy()
         t = []
@@ -252,85 +252,171 @@ class InstaNovo(nn.Module):
             t.append(i)
         return [self.i2s[x.item()] for x in t]
 
-    def batch_idx_to_aa(self, idx: Tensor) -> list[list[str]]:
+    def batch_idx_to_aa(
+        self, idx: Integer[Peptide, " batch"], reverse: bool
+    ) -> list[list[str]]:
         """Decode a batch of indices to aa lists."""
-        return [self.idx_to_aa(i) for i in idx]
+        return [self.residue_set.decode(i, reverse=reverse) for i in idx]
 
-    def _encoder(self, x: Tensor, p: Tensor, x_mask: Tensor = None) -> tuple[Tensor, Tensor]:
-        if self.enc_type == "depthcharge":
-            x, x_mask = self.encoder(x)
-
-            if not self.dec_precursor_sos:
-                # Prepare precursors
-                masses = self.mass_encoder(p[:, None, [0]])
-                charges = self.charge_encoder(p[:, 1].int() - 1)
-                precursors = masses + charges[:, None, :]
-                x = torch.cat([precursors, x], dim=1)
-                prec_mask = torch.zeros((x_mask.shape[0], 1), dtype=bool, device=x_mask.device)
-                x_mask = torch.cat([prec_mask, x_mask], dim=1)
-            return x, x_mask
-
-        if x_mask is None:
-            x_mask = ~x.sum(dim=2).bool()
-
-        # Peak encoding
-        if not self.use_depthcharge:
-            x = self.peak_encoder(x[:, :, [0]], x[:, :, [1]])
+    def _encoder(
+        self,
+        x: Float[Spectrum, " batch"],
+        p: Float[PrecursorFeatures, " batch"],
+        x_mask: Optional[Bool[SpectrumMask, " batch"]] = None,
+    ) -> Tuple[Float[SpectrumEmbedding, " batch"], Bool[SpectrumMask, " batch"]]:
+        if self.conv_peak_encoder:
+            x = self.conv_encoder(x)
+            x_mask = torch.zeros((x.shape[0], x.shape[1]), device=x.device).bool()
         else:
+            if x_mask is None:
+                x_mask = ~x.sum(dim=2).bool()
             x = self.peak_encoder(x)
-        # x = self.peak_norm(x)
 
         # Self-attention on latent spectra AND peaks
         latent_spectra = self.latent_spectrum.expand(x.shape[0], -1, -1)
         x = torch.cat([latent_spectra, x], dim=1)
-        latent_mask = torch.zeros((x_mask.shape[0], 1), dtype=bool, device=x_mask.device)
+        latent_mask = torch.zeros(
+            (x_mask.shape[0], 1), dtype=bool, device=x_mask.device
+        )
         x_mask = torch.cat([latent_mask, x_mask], dim=1)
 
         x = self.encoder(x, src_key_padding_mask=x_mask)
 
-        if not self.dec_precursor_sos:
-            # Prepare precursors
-            masses = self.mass_encoder(p[:, None, [0]])
-            charges = self.charge_encoder(p[:, 1].int() - 1)
-            precursors = masses + charges[:, None, :]
+        # Prepare precursors
+        masses = self.peak_encoder.encode_mass(p[:, None, [0]])
+        charges = self.charge_encoder(p[:, 1].int() - 1)
+        precursors = masses + charges[:, None, :]
 
-            # Concatenate precursors
-            x = torch.cat([precursors, x], dim=1)
-            prec_mask = torch.zeros((x_mask.shape[0], 1), dtype=bool, device=x_mask.device)
-            x_mask = torch.cat([prec_mask, x_mask], dim=1)
+        # Concatenate precursors
+        x = torch.cat([precursors, x], dim=1)
+        prec_mask = torch.zeros((x_mask.shape[0], 1), dtype=bool, device=x_mask.device)
+        x_mask = torch.cat([prec_mask, x_mask], dim=1)
 
         return x, x_mask
 
     def _decoder(
         self,
-        x: Tensor,
-        p: Tensor,
-        y: Tensor,
-        x_mask: Tensor,
-        y_mask: Tensor = None,
+        x: Float[Spectrum, " batch"],
+        y: Integer[Peptide, " batch"],
+        x_mask: Bool[SpectrumMask, " batch"],
+        y_mask: Optional[Bool[PeptideMask, " batch"]] = None,
         add_bos: bool = True,
-    ) -> Tensor:
-        if self.dec_type == "depthcharge":
-            return self.decoder(y, p, x, x_mask)
-
-        if add_bos:
-            bos = torch.ones((y.shape[0], 1), dtype=y.dtype, device=y.device) * self.bos_id
+    ) -> Float[ResidueLogits, " batch"]:
+        if y is None:
+            y = torch.full((x.shape[0], 1), self.residue_set.SOS_INDEX, device=x.device)
+        elif add_bos:
+            bos = (
+                torch.ones((y.shape[0], 1), dtype=y.dtype, device=y.device)
+                * self.residue_set.SOS_INDEX
+            )
             y = torch.cat([bos, y], dim=1)
 
             if y_mask is not None:
-                bos_mask = torch.zeros((y_mask.shape[0], 1), dtype=bool, device=y_mask.device)
+                bos_mask = torch.zeros(
+                    (y_mask.shape[0], 1), dtype=bool, device=y_mask.device
+                )
                 y_mask = torch.cat([bos_mask, y_mask], dim=1)
 
         y = self.aa_embed(y)
         if y_mask is None:
-            y_mask = y.sum(axis=2) == 0
+            y_mask = ~y.sum(axis=2).bool()
+
         # concat bos
         y = self.aa_pos_embed(y)
 
         c_mask = self._get_causal_mask(y.shape[1]).to(y.device)
 
         y_hat = self.decoder(
-            y, x, tgt_mask=c_mask, tgt_key_padding_mask=y_mask, memory_key_padding_mask=x_mask
+            y,
+            x,
+            tgt_mask=c_mask,
+            tgt_key_padding_mask=y_mask,
+            memory_key_padding_mask=x_mask,
         )
 
         return self.head(y_hat)
+
+    def _flash_encoder(
+        self, x: Tensor, p: Tensor, x_mask: Tensor = None
+    ) -> tuple[Tensor, Tensor]:
+        # Special mask for zero-indices
+        # One is padded, zero is normal
+        x_mask = (~x.sum(dim=2).bool()).float()
+
+        x = self.peak_encoder(x[:, :, [0]], x[:, :, [1]])
+        pad_spectrum = self.pad_spectrum.expand(x.shape[0], x.shape[1], -1)
+
+        # torch.compile doesn't allow dynamic sizes (returned by mask indexing)
+        # x[x_mask] = pad_spectrum[x_mask].to(x.dtype)
+        x = x * (1 - x_mask[:, :, None]) + pad_spectrum * (x_mask[:, :, None])
+
+        # Self-attention on latent spectra AND peaks
+        latent_spectra = self.latent_spectrum.expand(x.shape[0], -1, -1)
+        x = torch.cat([latent_spectra, x], dim=1).contiguous()
+
+        with sdpa_kernel(SDPBackend.FLASH_ATTENTION):
+            x = self.encoder(x)
+
+        # Prepare precursors
+        masses = self.peak_encoder.encode_mass(p[:, None, [0]])
+        charges = self.charge_encoder(p[:, 1].int() - 1)
+        precursors = masses + charges[:, None, :]
+
+        # Concatenate precursors
+        x = torch.cat([precursors, x], dim=1).contiguous()
+
+        return x, None
+
+    def _flash_decoder(
+        self,
+        x: Tensor,
+        y: Tensor,
+        x_mask: Tensor,
+        y_mask: Tensor = None,
+        add_bos: bool = True,
+    ) -> Tensor:
+        if y is None:
+            y = torch.full((x.shape[0], 1), self.residue_set.SOS_INDEX, device=x.device)
+        elif add_bos:
+            bos = (
+                torch.ones((y.shape[0], 1), dtype=y.dtype, device=y.device)
+                * self.residue_set.SOS_INDEX
+            )
+            y = torch.cat([bos, y], dim=1)
+
+        y = self.aa_embed(y)
+
+        # concat bos
+        y = self.aa_pos_embed(y)
+
+        c_mask = self._get_causal_mask(y.shape[1]).to(y.device)
+
+        with sdpa_kernel(SDPBackend.FLASH_ATTENTION):
+            y_hat = self.decoder(y, x, tgt_mask=c_mask)
+
+        return self.head(y_hat)
+
+
+def _whitelist_torch_omegaconf() -> None:
+    """Whitelist specific modules for loading configs from checkpoints."""
+    # This is done to safeguard against arbitrary code execution from checkpoints.
+    from omegaconf.base import ContainerMetadata, Metadata
+    from omegaconf.listconfig import ListConfig
+    from omegaconf.nodes import AnyNode
+    from typing import Any
+    from collections import defaultdict
+
+    torch.serialization.add_safe_globals(
+        [
+            DictConfig,
+            ContainerMetadata,
+            Metadata,
+            ListConfig,
+            AnyNode,
+            Any,  # Only used for type hinting in omegaconf.
+            defaultdict,
+            dict,
+            list,
+            int,
+        ]
+    )

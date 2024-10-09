@@ -1,42 +1,75 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 from abc import ABCMeta
 from abc import abstractmethod
 from typing import Any
 
 import torch
+from jaxtyping import Float
+from jaxtyping import Integer
+
+from instanovo.types import Peptide
+from instanovo.types import PrecursorFeatures
+from instanovo.types import Spectrum
+from instanovo.utils.residues import ResidueSet
+
+
+@dataclass
+class ScoredSequence:
+    """This class holds a residue sequence and its log probability."""
+
+    sequence: list[str]
+    mass_error: float
+    sequence_log_probability: float
+    token_log_probabilities: list[float]
 
 
 class Decodable(metaclass=ABCMeta):
     """An interface for models that can be decoded by algorithms that conform to the search interface."""
 
+    @property
+    @abstractmethod
+    def residue_set(self) -> ResidueSet:
+        """Every model must have a `residue_set` attribute."""
+        pass
+
     @abstractmethod
     def init(  # type:ignore
-        self, spectra: torch.FloatTensor, precursors: torch.FloatTensor, *args, **kwargs
+        self,
+        spectra: Float[Spectrum, " batch"],
+        precursors: Float[PrecursorFeatures, " batch"],
+        *args,
+        **kwargs,
     ) -> Any:
         """Initialize the search state.
 
         Args:
-            spectra (torch.FloatTensor):
+            x (torch.FloatTensor):
                 The spectra to be sequenced.
 
-            precursors (torch.FloatTensor[batch size, 3]):
+            p (torch.FloatTensor[batch size, 3]):
                 The precursor mass, charge and mass-to-charge ratio.
         """
         pass
 
     @abstractmethod
     def score_candidates(  # type:ignore
-        self, sequences: torch.LongTensor, precursor_mass_charge: torch.FloatTensor, *args, **kwargs
+        self,
+        sequences: Integer[Peptide, "..."],
+        precursor_mass_charge: Float[PrecursorFeatures, "..."],
+        *args,
+        **kwargs,
     ) -> torch.FloatTensor:
         """Generate and score the next set of candidates.
 
         Args:
-            sequences (torch.LongTensor):
+            y (torch.LongTensor):
                 Partial residue sequences in generated
                 the course of decoding.
 
-            precursor_mass_charge (torch.FloatTensor[batch size, 3]):
+            p (torch.FloatTensor[batch size, 3]):
                 The precursor mass, charge and mass-to-charge ratio.
         """
         pass
@@ -55,7 +88,7 @@ class Decodable(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def decode(self, sequence: torch.LongTensor) -> list[str]:
+    def decode(self, sequence: Integer[Peptide, "..."]) -> list[str]:
         """Map sequences of indices to residues using the model's residue vocabulary.
 
         Args:
@@ -91,8 +124,12 @@ class Decoder(metaclass=ABCMeta):
 
     @abstractmethod
     def decode(  # type:ignore
-        self, spectra: torch.FloatTensor, precursors: torch.FloatTensor, *args, **kwargs
-    ) -> list[list[str]]:
+        self,
+        spectra: Float[Spectrum, "..."],
+        precursors: Float[PrecursorFeatures, "..."],
+        *args,
+        **kwargs,
+    ) -> list[ScoredSequence] | list[list[ScoredSequence]]:
         """Generate the predicted residue sequence using the decoder's search algorithm.
 
         Args:

@@ -1,13 +1,12 @@
 from __future__ import annotations
 
-import re
+import bisect
 
 import jiwer
 import numpy as np
 
 from instanovo.constants import CARBON_MASS_DELTA
-from instanovo.constants import H2O_MASS
-from instanovo.constants import PROTON_MASS_AMU
+from instanovo.utils.residues import ResidueSet
 
 
 class Metrics:
@@ -15,33 +14,27 @@ class Metrics:
 
     def __init__(
         self,
-        residues: dict[str, float],
+        residue_set: ResidueSet,
         isotope_error_range: list[int],
         cum_mass_threshold: float = 0.5,
         ind_mass_threshold: float = 0.1,
     ) -> None:
-        self.residues = residues
+        self.residue_set = residue_set
         self.isotope_error_range = isotope_error_range
         self.cum_mass_threshold = cum_mass_threshold
         self.ind_mass_threshold = ind_mass_threshold
 
-    @staticmethod
-    def _split_sequences(seq: list[str] | list[list[str]]) -> list[list[str]]:
-        return [re.split(r"(?<=.)(?=[A-Z])", x) if isinstance(x, str) else x for x in seq]
-
-    @staticmethod
-    def _split_peptide(peptide: str | list[str]) -> list[str]:
-        if not isinstance(peptide, str):
-            return peptide
-        return re.split(r"(?<=.)(?=[A-Z])", peptide)
-
     def matches_precursor(
-        self, seq: str | list[str], prec_mass: float, prec_charge: int, prec_tol: int = 50
+        self,
+        seq: str | list[str],
+        prec_mz: float,
+        prec_charge: int,
+        prec_tol: float = 50,
     ) -> tuple[bool, list[float]]:
         """Check if a sequence matches the precursor mass within some tolerance."""
-        seq_mass = self._mass(seq, charge=prec_charge)
+        seq_mz = self._mass(seq, charge=prec_charge)
         delta_mass_ppm = [
-            self._calc_mass_error(seq_mass, prec_mass, prec_charge, isotope)
+            self._calc_mass_error(seq_mz, prec_mz, prec_charge, isotope)
             for isotope in range(
                 self.isotope_error_range[0],
                 self.isotope_error_range[1] + 1,
@@ -61,7 +54,8 @@ class Metrics:
 
         return float(
             jiwer.wer(
-                [" ".join(x) for x in peptides_truth], [" ".join(x) for x in peptides_predicted]
+                [" ".join(x).replace("I", "L") for x in peptides_truth],
+                [" ".join(x).replace("I", "L") for x in peptides_predicted],
             )
         )
 
@@ -96,7 +90,8 @@ class Metrics:
             pred = self._split_peptide(predictions[i])
             conf = confidence[i]  # type: ignore
 
-            if pred[0] == "":
+            # Legacy for old regex, may be removed
+            if len(pred) > 0 and pred[0] == "":
                 pred = []
 
             n_targ_aa += len(targ)
@@ -140,6 +135,41 @@ class Metrics:
         side = top - height
         return (width * height).sum() + 0.5 * (side * width).sum()  # type: ignore
 
+    def find_recall_at_fdr(
+        self,
+        targs: list[str] | list[list[str]],
+        preds: list[str] | list[list[str]],
+        conf: list[float],
+        fdr: float = 0.05,
+    ) -> tuple[float, float]:
+        """Get model recall and threshold for specified FDR."""
+        conf = np.array(conf)
+        order = conf.argsort()[::-1]
+        matches = np.array(self._get_peptide_matches(targs, preds))
+        matches = matches[order]
+        conf = conf[order]
+
+        csum = np.cumsum(matches)
+        precision = csum / (np.arange(len(matches)) + 1)
+        recall = csum / len(matches)
+
+        # if precision never greater than FDR
+        if all(precision < (1 - fdr)):
+            # recall = 0, threshold = 1
+            return 0.0, 1.0
+
+        # bisect requires ascending order
+        idx = len(precision) - bisect.bisect_right(precision[::-1], 1 - fdr) - 1
+        return recall[idx], conf[idx]
+
+    def _split_sequences(self, seq: list[str] | list[list[str]]) -> list[list[str]]:
+        return [self.residue_set.tokenize(x) if isinstance(x, str) else x for x in seq]
+
+    def _split_peptide(self, peptide: str | list[str]) -> list[str]:
+        if not isinstance(peptide, str):
+            return peptide
+        return self.residue_set.tokenize(peptide)  # type: ignore
+
     def _get_pr_curve(
         self,
         targs: list[str] | list[list[str]],
@@ -150,9 +180,13 @@ class Metrics:
         x, y = [], []
         t_idx = np.argsort(np.array(conf))
         t_idx = t_idx[~conf[t_idx].isna()]
-        t_idx = list(t_idx[(t_idx.shape[0] * np.arange(N) / N).astype(int)]) + [t_idx[-1]]
+        t_idx = list(t_idx[(t_idx.shape[0] * np.arange(N) / N).astype(int)]) + [
+            t_idx[-1]
+        ]
         for t in conf[t_idx]:
-            _, _, recall, precision = self.compute_precision_recall(targs, preds, conf, t)
+            _, _, recall, precision = self.compute_precision_recall(
+                targs, preds, conf, t
+            )
             x.append(recall)
             y.append(precision)
         return x, y
@@ -160,20 +194,13 @@ class Metrics:
     def _mass(self, seq: str | list[str], charge: int | None = None) -> float:
         """Calculate a peptide's mass or m/z."""
         seq = self._split_peptide(seq)
-
-        calc_mass = sum([self.residues[aa] for aa in seq]) + H2O_MASS
-
-        if charge is not None:
-            # Neutral mass
-            calc_mass = (calc_mass / charge) + PROTON_MASS_AMU
-
-        return calc_mass
+        return self.residue_set.get_sequence_mass(seq, charge)  # type: ignore
 
     def _calc_mass_error(
         self, mz_theoretical: float, mz_measured: float, charge: int, isotope: int = 0
     ) -> float:
         """Calculate the mass error between theoretical and actual mz in ppm."""
-        return (
+        return float(
             (mz_theoretical - (mz_measured - isotope * CARBON_MASS_DELTA / charge))
             / mz_measured
             * 10**6
@@ -188,8 +215,8 @@ class Metrics:
         """Number of AA matches with novor method."""
         n = 0
 
-        mass_a: list[float] = [self.residues[x] for x in a]
-        mass_b: list[float] = [self.residues[x] for x in b]
+        mass_a: list[float] = [self.residue_set.get_mass(x) for x in a]
+        mass_b: list[float] = [self.residue_set.get_mass(x) for x in b]
         cum_mass_a = np.cumsum(mass_a)
         cum_mass_b = np.cumsum(mass_b)
 
@@ -199,8 +226,23 @@ class Metrics:
                 n += int(abs(mass_a[i] - mass_b[j]) < self.ind_mass_threshold)
                 i += 1
                 j += 1
-            elif cum_mass_a[i] > cum_mass_b[j]:
+            elif cum_mass_b[j] > cum_mass_a[i]:
                 i += 1
             else:
                 j += 1
         return n
+
+    def _get_peptide_matches(
+        self,
+        targets: list[str] | list[list[str]],
+        predictions: list[str] | list[list[str]],
+    ) -> list[bool]:
+        matches: list[bool] = []
+        for i in range(len(targets)):
+            targ = self._split_peptide(targets[i])
+            pred = self._split_peptide(predictions[i])
+            if len(pred) > 0 and pred[0] == "":
+                pred = []
+            n_match = self._novor_match(targ, pred)
+            matches.append(len(pred) == len(targ) and len(targ) == n_match)
+        return matches
