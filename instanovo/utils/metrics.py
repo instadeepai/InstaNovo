@@ -226,7 +226,6 @@ class Metrics:
                 n += int(abs(mass_a[i] - mass_b[j]) < self.ind_mass_threshold)
                 i += 1
                 j += 1
-            # TODO: Check this symbol
             elif cum_mass_b[j] > cum_mass_a[i]:
                 i += 1
             else:

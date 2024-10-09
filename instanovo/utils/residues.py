@@ -82,11 +82,11 @@ class ResidueSet:
             residue = self.residue_remapping[residue]
         return self.residue_masses[residue]
 
-    def get_sequence_mass(self, sequence: list[str], charge: int | None) -> float:
-        """Get the mass of a residue.
+    def get_sequence_mass(self, sequence: str, charge: int | None) -> float:
+        """Get the mass of a residue sequence.
 
         Args:
-            sequence (list[str]):
+            sequence (str):
                 The residue sequence whose mass to calculate.
                 All residues must be in the residue set or
                 this will raise a `KeyError`.

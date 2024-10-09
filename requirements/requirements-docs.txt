@@ -16,6 +16,7 @@ charset-normalizer==3.4.0
     #   requests
 click==8.1.7
     # via
+    #   -c requirements/requirements-dev.txt
     #   -c requirements/requirements.txt
     #   mkdocs
     #   mkdocstrings
@@ -42,6 +43,7 @@ idna==3.10
     #   requests
 jinja2==3.1.4
     # via
+    #   -c requirements/requirements-dev.txt
     #   -c requirements/requirements.txt
     #   mkdocs
     #   mkdocs-git-revision-date-plugin
@@ -57,6 +59,7 @@ markdown==3.7
     #   pymdown-extensions
 markupsafe==3.0.1
     # via
+    #   -c requirements/requirements-dev.txt
     #   -c requirements/requirements.txt
     #   jinja2
     #   mkdocs
@@ -116,7 +119,9 @@ platformdirs==4.3.6
     #   mkdocs-get-deps
     #   mkdocstrings
 pygments==2.18.0
-    # via mkdocs-material
+    # via
+    #   -c requirements/requirements-dev.txt
+    #   mkdocs-material
 pymdown-extensions==10.11.2
     # via
     #   -r requirements/requirements-docs.in

@@ -165,6 +165,7 @@ sync:
 
 ## Run all tests
 tests:
+	python -m instanovo.scripts.get_zenodo_record
 	$(PYTEST)
 
 ## Calculate the code coverage

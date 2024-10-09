@@ -20,8 +20,7 @@ SpectrumEmbedding = Float[torch.Tensor, "peak embedding"]
 Spectrum = Float[torch.Tensor, "peak 2"]
 SpectrumMask = Bool[torch.Tensor, " peak"]
 
-
-KnapsackChart = Bool[torch.Tensor, "mass residue"]
+KnapsackChart = Bool[np.ndarray, "mass residue"]
 
 Mass = Float[torch.Tensor, ""]
 DiscretizedMass = Integer[torch.Tensor, ""]

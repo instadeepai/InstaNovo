@@ -12,7 +12,7 @@ from pathlib import Path
 import mkdocs_gen_files
 
 # Folders for which we don't want to create code documentation but which can contain *.py files
-IGNORE_DIRS = ("docs_public", "docs", "tests", "scripts", "utils", ".venv")
+IGNORE_DIRS = ("build", "docs_public", "docs", "tests", "scripts", "utils", ".venv")
 
 
 def is_ignored_directory(module_path: Path) -> bool:

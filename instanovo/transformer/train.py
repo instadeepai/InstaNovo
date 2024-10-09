@@ -745,7 +745,6 @@ def train(
 
         # returns input if s3 disabled
         ckpt_path = s3.convert_to_s3_output(config["model_save_folder_path"])
-        print("ckpt path: ", ckpt_path)
 
         if s3._s3_enabled():
             callbacks = [

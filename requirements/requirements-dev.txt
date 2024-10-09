@@ -39,6 +39,10 @@ charset-normalizer==3.4.0
     # via
     #   -c requirements/requirements.txt
     #   requests
+click==8.1.7
+    # via
+    #   -c requirements/requirements.txt
+    #   genbadge
 coverage==7.6.2
     # via
     #   -r requirements/requirements-dev.in
@@ -47,6 +51,8 @@ crcmod==1.7
     # via gsutil
 cryptography==43.0.1
     # via pyopenssl
+defusedxml==0.7.1
+    # via genbadge
 distlib==0.3.8
     # via virtualenv
 execnet==2.1.1
@@ -59,6 +65,10 @@ filelock==3.16.1
     # via
     #   -c requirements/requirements.txt
     #   virtualenv
+flake8==7.1.1
+    # via flake8-html
+flake8-html==0.4.3
+    # via genbadge
 frozenlist==1.4.1
     # via
     #   -c requirements/requirements.txt
@@ -66,6 +76,8 @@ frozenlist==1.4.1
     #   aiosignal
 gcs-oauth2-boto-plugin==3.2
     # via gsutil
+genbadge==1.1.1
+    # via -r requirements/requirements-dev.in
 google-apitools==0.5.32
     # via gsutil
 google-auth==2.17.0
@@ -99,6 +111,17 @@ idna==3.10
     #   yarl
 iniconfig==2.0.0
     # via pytest
+jinja2==3.1.4
+    # via
+    #   -c requirements/requirements.txt
+    #   flake8-html
+    #   pytest-html
+markupsafe==3.0.1
+    # via
+    #   -c requirements/requirements.txt
+    #   jinja2
+mccabe==0.7.0
+    # via flake8
 monotonic==1.6
     # via
     #   -c requirements/requirements.txt
@@ -118,6 +141,10 @@ packaging==24.1
     # via
     #   -c requirements/requirements.txt
     #   pytest
+pillow==10.4.0
+    # via
+    #   -c requirements/requirements.txt
+    #   genbadge
 platformdirs==4.3.6
     # via virtualenv
 pluggy==1.5.0
@@ -139,8 +166,14 @@ pyasn1-modules==0.4.1
     # via
     #   google-auth
     #   oauth2client
+pycodestyle==2.12.1
+    # via flake8
 pycparser==2.22
     # via cffi
+pyflakes==3.2.0
+    # via flake8
+pygments==2.18.0
+    # via flake8-html
 pyopenssl==24.2.1
     # via
     #   gcs-oauth2-boto-plugin
@@ -154,12 +187,18 @@ pytest==8.3.3
     #   -r requirements/requirements-dev.in
     #   allure-pytest
     #   pytest-cov
+    #   pytest-html
+    #   pytest-metadata
     #   pytest-mock
     #   pytest-parallel
     #   pytest-random-order
     #   pytest-xdist
 pytest-cov==5.0.0
     # via -r requirements/requirements-dev.in
+pytest-html==4.1.1
+    # via -r requirements/requirements-dev.in
+pytest-metadata==3.1.1
+    # via pytest-html
 pytest-mock==3.14.0
     # via -r requirements/requirements-dev.in
 pytest-parallel==0.1.1
@@ -177,6 +216,7 @@ pyyaml==6.0.2
 requests==2.32.3
     # via
     #   -c requirements/requirements.txt
+    #   genbadge
     #   google-auth
 retry-decorator==1.1.1
     # via
@@ -187,6 +227,10 @@ rsa==4.7.2
     #   gcs-oauth2-boto-plugin
     #   google-auth
     #   oauth2client
+setuptools==75.1.0
+    # via
+    #   -c requirements/requirements.txt
+    #   genbadge
 six==1.16.0
     # via
     #   -c requirements/requirements.txt
