@@ -43,6 +43,21 @@ repos:
           - commit-msg
         args: ["ci", "build", "docs", "feat", "fix", "perf", "refactor", "style", "test", "exp"]
 
+  - repo: https://github.com/pre-commit/mirrors-prettier
+    rev: v3.0.0-alpha.4
+    hooks:
+      - id: prettier
+        args:
+          - --print-width=100
+          - --prose-wrap=always
+          - --tab-width=2
+
+  - repo: https://github.com/asottile/pyupgrade
+    rev: v3.15.0
+    hooks:
+      - id: pyupgrade
+        args:
+          - --py38-plus
 
   - repo: https://github.com/pycqa/pydocstyle
     rev: 6.3.0
@@ -52,13 +67,6 @@ repos:
         args:
           - --convention=google
           - --add-ignore=D100,D104,D105,D107,D417
-
-  - repo: https://github.com/alessandrojcm/commitlint-pre-commit-hook
-    rev: v9.16.0
-    hooks:
-      - id: commitlint
-        stages: [commit-msg]
-        additional_dependencies: ["@commitlint/config-conventional"]
 
   - repo: https://github.com/codespell-project/codespell
     rev: v2.3.0
@@ -85,8 +93,14 @@ repos:
       - id: ruff-format
 
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: 'v1.11.1'
+    rev: "v1.11.1"
     hooks:
       - id: mypy
         additional_dependencies: [types-requests, types-PyYAML]
-        args: [--ignore-missing-imports, "--exclude=(notebooks|tests)", --disable-error-code, "name-defined"]
+        args:
+          [
+            --ignore-missing-imports,
+            "--exclude=(notebooks|tests)",
+            --disable-error-code,
+            "name-defined",
+          ]

@@ -180,3 +180,6 @@ notebooks/predictions.csv
 outputs/
 secrets/
 lightning_logs/
+
+# Test resources
+tests/instanovo_test_resources*
