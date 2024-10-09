@@ -1,6 +1,0 @@
-defaults:
-  - instanovo_base
-  - _self_
-
-# Model parameters
-dropout: 0.1

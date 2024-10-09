@@ -1,9 +1,0 @@
-defaults:
-  - instanovo
-  - _self_
-  - override model: instanovo_8M
-
-learning_rate: 5e-4 #5e-4 5e-5
-train_batch_size: 512
-
-model_save_folder_path: "checkpoints/instanovo-tiny"
