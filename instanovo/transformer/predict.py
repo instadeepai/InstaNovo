@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import logging
 import time
 from typing import cast
@@ -12,7 +13,6 @@ from omegaconf import DictConfig
 from omegaconf import open_dict
 from torch.utils.data import DataLoader
 from tqdm import tqdm
-import os
 
 from instanovo.inference import BeamSearchDecoder
 from instanovo.inference import GreedyDecoder

@@ -6,17 +6,16 @@ import sys
 from typing import Any
 
 import numpy as np
+import pandas as pd
 import pytest
 import pytorch_lightning as ptl
 import torch
-from google.cloud import storage
-from hydra import compose
-from hydra import initialize
-from omegaconf import DictConfig
-from omegaconf import open_dict
+from hydra import compose, initialize
+from omegaconf import DictConfig, open_dict
 
+from instanovo.inference.knapsack_beam_search import KnapsackBeamSearchDecoder
 from instanovo.transformer.model import InstaNovo
-from instanovo.scripts.set_gcp_credentials import set_credentials
+from instanovo.transformer.predict import _setup_knapsack
 
 
 # Add the root directory to the PYTHONPATH
@@ -55,7 +54,7 @@ def checkpoints_dir() -> str:
 
 @pytest.fixture(scope="session")
 def instanovo_config() -> DictConfig:
-    """A pytest fixture to read in a Hydra config for the Instanovo model unit and integration test."""
+    """A pytest fixture to read in a Hydra config for the Instanovo model unit and integration tests."""
     with initialize(version_base=None, config_path="../configs"):
         cfg = compose(config_name="instanovo_unit_test")
 
@@ -71,28 +70,20 @@ def instanovo_config() -> DictConfig:
 
 
 @pytest.fixture(scope="session")
-def dir_paths() -> tuple[str, str]:
-    """A pytest fixture that returns the root and data directories for the unit and integration tests."""
-    root_dir = "./data/denovo_code_tests"
-    data_dir = os.path.join(root_dir, "example_data")
-    return root_dir, data_dir
+def instanovo_inference_config() -> DictConfig:
+    """A pytest fixture to read in a Hydra config for inference of the Instanovo model unit and integration tests."""
+    with initialize(version_base=None, config_path="../configs/inference"):
+        cfg = compose(config_name="unit_test")
+
+    return cfg
 
 
 @pytest.fixture(scope="session")
-def _get_gcp_test_bucket(dir_paths: tuple[str, str]) -> None:
-    """A pytest fixture to download the GCP data files and model checkpoint for the Instanovo model unit and integration test. A train_test folder is created for the saving of additional model checkpoints created in the model training test."""
-    set_credentials()
-    storage_client = storage.Client()
-
-    root_dir, data_dir = dir_paths
-    os.makedirs(data_dir, exist_ok=True)
-    os.makedirs(os.path.join(root_dir, "train_test"), exist_ok=True)
-
-    bucket = storage_client.get_bucket("denovo_code_tests")
-
-    blobs = bucket.list_blobs()
-    for blob in blobs:
-        blob.download_to_filename(os.path.join(root_dir, f"{blob.name}"))
+def dir_paths() -> tuple[str, str]:
+    """A pytest fixture that returns the root and data directories for the unit and integration tests."""
+    root_dir = "./tests/instanovo_test_resources"
+    data_dir = os.path.join(root_dir, "example_data")
+    return root_dir, data_dir
 
 
 @pytest.fixture(scope="session")
@@ -104,7 +95,7 @@ def instanovo_checkpoint(dir_paths: tuple[str, str]) -> str:
 
 @pytest.fixture(scope="session")
 def instanovo_model(
-    instanovo_checkpoint: str, _get_gcp_test_bucket: None
+    instanovo_checkpoint: str,
 ) -> tuple[Any, Any]:
     """A pytest fixture that returns the InstaNovo model and config used for unit and integration tests."""
     model, config = InstaNovo.load(path=instanovo_checkpoint)
@@ -114,5 +105,43 @@ def instanovo_model(
 @pytest.fixture(scope="session")
 def residue_set(instanovo_model: tuple[Any, Any]) -> Any:
     """A pytest fixture to return the model's residue set used for unit and integration tests."""
-    model, config = instanovo_model
+    model, _ = instanovo_model
     return model.residue_set
+
+
+@pytest.fixture(scope="session")
+def instanovo_output(dir_paths: tuple[str, str]) -> pd.DataFrame:
+    """A pytest fixture to load the pre-computed InstaNovo model predictions for unit and integration tests."""
+    root_dir, _ = dir_paths
+    return pd.read_csv(os.path.join(root_dir, "predictions.csv"))
+
+
+@pytest.fixture(scope="session")
+def knapsack_dir(dir_paths: tuple[str, str]) -> str:
+    """A pytest fixture to create and provide the absolute path of a 'knapsack' directory within the checkpoints directory for storing test artifacts."""
+    root_dir, _ = dir_paths
+    knapsack_dir = os.path.join(root_dir, "example_knapsack")
+    return os.path.abspath(knapsack_dir)
+
+
+@pytest.fixture(scope="session")
+def setup_knapsack_decoder(
+    instanovo_model: tuple[Any, Any], knapsack_dir: str
+) -> KnapsackBeamSearchDecoder:
+    """A pytest fixture to create a Knapsack object."""
+    model, _ = instanovo_model
+
+    if os.path.exists(knapsack_dir):
+        decoder = KnapsackBeamSearchDecoder.from_file(model=model, path=knapsack_dir)
+        print("Loaded knapsack decoder.")
+
+    else:
+        knapsack = _setup_knapsack(model)
+
+        knapsack.save(path=knapsack_dir)
+        print("Created and saved knapsack.")
+
+        decoder = KnapsackBeamSearchDecoder(model, knapsack)
+        print("Loaded knapsack decoder.")
+
+    return decoder

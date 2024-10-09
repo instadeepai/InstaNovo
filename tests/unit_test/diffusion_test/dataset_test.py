@@ -1,20 +1,22 @@
 from __future__ import annotations
 
 import os
+from typing import Any
 
 import pandas as pd
 import polars as pl
-import pytest
 import torch
+from omegaconf import DictConfig
 
 from instanovo.diffusion.dataset import AnnotatedPolarsSpectrumDataset
 from instanovo.diffusion.dataset import AnnotatedSpectrumBatch
+from instanovo.diffusion.dataset import collate_batches
 from instanovo.diffusion.dataset import PolarsSpectrumDataset
 from instanovo.diffusion.dataset import SpectrumBatch
 
 
 def test_spectrum_batch() -> None:
-    """Test spectrum batch function."""
+    """Test spectrum batch initialisation."""
     spectra = torch.tensor(
         [[[1.0, 1.0], [3.0, 0.7], [2.0, 0.75]], [[4.0, 0.3], [14.0, 0.35], [2.0, 0.9]]]
     )
@@ -38,7 +40,7 @@ def test_spectrum_batch() -> None:
 
 
 def test_annotated_spectrum_batch() -> None:
-    """Test annotated spectrum batch function."""
+    """Test annotated spectrum batch initialisation."""
     spectra = torch.tensor(
         [[[1.0, 1.0], [3.0, 0.7], [2.0, 0.75]], [[4.0, 0.3], [14.0, 0.35], [2.0, 0.9]]]
     )
@@ -67,14 +69,9 @@ def test_annotated_spectrum_batch() -> None:
     assert torch.equal(asb.peptide_padding_mask, peptide_padding_mask)
 
 
-@pytest.mark.skipif(
-    os.getenv("GOOGLE_APPLICATION_CREDENTIALS") is None,
-    reason="Google application credentials are required to run this test.",
-)
-@pytest.mark.usefixtures("_get_gcp_test_bucket")
 def test_polar_spectrum(dir_paths: tuple[str, str]) -> None:
-    """Test polars sepectrum dataset."""
-    root_dir, data_dir = dir_paths
+    """Test polars spectrum dataset."""
+    _, data_dir = dir_paths
     diffusion_dataset = PolarsSpectrumDataset(
         pl.read_ipc(os.path.join(data_dir, "train.ipc"))
     )
@@ -105,13 +102,8 @@ def test_polar_spectrum(dir_paths: tuple[str, str]) -> None:
     assert precursor_charge == 3.0
 
 
-@pytest.mark.skipif(
-    os.getenv("GOOGLE_APPLICATION_CREDENTIALS") is None,
-    reason="Google application credentials are required to run this test.",
-)
-@pytest.mark.usefixtures("_get_gcp_test_bucket")
 def test_ann_polar_spectrum(dir_paths: tuple[str, str]) -> None:
-    """Test annotated polars sepectrum dataset."""
+    """Test annotated polars spectrum dataset."""
     root_dir, data_dir = dir_paths
     df = pd.read_csv(os.path.join(root_dir, "predictions.csv"))
     preds = df["preds"].tolist()
@@ -144,3 +136,90 @@ def test_ann_polar_spectrum(dir_paths: tuple[str, str]) -> None:
     assert precursor_mz == 27.374142666666668
     assert precursor_charge == 3.0
     assert peptide == "DCECAB"
+
+
+def test_collate_batches(residue_set: Any, instanovo_config: DictConfig) -> None:
+    """Test batch collation function."""
+    spectra = torch.tensor(
+        [[[1.0, 1.0], [3.0, 0.7], [2.0, 0.75]], [[4.0, 0.3], [14.0, 0.35], [2.0, 0.9]]]
+    )
+    precursors_mz = [100.0, 200.0]
+    precursors_charge = [1, 2]
+    peptides = ["ABCD", "EDAB"]
+
+    collate_fn = collate_batches(
+        residues=residue_set,
+        max_length=instanovo_config["max_length"],
+        time_steps=10,
+        annotated=True,
+    )
+
+    batch = [
+        (spectra[i], precursors_mz[i], precursors_charge[i], peptides[i])
+        for i in range(len(precursors_mz))
+    ]
+
+    output = collate_fn(batch)
+
+    expected_output = AnnotatedSpectrumBatch(
+        spectra=torch.tensor(
+            [
+                [[1.0000, 1.0000], [3.0000, 0.7000], [2.0000, 0.7500]],
+                [[4.0000, 0.3000], [14.0000, 0.3500], [2.0000, 0.9000]],
+            ]
+        ),
+        spectra_padding_mask=torch.tensor(
+            [[False, False, False], [False, False, False]]
+        ),
+        precursors=torch.tensor(
+            [[98.9927, 1.0000, 100.0000], [397.9854, 2.0000, 200.0000]]
+        ),
+        peptides=torch.tensor([[3, 4, 5, 6, 0, 0], [7, 6, 3, 4, 0, 0]]),
+        peptide_padding_mask=torch.tensor(
+            [
+                [False, False, False, False, True, True],
+                [False, False, False, False, True, True],
+            ]
+        ),
+    )
+
+    assert isinstance(output, AnnotatedSpectrumBatch)
+    torch.equal(output.spectra, expected_output.spectra)
+    torch.equal(output.spectra_padding_mask, expected_output.spectra_padding_mask)
+    torch.equal(output.precursors, expected_output.precursors)
+    torch.equal(output.peptides, expected_output.peptides)
+    torch.equal(output.peptide_padding_mask, expected_output.peptide_padding_mask)
+
+    collate_fn = collate_batches(
+        residues=residue_set,
+        max_length=instanovo_config["max_length"],
+        time_steps=10,
+        annotated=False,
+    )
+
+    batch = [
+        (spectra[i], precursors_mz[i], precursors_charge[i])
+        for i in range(len(precursors_mz))
+    ]
+
+    output = collate_fn(batch)
+
+    expected_output = SpectrumBatch(
+        spectra=torch.tensor(
+            [
+                [[1.0000, 1.0000], [3.0000, 0.7000], [2.0000, 0.7500]],
+                [[4.0000, 0.3000], [14.0000, 0.3500], [2.0000, 0.9000]],
+            ]
+        ),
+        spectra_padding_mask=torch.tensor(
+            [[False, False, False], [False, False, False]]
+        ),
+        precursors=torch.tensor(
+            [[98.9927, 1.0000, 100.0000], [397.9854, 2.0000, 200.0000]]
+        ),
+    )
+
+    assert isinstance(output, SpectrumBatch)
+    torch.equal(output.spectra, expected_output.spectra)
+    torch.equal(output.spectra_padding_mask, expected_output.spectra_padding_mask)
+    torch.equal(output.precursors, expected_output.precursors)

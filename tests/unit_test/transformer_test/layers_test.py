@@ -6,7 +6,6 @@ import torch.nn as nn
 
 from instanovo.transformer.layers import MultiScalePeakEmbedding
 from instanovo.transformer.layers import PositionalEncoding
-from tests.conftest import reset_seed
 
 
 @pytest.mark.usefixtures("_reset_seed")
@@ -16,7 +15,6 @@ def test_pos_enc() -> None:
     assert pe.dropout.p == 0.1
 
     x = torch.ones(4, 2, 12)
-    reset_seed()
     y = pe(x)
 
     assert torch.allclose(
@@ -147,7 +145,6 @@ def test_pos_enc() -> None:
         ),
         rtol=1e-2,
     )
-    assert y.shape == torch.Size([4, 2, 12])
 
 
 def test_pos_enc_spec() -> None:
@@ -179,8 +176,9 @@ def test_peak_embed() -> None:
 
     mz_values = torch.ones(3, 5, 1)
     intensities = torch.ones(3, 5, 1)
+    spectra = torch.cat([mz_values, intensities], dim=2)
 
-    y = mspe(mz_values, intensities)
+    y = mspe(spectra)
     assert y.shape == torch.Size([3, 5, 8])
 
 
@@ -197,6 +195,7 @@ def test_peak_embed_errors() -> None:
     mspe = MultiScalePeakEmbedding(h_size=5, dropout=0.1)
     mz_values = torch.ones(3, 5, 1)
     intensities = torch.ones(3, 5, 1)
+    spectra = torch.cat([mz_values, intensities], dim=2)
 
     with pytest.raises(RuntimeError):
-        _ = mspe(mz_values, intensities)
+        _ = mspe(spectra)

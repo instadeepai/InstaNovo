@@ -59,14 +59,12 @@ def register_tb() -> bool:
     """Register s3 filesystem to tensorboard."""
     if not _s3_enabled():
         return False
-
     fs = _REGISTERED_FILESYSTEMS["s3"]
     if fs._s3_endpoint is None:
         # Set custom S3 endpoint explicitly. Not sure why this isn't picked up here:
         # https://github.com/tensorflow/tensorboard/blob/153cc747fdbeca3545c81947d4880d139a185c52/tensorboard/compat/tensorflow_stub/io/gfile.py#L227
         fs._s3_endpoint = os.environ["S3_ENDPOINT"]
     register_filesystem("s3", fs)
-
     return True
 
 

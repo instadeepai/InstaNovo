@@ -46,10 +46,10 @@ class Decodable(metaclass=ABCMeta):
         """Initialize the search state.
 
         Args:
-            spectra (torch.FloatTensor):
+            x (torch.FloatTensor):
                 The spectra to be sequenced.
 
-            precursors (torch.FloatTensor[batch size, 3]):
+            p (torch.FloatTensor[batch size, 3]):
                 The precursor mass, charge and mass-to-charge ratio.
         """
         pass
@@ -65,11 +65,11 @@ class Decodable(metaclass=ABCMeta):
         """Generate and score the next set of candidates.
 
         Args:
-            sequences (torch.LongTensor):
+            y (torch.LongTensor):
                 Partial residue sequences in generated
                 the course of decoding.
 
-            precursor_mass_charge (torch.FloatTensor[batch size, 3]):
+            p (torch.FloatTensor[batch size, 3]):
                 The precursor mass, charge and mass-to-charge ratio.
         """
         pass

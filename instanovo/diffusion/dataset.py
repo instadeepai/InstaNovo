@@ -84,7 +84,8 @@ class AnnotatedPolarsSpectrumDataset(PolarsSpectrumDataset):
 def collate_batches(
     residues: ResidueSet, max_length: int, time_steps: int, annotated: bool
 ) -> Callable[
-    [list[tuple[Spectrum, float, int, str]]], SpectrumBatch | AnnotatedSpectrumBatch
+    [list[tuple[Spectrum, float, int, str]] | list[tuple[Spectrum, float, int]]],
+    SpectrumBatch | AnnotatedSpectrumBatch,
 ]:
     """Get batch collation function for given residue set, maximum length and time steps.
 
@@ -144,7 +145,9 @@ def collate_batches(
             peptides = torch.stack(
                 [
                     residues.encode(
-                        residues.tokenize(sequence)[:max_length], pad_length=max_length
+                        residues.tokenize(sequence)[:max_length],
+                        pad_length=max_length,
+                        return_tensor="pt",
                     )
                     for sequence in peptides
                 ]

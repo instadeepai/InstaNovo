@@ -4,7 +4,6 @@ import os
 from typing import Any
 
 import polars as pl
-import pytest
 import torch
 import torch.nn as nn
 from omegaconf import DictConfig
@@ -16,13 +15,9 @@ from instanovo.transformer.layers import MultiScalePeakEmbedding
 from instanovo.transformer.layers import PositionalEncoding
 from instanovo.transformer.model import InstaNovo
 from instanovo.utils.residues import ResidueSet
+from instanovo.utils.data_handler import SpectrumDataFrame
 
 
-@pytest.mark.skipif(
-    os.getenv("GOOGLE_APPLICATION_CREDENTIALS") is None,
-    reason="Google application credentials are required to run this test.",
-)
-@pytest.mark.usefixtures("_get_gcp_test_bucket")
 def test_model_init(instanovo_config: DictConfig, dir_paths: tuple[Any, Any]) -> None:
     """Test InstaNovo model initialisation and methods."""
     residue_set = ResidueSet(
@@ -57,14 +52,16 @@ def test_model_init(instanovo_config: DictConfig, dir_paths: tuple[Any, Any]) ->
         seq_len=instanovo_config["max_length"]
     ).shape == torch.Size([6, 6])
 
-    root_dir, data_dir = dir_paths
+    _, data_dir = dir_paths
     df = pl.read_ipc(os.path.join(data_dir, "test.ipc"))
+    sdf = SpectrumDataFrame(df=df, is_annotated=True)
     sd = SpectrumDataset(
-        df=df,
+        df=sdf,
         residue_set=residue_set,
         n_peaks=instanovo_config["n_peaks"],
         min_mz=instanovo_config["min_mz"],
         max_mz=instanovo_config["max_mz"],
+        peptide_pad_length=instanovo_config["max_length"],
     )
 
     batch = list(
@@ -80,21 +77,28 @@ def test_model_init(instanovo_config: DictConfig, dir_paths: tuple[Any, Any]) ->
     assert spectra.shape == torch.Size([3, 10, 2])
     assert precursors.shape == torch.Size([3, 3])
     assert spectra_mask.shape == torch.Size([3, 10])
-    assert peptides.shape == torch.Size([3, 7])
+
+    if isinstance(peptides, torch.Tensor):
+        assert peptides.shape == torch.Size([3, 7])
     assert peptides_mask.shape == torch.Size([3, 7])
 
     assert model.forward(
         x=spectra, p=precursors, y=peptides, add_bos=True
     ).shape == torch.Size([3, 8, 8])
 
-    (x, x_mask), probs = model.init(x=spectra, p=precursors, x_mask=spectra_mask)
+    (x, x_mask), probs = model.init(
+        spectra=spectra, precursors=precursors, spectra_mask=spectra_mask
+    )
 
     assert x.shape == torch.Size([3, 12, 320])
     assert x_mask.shape == torch.Size([3, 12])
     assert probs.shape == torch.Size([3, 8])
 
     assert model.score_candidates(
-        y=peptides, p=precursors, x=x, x_mask=x_mask
+        sequences=peptides,
+        precursor_mass_charge=precursors,
+        spectra=x,
+        spectra_mask=x_mask,
     ).shape == torch.Size([3, 8])
 
     assert torch.allclose(

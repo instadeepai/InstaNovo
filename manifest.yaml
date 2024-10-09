@@ -10,12 +10,12 @@ builder:
 spec:
   operator: tf
   image: instanovo
+  command: make set-gcp-credentials && make tests && make coverage
   # command: make set-gcp-credentials && make download_validation && make download_dataset_v2_ipc && make validate_instanovo
-  # command: make set-gcp-credentials && make tests && make coverage
   # command: make set-gcp-credentials && make train_acpt
   # command: make set-gcp-credentials && make finetune_on_hcpt
   # command: make set-gcp-credentials && make finetune_on_phospho
-  command: make set-gcp-credentials && make train_extended
+  # command: make set-gcp-credentials && make train_extended
   # command: make set-gcp-credentials && make eval_species_zero_shot
 
   tensorboard: # optional, disabled by default

@@ -83,7 +83,6 @@ def convert_mgf_ipc(
         for spectrum in exp:
             scan_number += 1
             meta = spectrum.metadata
-
             peptide = ""
             unmod_peptide = ""
             if "peptide_sequence" in meta:
@@ -102,7 +101,7 @@ def convert_mgf_ipc(
                     scan_number,
                     unmod_peptide,
                     peptide if not use_old_schema else f"_{peptide}_",
-                    meta["pepmass"][0],
+                    meta["precursor_mz"] * meta["charge"],
                     meta["precursor_mz"],
                     meta["charge"],
                     meta["retention_time"],

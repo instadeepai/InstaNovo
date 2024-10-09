@@ -70,6 +70,7 @@ WORKDIR $HOME_DIRECTORY
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         libaio-dev \
+        libglib2.0-0 \
         curl \
         git \
         make \

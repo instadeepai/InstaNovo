@@ -43,12 +43,12 @@ class KnapsackBeamSearchDecoder(BeamSearchDecoder):
     # flake8: noqa: CR001
     def prefilter_items(
         self,
-        log_probabilities: Float[ResidueLogProbabilities, "batch beam"],
-        remaining_masses: Integer[DiscretizedMass, "batch beam"],
+        log_probabilities: Float[ResidueLogProbabilities, "batch beam residue"],
+        remaining_masses: Integer[DiscretizedMass, "batch beam residue"],
         beam_masses: Integer[DiscretizedMass, "batch beam"],
         mass_buffer: Integer[DiscretizedMass, "batch 1 1"],
         max_isotope: int,
-    ) -> Float[ResidueLogProbabilities, "batch beam"]:
+    ) -> Float[ResidueLogProbabilities, "batch beam residue"]:
         """Filter illegal next token by setting the corresponding log probabilities to `-inf`.
 
         Args:
@@ -57,7 +57,7 @@ class KnapsackBeamSearchDecoder(BeamSearchDecoder):
                 item on the beam and each potential next residue
                 for batch spectrum in the batch.
 
-            remaining_masses (torch.LongTensor[batch size, beam size]):
+            remaining_masses (torch.LongTensor[batch size, beam size, number of residues]):
 
             mass_buffer (torch.LongTensor[batch size, 1, 1]): _description_
 
@@ -85,7 +85,6 @@ class KnapsackBeamSearchDecoder(BeamSearchDecoder):
                         valid_residue = self.chart[
                             beam_lower_bound : (beam_upper_bound + 1), residue
                         ].any()
-
                         if max_isotope > 0:
                             for num_nucleons in range(1, max_isotope + 1):
                                 local_valid_residue = self.chart[

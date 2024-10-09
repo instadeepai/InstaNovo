@@ -13,8 +13,7 @@ logger.setLevel(logging.INFO)
 def update_ipc(source: Path, target: Path) -> pl.DataFrame:
     """Update .ipc file to new schema format."""
     if not source.suffix.lower().endswith("ipc"):
-        logger.info("Incorrect file type - .ipc file required.")
-        return
+        raise ValueError("Incorrect file type - .ipc file required.")
 
     logger.info(f"Processing {source}.")
 

@@ -37,8 +37,7 @@ def test_mass_dict_contents() -> None:
         "P": 97.052764,
         "V": 99.068414,
         "T": 101.047670,
-        "C(+57.02)": 160.030649,  # 103.009185 + 57.021464
-        # "C": 160.030649,  # C+57.021 V1
+        "C(+57.02)": 160.030649,
         "L": 113.084064,
         "I": 113.084064,
         "N": 114.042927,
@@ -52,15 +51,14 @@ def test_mass_dict_contents() -> None:
         "R": 156.101111,
         "Y": 163.063329,
         "W": 186.079313,
-        "M(+15.99)": 147.035400,  # Met oxidation:   131.040485 + 15.994915
-        # "M(ox)": 147.035400,  # Met oxidation:   131.040485 + 15.994915 V1
-        "N(+.98)": 115.026943,  # Asn deamidation: 114.042927 +  0.984016
-        "Q(+.98)": 129.042594,  # Gln deamidation: 128.058578 +  0.984016
+        "M(+15.99)": 147.035400,
+        "N(+.98)": 115.026943,
+        "Q(+.98)": 129.042594,
     }
 
 
 def test_i2s() -> None:
-    """Test i2s type and contents."""
+    """Test i2s types and contents."""
     assert isinstance(i2s, list)
     assert all(isinstance(x, str) for x in i2s)
     assert i2s == [

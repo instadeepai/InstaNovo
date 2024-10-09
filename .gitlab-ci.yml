@@ -18,7 +18,7 @@ stages:
   - deploy
 
 variables:
-  MIN_COVERAGE: 23
+  MIN_COVERAGE: 50
 
 sast:
   stage: sast
@@ -27,6 +27,7 @@ sast:
     - shared-runner
 include:
   - template: Security/SAST.gitlab-ci.yml
+
 precommit:
   stage: precommit
   tags:
@@ -39,23 +40,22 @@ precommit:
   script:
     - pre-commit run --all-files -c .pre-commit-config.yaml # This won't run the check on commit msg, we need to add one step
     - echo $(git log -1 --pretty=%s --no-merges) > current_commit_msg
-    # - pre-commit run --hook-stage commit-msg --commit-msg-filename current_commit_msg -c
-    #   .pre-commit-config.yaml
+    - pre-commit run --hook-stage commit-msg --commit-msg-filename current_commit_msg -c .pre-commit-config.yaml
 
 run_tests:
   stage: test
-  cache:
-    - key:
-        files:
-          - instanovo_yeast.pt
-      paths:
-        - checkpoints/
-    - key:
-        files:
-          - chart.npy
-          - masses.npy
-      paths:
-        - checkpoints/knapsack/
+# cache:
+#   - key:
+#       files:
+#         - instanovo_yeast.pt
+#     paths:
+#       - checkpoints/
+#   - key:
+#       files:
+#         - chart.npy
+#         - masses.npy
+#     paths:
+#       - checkpoints/knapsack/
   tags:
     - kao-products
     - shared-runner
@@ -70,14 +70,21 @@ run_tests:
     - /usr/local/bin/python -m pip install --upgrade uv
     - uv pip install --system -r requirements/requirements.txt
     - uv pip install --system -r requirements/requirements-dev.txt
+    - python -m instanovo.scripts.get_zenodo_record
   script:
     - pytest -v --alluredir=allure_results  --cov-report=html --cov  --cov-config=.coveragerc
       --random-order
+    # - pytest -v --alluredir=allure_results  --cov-report=html --cov  --cov-config=.coveragerc
+    #   --random-order --junitxml=reports/junit/junit.xml --html=reports/junit/report.html
   after_script:
+    # - genbadge tests -o ./reports/junit/tests-badge.svg
     - coverage report -m
     - coverage json
+    # - coverage xml -o ./reports/coverage/coverage.xml
+    # - coverage html -d ./reports/coverage/htmlcov
+    # - genbadge coverage -o ./reports/coverage/coverage-badge.svg
   coverage: "/TOTAL.+ ([0-9]{1,3}%)/"
-  allow_failure: true
+  allow_failure: false
 
 minimum_coverage:
   stage: minimum_coverage
@@ -131,43 +138,45 @@ generate_report:
     expire_in: 1 day
   needs:
     - job: run_tests
-# TODO: fix these again
-# make_docs:
-#   stage: make_docs
-#   tags:
-#      - kao-products
-#      - shared-runner
-#   before_script:
-#     - /usr/local/bin/python -m pip install --upgrade uv
-#     - uv pip install --system -r requirements/requirements-docs.txt
-#     - git config --global --add safe.directory "$(dirname "$(pwd)")"
-#   script:
-#     - rm -rf docs/reference
-#     - python ./docs/gen_ref_nav.py
-#     - mkdocs build --verbose --site-dir docs_public
-#   artifacts:
-#     paths:
-#       - docs_public
-#
-# pages:
-#   stage: deploy
-#   tags:
-#      - kao-products
-#      - shared-runner
-#   before_script:
-#     - /usr/local/bin/python -m pip install --upgrade uv
-#     - uv pip install --system -r requirements/requirements-docs.txt
-#     - git config --global --add safe.directory "$(dirname "$(pwd)")"
-#   script:
-#     - mkdocs build --verbose
-#     - mkdir -p public/allure
-#     - cp -r ./allure-report/* public/allure
-#     - mkdir -p public/coverage
-#     - cp -r ./coverage/* public/coverage
-#   artifacts:
-#     paths:
-#       - public
-#     expire_in: never
-#   needs:
-#     - job: generate_report
-#     - job: run_tests
+
+make_docs:
+  stage: make_docs
+  tags:
+    - kao-products
+    - shared-runner
+  before_script:
+    - /usr/local/bin/python -m pip install --upgrade uv
+    - uv pip install --system -r requirements/requirements-docs.txt
+    - uv pip install --system .
+    - git config --global --add safe.directory "$(dirname "$(pwd)")"
+  script:
+    - rm -rf docs/reference
+    - python ./docs/gen_ref_nav.py
+    - mkdocs build --verbose --site-dir docs_public
+  artifacts:
+    paths:
+      - docs_public
+
+pages:
+  stage: deploy
+  tags:
+    - kao-products
+    - shared-runner
+  before_script:
+    - /usr/local/bin/python -m pip install --upgrade uv
+    - uv pip install --system -r requirements/requirements-docs.txt
+    - uv pip install --system .
+    - git config --global --add safe.directory "$(dirname "$(pwd)")"
+  script:
+    - mkdocs build --verbose
+    - mkdir -p public/allure
+    - cp -r ./allure-report/* public/allure
+    - mkdir -p public/coverage
+    - cp -r ./coverage/* public/coverage
+  artifacts:
+    paths:
+      - public
+    expire_in: never
+  needs:
+    - job: generate_report
+    - job: run_tests

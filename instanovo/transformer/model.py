@@ -42,7 +42,7 @@ class InstaNovo(nn.Module, Decodable):
         n_layers: int = 9,
         dropout: float = 0.1,
         max_charge: int = 5,
-        use_flash_attention: bool = True,
+        use_flash_attention: bool = False,
         conv_peak_encoder: bool = False,
     ) -> None:
         super().__init__()
