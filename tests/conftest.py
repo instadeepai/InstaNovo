@@ -55,7 +55,7 @@ def checkpoints_dir() -> str:
 @pytest.fixture(scope="session")
 def instanovo_config() -> DictConfig:
     """A pytest fixture to read in a Hydra config for the Instanovo model unit and integration tests."""
-    with initialize(version_base=None, config_path="../configs"):
+    with initialize(version_base=None, config_path="../instanovo/configs"):
         cfg = compose(config_name="instanovo_unit_test")
 
     sub_configs_list = ["model", "dataset", "residues"]
@@ -72,7 +72,7 @@ def instanovo_config() -> DictConfig:
 @pytest.fixture(scope="session")
 def instanovo_inference_config() -> DictConfig:
     """A pytest fixture to read in a Hydra config for inference of the Instanovo model unit and integration tests."""
-    with initialize(version_base=None, config_path="../configs/inference"):
+    with initialize(version_base=None, config_path="../instanovo/configs/inference"):
         cfg = compose(config_name="unit_test")
 
     return cfg
