@@ -355,7 +355,7 @@ def get_preds(
             s3.upload(output_path, s3.convert_to_s3_output(output_path))
 
 
-@hydra.main(config_path=CONFIG_PATH, version_base=None, config_name="default")
+@hydra.main(config_path=str(CONFIG_PATH), version_base=None, config_name="default")
 def main(config: DictConfig) -> None:
     """Predict with the model."""
     logger.info("Initializing inference.")
