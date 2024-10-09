@@ -171,7 +171,6 @@ docs/reference
 coverage/
 checkpoints/
 data/
-docs/
 docs_public/
 logs/
 mlruns/
