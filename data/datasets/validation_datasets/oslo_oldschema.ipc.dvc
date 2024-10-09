@@ -1,5 +1,0 @@
-outs:
-- md5: ba0645756f841776bd254933f4433e96
-  size: 1167900514
-  hash: md5
-  path: oslo_oldschema.ipc

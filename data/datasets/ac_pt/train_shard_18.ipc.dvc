@@ -1,5 +1,0 @@
-outs:
-- md5: abb9de1254a62f8d1f7369cb1c9c2339
-  size: 4171865296
-  hash: md5
-  path: train_shard_18.ipc
