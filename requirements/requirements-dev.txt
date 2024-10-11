@@ -47,6 +47,8 @@ arrow==1.3.0
     # via
     #   -c requirements/requirements.txt
     #   isoduration
+asttokens==2.4.1
+    # via stack-data
 async-timeout==4.0.3
     # via
     #   -c requirements/requirements.txt
@@ -99,6 +101,8 @@ click==8.1.7
     #   instanovo
     #   jiwer
     #   neptune
+comm==0.2.2
+    # via ipykernel
 contourpy==1.3.0
     # via
     #   -c requirements/requirements.txt
@@ -119,6 +123,10 @@ datasets==3.0.1
     # via
     #   -c requirements/requirements.txt
     #   instanovo
+debugpy==1.8.7
+    # via ipykernel
+decorator==5.1.1
+    # via ipython
 defusedxml==0.7.1
     # via genbadge
 deprecated==1.2.14
@@ -133,9 +141,13 @@ dill==0.3.8
 distlib==0.3.9
     # via virtualenv
 exceptiongroup==1.2.2
-    # via pytest
+    # via
+    #   ipython
+    #   pytest
 execnet==2.1.1
     # via pytest-xdist
+executing==2.1.0
+    # via stack-data
 fasteners==0.19
     # via
     #   google-apitools
@@ -245,6 +257,10 @@ iniconfig==2.0.0
     # via pytest
 instanovo==1.0.0
     # via -r requirements/requirements-dev.in
+ipykernel==6.29.5
+    # via -r requirements/requirements-dev.in
+ipython==8.28.0
+    # via ipykernel
 isoduration==20.11.0
     # via
     #   -c requirements/requirements.txt
@@ -253,6 +269,8 @@ jaxtyping==0.2.34
     # via
     #   -c requirements/requirements.txt
     #   instanovo
+jedi==0.19.1
+    # via ipython
 jinja2==3.1.4
     # via
     #   -c requirements/requirements.txt
@@ -289,6 +307,12 @@ jsonschema-specifications==2024.10.1
     # via
     #   -c requirements/requirements.txt
     #   jsonschema
+jupyter-client==8.6.3
+    # via ipykernel
+jupyter-core==5.7.2
+    # via
+    #   ipykernel
+    #   jupyter-client
 kiwisolver==1.4.7
     # via
     #   -c requirements/requirements.txt
@@ -329,6 +353,10 @@ matplotlib==3.9.2
     #   matchms
     #   pyopenms
     #   spectrum-utils
+matplotlib-inline==0.1.7
+    # via
+    #   ipykernel
+    #   ipython
 mccabe==0.7.0
     # via flake8
 monotonic==1.6
@@ -358,6 +386,8 @@ neptune==1.12.0
     # via
     #   -c requirements/requirements.txt
     #   instanovo
+nest-asyncio==1.6.0
+    # via ipykernel
 networkx==3.4
     # via
     #   -c requirements/requirements.txt
@@ -462,6 +492,7 @@ packaging==24.1
     #   datasets
     #   huggingface-hub
     #   hydra-core
+    #   ipykernel
     #   lightning-utilities
     #   matplotlib
     #   neptune
@@ -477,6 +508,10 @@ pandas==2.2.3
     #   matchms
     #   neptune
     #   pyopenms
+parso==0.8.4
+    # via jedi
+pexpect==4.9.0
+    # via ipython
 pickydict==0.5.0
     # via
     #   -c requirements/requirements.txt
@@ -490,7 +525,9 @@ pillow==10.4.0
     #   neptune
     #   rdkit
 platformdirs==4.3.6
-    # via virtualenv
+    # via
+    #   jupyter-core
+    #   virtualenv
 pluggy==1.5.0
     # via
     #   allure-python-commons
@@ -501,6 +538,8 @@ polars==1.9.0
     #   instanovo
 pre-commit==4.0.1
     # via -r requirements/requirements-dev.in
+prompt-toolkit==3.0.48
+    # via ipython
 propcache==0.2.0
     # via
     #   -c requirements/requirements.txt
@@ -512,11 +551,16 @@ protobuf==5.28.2
 psutil==6.0.0
     # via
     #   -c requirements/requirements.txt
+    #   ipykernel
     #   neptune
+ptyprocess==0.7.0
+    # via pexpect
 pubchempy==1.0.4
     # via
     #   -c requirements/requirements.txt
     #   matchms
+pure-eval==0.2.3
+    # via stack-data
 pyarrow==17.0.0
     # via
     #   -c requirements/requirements.txt
@@ -537,7 +581,9 @@ pycparser==2.22
 pyflakes==3.2.0
     # via flake8
 pygments==2.18.0
-    # via flake8-html
+    # via
+    #   flake8-html
+    #   ipython
 pyjwt==2.9.0
     # via
     #   -c requirements/requirements.txt
@@ -592,6 +638,7 @@ python-dateutil==2.9.0.post0
     #   botocore
     #   bravado
     #   bravado-core
+    #   jupyter-client
     #   matplotlib
     #   pandas
 python-dotenv==1.0.1
@@ -621,6 +668,10 @@ pyyaml==6.0.2
     #   pre-commit
     #   pytorch-lightning
     #   swagger-spec-validator
+pyzmq==26.2.0
+    # via
+    #   ipykernel
+    #   jupyter-client
 rapidfuzz==3.10.0
     # via
     #   -c requirements/requirements.txt
@@ -704,6 +755,7 @@ simplejson==3.19.3
 six==1.16.0
     # via
     #   -c requirements/requirements.txt
+    #   asttokens
     #   bravado
     #   bravado-core
     #   gcs-oauth2-boto-plugin
@@ -728,6 +780,8 @@ spectrum-utils==0.4.2
     # via
     #   -c requirements/requirements.txt
     #   instanovo
+stack-data==0.6.3
+    # via ipython
 swagger-spec-validator==3.0.4
     # via
     #   -c requirements/requirements.txt
@@ -767,6 +821,10 @@ torchmetrics==1.4.3
     # via
     #   -c requirements/requirements.txt
     #   pytorch-lightning
+tornado==6.4.1
+    # via
+    #   ipykernel
+    #   jupyter-client
 tqdm==4.66.5
     # via
     #   -c requirements/requirements.txt
@@ -775,6 +833,14 @@ tqdm==4.66.5
     #   instanovo
     #   matchms
     #   pytorch-lightning
+traitlets==5.14.3
+    # via
+    #   comm
+    #   ipykernel
+    #   ipython
+    #   jupyter-client
+    #   jupyter-core
+    #   matplotlib-inline
 triton==3.0.0
     # via
     #   -c requirements/requirements.txt
@@ -792,6 +858,7 @@ typing-extensions==4.12.2
     #   -c requirements/requirements.txt
     #   bravado
     #   huggingface-hub
+    #   ipython
     #   lightning-utilities
     #   multidict
     #   neptune
@@ -814,6 +881,8 @@ urllib3==2.2.3
     #   requests
 virtualenv==20.26.6
     # via pre-commit
+wcwidth==0.2.13
+    # via prompt-toolkit
 webcolors==24.8.0
     # via
     #   -c requirements/requirements.txt
