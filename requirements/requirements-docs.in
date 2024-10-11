@@ -1,5 +1,5 @@
--c requirements.txt
--c requirements-dev.txt
+torch==2.4.0+cpu
+--extra-index-url https://download.pytorch.org/whl/cpu
 instanovo
 mkdocs
 mkdocs-gen-files
