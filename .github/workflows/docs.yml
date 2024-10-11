@@ -12,6 +12,8 @@ jobs:
     steps:
       - name: Checkout main
         uses: actions/checkout@v4
+      - name: Install Rust
+        run: curl https://sh.rustup.rs -sSf | sh -s -- -y
       - name: Deploy docs
         uses: mhausenblas/mkdocs-deploy-gh-pages@master
         env:
