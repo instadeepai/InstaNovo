@@ -1,3 +1,6 @@
+torch
+--extra-index-url https://download.pytorch.org/whl/cpu
+instanovo
 mkdocs
 mkdocs-gen-files
 mkdocs-git-revision-date-plugin
