@@ -4,7 +4,6 @@ ipykernel
 coverage
 genbadge[all]
 gsutil
-instanovo
 pre-commit
 pytest
 pytest-cov

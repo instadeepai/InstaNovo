@@ -1,5 +1,6 @@
 -c requirements.txt
 -c requirements-dev.txt
+instanovo
 mkdocs
 mkdocs-gen-files
 mkdocs-git-revision-date-plugin
