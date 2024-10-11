@@ -442,7 +442,7 @@ tensorboard-data-server==0.7.2
     # via tensorboard
 threadpoolctl==3.5.0
     # via scikit-learn
-torch==2.4.1+cpu
+torch # ==2.4.1+cpu
     # via
     #   -r requirements/requirements-docs.in
     #   instanovo
