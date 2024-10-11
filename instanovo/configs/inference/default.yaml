@@ -11,6 +11,7 @@ data_type: # .csv, .mgf, .mzml, .mzxml
 denovo: False
 num_beams: 1 # 1 defaults to greedy search with basic filtering
 max_length: 40
+max_charge: 10 # Must be <= model max charge
 isotope_error_range: [0, 1]
 use_knapsack: False
 save_beams: False

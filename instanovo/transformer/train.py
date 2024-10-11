@@ -420,7 +420,39 @@ def train(
         else:
             raise
 
-    # TODO: Add automatic splitting if no validation set is specified.
+    if config.get("valid_path", None) is None:
+        logger.info("Validation path not specified, generating from training set.")
+        sequences = list(train_sdf.get_unique_sequences())
+        sequences = sorted(list(set([remove_modifications(x) for x in sequences])))
+        train_unique, valid_unique = train_test_split(
+            sequences,
+            test_size=config.get("valid_subset_of_train"),
+            random_state=42,
+        )
+        train_unique = set(train_unique)
+        valid_unique = set(valid_unique)
+
+        train_sdf.filter_rows(
+            lambda row: remove_modifications(row["sequence"]) in train_unique
+        )
+        valid_sdf.filter_rows(
+            lambda row: remove_modifications(row["sequence"]) in valid_unique
+        )
+        # Save splits
+        # TODO: Optionally load the data splits
+        # TODO: Allow loading of data splits in `predict.py`
+        # TODO: Upload to Aichor
+        split_path = os.path.join(
+            config.get("model_save_folder_path", "./checkpoints"), "splits.csv"
+        )
+        os.makedirs(os.path.dirname(split_path), exist_ok=True)
+        pd.DataFrame(
+            {
+                "modified_sequence": list(train_unique) + list(valid_unique),
+                "split": ["train"] * len(train_unique) + ["valid"] * len(valid_unique),
+            }
+        ).to_csv(str(split_path), index=False)
+        logger.info(f"Data splits saved to {split_path}")
 
     # Check residues
     if config.get("perform_data_checks", True):
@@ -463,40 +495,25 @@ def train(
                 f"{original_size[1]-new_size[1]:,d} ({(original_size[1]-new_size[1])/original_size[1]*100:.2f}%) validation rows dropped."
             )
 
-    # TODO Modify this code to work in the new SpectrumDataFrame
-    if config.get("valid_path", None) is None:
-        logger.info("Validation path not specified, generating from training set.")
-        sequences = list(train_sdf.get_unique_sequences())
-        sequences = sorted(list(set([remove_modifications(x) for x in sequences])))
-        train_unique, valid_unique = train_test_split(
-            sequences,
-            test_size=config.get("valid_subset_of_train"),
-            random_state=42,
-        )
-        train_unique = set(train_unique)
-        valid_unique = set(valid_unique)
-
+        # Check charge values:
+        original_size = (len(train_sdf), len(valid_sdf))
         train_sdf.filter_rows(
-            lambda row: remove_modifications(row["sequence"]) in train_unique
+            lambda row: (row["precursor_charge"] <= config.get("max_charge", 10))
+            and (row["precursor_charge"] > 0)
         )
+        if len(train_sdf) < original_size[0]:
+            logger.warning(
+                f"Found {original_size[0] - len(train_sdf)} rows in training set with charge > {config.get('max_charge', 10)} or <= 0. These rows will be skipped."
+            )
+
         valid_sdf.filter_rows(
-            lambda row: remove_modifications(row["sequence"]) in valid_unique
+            lambda row: (row["precursor_charge"] <= config.get("max_charge", 10))
+            and (row["precursor_charge"] > 0)
         )
-        # Save splits
-        # TODO: Optionally load the data splits
-        # TODO: Allow loading of data splits in `predict.py`
-        # TODO: Upload to Aichor
-        split_path = os.path.join(
-            config.get("model_save_folder_path", "./checkpoints"), "splits.csv"
-        )
-        os.makedirs(os.path.dirname(split_path), exist_ok=True)
-        pd.DataFrame(
-            {
-                "modified_sequence": list(train_unique) + list(valid_unique),
-                "split": ["train"] * len(train_unique) + ["valid"] * len(valid_unique),
-            }
-        ).to_csv(str(split_path), index=False)
-        logger.info(f"Data splits saved to {split_path}")
+        if len(valid_sdf) < original_size[1]:
+            logger.warning(
+                f"Found {original_size[1] - len(valid_sdf)} rows in training set with charge > {config.get('max_charge', 10)}. These rows will be skipped."
+            )
 
     train_sdf.sample_subset(fraction=config.get("train_subset", 1.0), seed=42)
     valid_sdf.sample_subset(fraction=config.get("valid_subset", 1.0), seed=42)

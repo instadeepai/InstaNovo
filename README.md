@@ -50,7 +50,7 @@ conda env create -f environment.yml
 conda activate instanovo
 ```
 
-Note: InstaNovo is built for Python >= 3.8, <3.12 and tested on Linux and Windows.
+Note: InstaNovo is built for Python >= 3.10, <3.12 and tested on Linux.
 
 ### Training
 
@@ -114,6 +114,31 @@ The configuration file for inference may be found under
 [/configs/inference/default.yaml](./configs/inference/default.yaml)
 
 Note: the `denovo=True/False` flag controls whether metrics will be calculated.
+
+### Models
+
+InstaNovo 1.0.0 includes a new model `instanovo_extended.ckpt` trained on a larger dataset with more PTMs
+
+**Training Datasets**
+- [ProteomeTools](https://www.proteometools.org/) Part [I (PXD004732)](https://www.ebi.ac.uk/pride/archive/projects/PXD004732), [II (PXD010595)](https://www.ebi.ac.uk/pride/archive/projects/PXD010595), and [III (PXD021013)](https://www.ebi.ac.uk/pride/archive/projects/PXD021013) \
+(referred to as the  all-confidence ProteomeTools `AC-PT` dataset in our paper)
+- Additional PRIDE dataset with more modifications: \
+  ([PXD000666](https://www.ebi.ac.uk/pride/archive/projects/PXD000666), [PXD000867](https://www.ebi.ac.uk/pride/archive/projects/PXD000867), [PXD001839](https://www.ebi.ac.uk/pride/archive/projects/PXD001839), [PXD003155](https://www.ebi.ac.uk/pride/archive/projects/PXD003155), [PXD004364](https://www.ebi.ac.uk/pride/archive/projects/PXD004364), [PXD004612](https://www.ebi.ac.uk/pride/archive/projects/PXD004612), [PXD005230](https://www.ebi.ac.uk/pride/archive/projects/PXD005230), [PXD006692](https://www.ebi.ac.uk/pride/archive/projects/PXD006692), [PXD011360](https://www.ebi.ac.uk/pride/archive/projects/PXD011360), [PXD011536](https://www.ebi.ac.uk/pride/archive/projects/PXD011536), [PXD013543](https://www.ebi.ac.uk/pride/archive/projects/PXD013543), [PXD015928](https://www.ebi.ac.uk/pride/archive/projects/PXD015928), [PXD016793](https://www.ebi.ac.uk/pride/archive/projects/PXD016793), [PXD017671](https://www.ebi.ac.uk/pride/archive/projects/PXD017671), [PXD019431](https://www.ebi.ac.uk/pride/archive/projects/PXD019431), [PXD019852](https://www.ebi.ac.uk/pride/archive/projects/PXD019852), [PXD026910](https://www.ebi.ac.uk/pride/archive/projects/PXD026910), [PXD027772](https://www.ebi.ac.uk/pride/archive/projects/PXD027772))
+- Additional phosphorylation dataset \
+(not yet publicly released)
+
+**Natively Supported Modifications**
+- Oxidation of methionine
+- Cysteine alkylation / Carboxyamidomethylation
+- Asparagine and glutamine deamidation
+- Serine, Threonine, and Tyrosine phosphorylation
+- N-terminal ammonia loss
+- N-terminal carbamylation
+- N-terminal acetylation
+
+See residue configuration under [instanovo/configs/residues/extended.yaml](./instanovo/configs/residues/extended.yaml)
+
+## Additional features
 
 ### Spectrum Data Class
 
@@ -196,7 +221,7 @@ lazy_df = sdf.to_polars(return_lazy=True) # Returns a pl.LazyFrame
 sdf.write_mgf("path/to/output.mgf")
 ```
 
-**Additional Features:**
+**SpectrumDataFrame Features:**
 
 - The SpectrumDataFrame supports lazy loading with asynchronous prefetching, mitigating wait times
   between files.
@@ -291,3 +316,7 @@ The model checkpoints are licensed under Creative Commons Non-Commercial
 	journal = {bioRxiv}
 }
 ```
+
+## Acknowledgements
+
+Big thanks to Pathmanaban Ramasamy, Tine Claeys, and Lennart Martens for providing us with additional phosphorylation training data.
