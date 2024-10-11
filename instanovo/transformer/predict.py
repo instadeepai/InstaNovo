@@ -84,6 +84,26 @@ def get_preds(
         else:
             raise
 
+    # Check max charge values:
+    original_size = len(sdf)
+    max_charge = config.get("max_charge", 10)
+    model_max_charge = model_config.get("max_charge", 10)
+    if max_charge > model_max_charge:
+        logger.warning(
+            f"Inference has been configured with max_charge={max_charge}, but model has max_charge={model_max_charge}."
+        )
+        logger.warning(f"Overwriting max_charge to Model value: {max_charge}.")
+        max_charge = model_max_charge
+
+    sdf.filter_rows(
+        lambda row: (row["precursor_charge"] <= max_charge)
+        and (row["precursor_charge"] > 0)
+    )
+    if len(sdf) < original_size:
+        logger.warning(
+            f"Found {original_size - len(sdf)} rows with charge > {max_charge}. These rows will be skipped."
+        )
+
     sdf.sample_subset(fraction=config.get("subset", 1.0), seed=42)
     logger.info(
         f"Data loaded, evaluating {config.get('subset', 1.0)*100:.1f}%, {len(sdf):,} samples in total."
