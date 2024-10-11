@@ -10,8 +10,6 @@ from jaxtyping import Integer
 from omegaconf import DictConfig
 from torch import nn
 from torch import Tensor
-from torch.nn.attention import sdpa_kernel
-from torch.nn.attention import SDPBackend
 
 from instanovo.constants import MAX_SEQUENCE_LENGTH
 from instanovo.transformer.layers import ConvPeakEmbedding
@@ -354,6 +352,14 @@ class InstaNovo(nn.Module, Decodable):
         latent_spectra = self.latent_spectrum.expand(x.shape[0], -1, -1)
         x = torch.cat([latent_spectra, x], dim=1).contiguous()
 
+        try:
+            from torch.nn.attention import sdpa_kernel
+            from torch.nn.attention import SDPBackend
+        except ImportError:
+            raise ImportError(
+                "Training InstaNovo with Flash attention enabled requires at least pytorch v2.3. Please upgrade your pytorch version"
+            )
+
         with sdpa_kernel(SDPBackend.FLASH_ATTENTION):
             x = self.encoder(x)
 
@@ -390,6 +396,14 @@ class InstaNovo(nn.Module, Decodable):
         y = self.aa_pos_embed(y)
 
         c_mask = self._get_causal_mask(y.shape[1]).to(y.device)
+
+        try:
+            from torch.nn.attention import sdpa_kernel
+            from torch.nn.attention import SDPBackend
+        except ImportError:
+            raise ImportError(
+                "Training InstaNovo with Flash attention enabled requires at least pytorch v2.3. Please upgrade your pytorch version"
+            )
 
         with sdpa_kernel(SDPBackend.FLASH_ATTENTION):
             y_hat = self.decoder(y, x, tgt_mask=c_mask)
