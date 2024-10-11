@@ -8,7 +8,7 @@ aiobotocore==2.15.2
     # via s3fs
 aiohappyeyeballs==2.4.3
     # via aiohttp
-aiohttp==3.10.9
+aiohttp==3.10.10
     # via
     #   aiobotocore
     #   datasets
@@ -26,6 +26,8 @@ appdirs==1.4.4
     # via spectrum-utils
 arrow==1.3.0
     # via isoduration
+async-timeout==4.0.3
+    # via aiohttp
 attrs==24.2.0
     # via
     #   aiohttp
@@ -170,7 +172,7 @@ multiprocess==0.70.16
     # via datasets
 neptune==1.12.0
     # via -r requirements/requirements.in
-networkx==3.3
+networkx==3.4
     # via
     #   matchms
     #   torch
@@ -387,7 +389,7 @@ torch==2.4.1
     #   -r requirements/requirements.in
     #   pytorch-lightning
     #   torchmetrics
-torchmetrics==1.4.2
+torchmetrics==1.4.3
     # via pytorch-lightning
 tqdm==4.66.5
     # via
@@ -407,6 +409,7 @@ typing-extensions==4.12.2
     #   bravado
     #   huggingface-hub
     #   lightning-utilities
+    #   multidict
     #   neptune
     #   pytorch-lightning
     #   swagger-spec-validator
