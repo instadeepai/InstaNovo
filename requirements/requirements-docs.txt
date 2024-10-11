@@ -329,7 +329,7 @@ pymdown-extensions==10.11.2
     #   -r requirements/requirements-docs.in
     #   mkdocs-material
     #   mkdocstrings
-pyopenms==3.2.0
+# pyopenms==3.2.0
     # via instanovo
 pyparsing==3.1.4
     # via matplotlib

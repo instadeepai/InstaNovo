@@ -12,14 +12,6 @@ jobs:
     steps:
       - name: Checkout main
         uses: actions/checkout@v4
-      - name: Install Rust
-        uses: moonrepo/setup-rust@v1
-      - name: Install Cargo
-        uses: actions-rs/cargo@v1
-        with:
-          command: help
-      - name: Add Cargo bin to PATH
-        run: echo "$GITHUB_WORKSPACE/.cargo/bin" >> $GITHUB_PATH
       - name: Deploy docs
         uses: mhausenblas/mkdocs-deploy-gh-pages@master
         env:
