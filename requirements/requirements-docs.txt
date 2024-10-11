@@ -308,10 +308,8 @@ platformdirs==4.3.6
     # via
     #   mkdocs-get-deps
     #   mkdocstrings
-polars==1.8.2
-    # via
-    #   -r requirements/requirements-docs.in
-    #   instanovo
+# polars==1.9.0
+    # via instanovo
 propcache==0.2.0
     # via yarl
 protobuf==5.28.2
@@ -331,7 +329,7 @@ pymdown-extensions==10.11.2
     #   -r requirements/requirements-docs.in
     #   mkdocs-material
     #   mkdocstrings
-pyopenms==3.2.0
+# pyopenms==3.2.0
     # via instanovo
 pyparsing==3.1.4
     # via matplotlib
