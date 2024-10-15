@@ -128,7 +128,7 @@ push-ci-dev:
 compile:
 	pip install --upgrade uv
 	rm -f requirements/*.txt
-	uv pip compile requirements/requirements.in --emit-index-url  --output-file=requirements/requirements.txt --extra-index-url https://pypi.cs.uni-tuebingen.de/simple/pyopenms/
+	uv pip compile requirements/requirements.in --emit-index-url  --output-file=requirements/requirements.txt
 	uv pip compile requirements/requirements-dev.in --output-file=requirements/requirements-dev.txt
 	uv pip compile requirements/requirements-docs.in --output-file=requirements/requirements-docs.txt
 	uv pip compile requirements/requirements-mlflow.in --output-file=requirements/requirements-mlflow.txt

@@ -22,7 +22,7 @@ cffi==1.17.1
     #   cryptography
 cfgv==3.4.0
     # via pre-commit
-charset-normalizer==3.3.2
+charset-normalizer==3.4.0
     # via
     #   -c requirements/requirements.txt
     #   requests
@@ -30,7 +30,7 @@ click==8.1.7
     # via
     #   -c requirements/requirements.txt
     #   genbadge
-coverage==7.6.1
+coverage==7.6.3
     # via
     #   -r requirements/requirements-dev.in
     #   pytest-cov
@@ -42,10 +42,12 @@ cryptography==43.0.1
     #   pyopenssl
 defusedxml==0.7.1
     # via genbadge
-distlib==0.3.8
+distlib==0.3.9
     # via virtualenv
 exceptiongroup==1.2.2
-    # via pytest
+    # via
+    #   -c requirements/requirements.txt
+    #   pytest
 execnet==2.1.1
     # via pytest-xdist
 fasteners==0.19
@@ -91,7 +93,7 @@ jinja2==3.1.4
     #   -c requirements/requirements.txt
     #   flake8-html
     #   pytest-html
-markupsafe==2.1.5
+markupsafe==3.0.1
     # via
     #   -c requirements/requirements.txt
     #   jinja2
@@ -123,7 +125,7 @@ pluggy==1.5.0
     # via
     #   allure-python-commons
     #   pytest
-pre-commit==4.0.0
+pre-commit==4.0.1
     # via -r requirements/requirements-dev.in
 pyasn1==0.6.1
     # via
@@ -151,7 +153,7 @@ pyopenssl==24.2.1
     # via
     #   gcs-oauth2-boto-plugin
     #   gsutil
-pyparsing==3.1.4
+pyparsing==3.2.0
     # via
     #   -c requirements/requirements.txt
     #   httplib2
