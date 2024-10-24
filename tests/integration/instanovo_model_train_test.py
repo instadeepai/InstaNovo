@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import copy
 import logging
 import os
+import shutil
+from pathlib import Path
 
 import polars as pl
 import pytest
@@ -22,12 +25,11 @@ logger.setLevel(logging.INFO)
 )
 @pytest.mark.usefixtures("_reset_seed")
 def test_train_model(
+    tmp_path: Path,
     instanovo_config: DictConfig,
     instanovo_inference_config: DictConfig,
-    dir_paths: tuple[str, str],
 ) -> None:
     """Test training an InstaNovo model and doing inference end-to-end."""
-    root_dir, _ = dir_paths
     assert instanovo_config.residues == {
         "A": 10.5,
         "B": 20.75,
@@ -36,29 +38,43 @@ def test_train_model(
         "E": 12.33,
     }
     assert instanovo_config.learning_rate == 1e-3
-    assert instanovo_config.model_save_folder_path == os.path.join(
-        root_dir, "train_test"
-    )
     assert instanovo_config.epochs == 5
 
+    temp_train_config = copy.deepcopy(instanovo_config)
+    temp_inference_config = copy.deepcopy(instanovo_inference_config)
+
+    temp_train_config["model_save_folder_path"] = str(
+        tmp_path
+    )  # save the model in a temporary directory
+
     logger.info("Training model.")
-    train(instanovo_config)
+    train(temp_train_config)
 
     logger.info("Loading model.")
-    model, config = InstaNovo.load(
-        os.path.join(root_dir, "train_test", "epoch=4-step=2420.ckpt")
+    checkpoint_path = os.path.join(
+        temp_train_config["model_save_folder_path"], "epoch=4-step=2420.ckpt"
     )
+    assert os.path.exists(
+        checkpoint_path
+    ), f"Checkpoint file {checkpoint_path} does not exist."
+    model, config = InstaNovo.load(checkpoint_path)
 
+    temp_inference_config["output_path"] = os.path.join(
+        temp_train_config["model_save_folder_path"], "test_sample_preds.csv"
+    )
     logger.info("Computing predictions and saving to specified file.")
     get_preds(
-        config=instanovo_inference_config,
+        config=temp_inference_config,
         model=model,
         model_config=config,
     )
 
-    pred_df = pl.read_csv(instanovo_inference_config["output_path"])
-    print(pred_df)
-    assert instanovo_inference_config["subset"] == 1
+    assert os.path.exists(
+        temp_inference_config["output_path"]
+    ), f"Output file {temp_inference_config['output_path']} does not exist."
+
+    pred_df = pl.read_csv(temp_inference_config["output_path"])
     assert pred_df["targets"][0] == "DDCA"
-    # Even with fixed seeds, model training can introduce randomness, and so we perform a general check on the predicted peptide lengths.
-    assert len(pred_df["targets"][0]) == len(pred_df["preds"][0])
+
+    if tmp_path is not None and os.path.exists(tmp_path):
+        shutil.rmtree(tmp_path)

@@ -9,7 +9,7 @@ defaults:
 tb_summarywriter: "./logs/instanovo/instanovo-unit-test"
 
 # Training parameters
-warmup_iters: 1000
+warmup_iters: 480
 max_iters: 3_000_000
 learning_rate: 1e-3
 train_batch_size: 32
@@ -28,5 +28,5 @@ run_name: instanovo_unit_test
 valid_subset: 1.0
 
 # Checkpointing parameters
-model_save_folder_path: ./tests/instanovo_test_resources/train_test
+model_save_folder_path: ./tests/instanovo_test_resources
 ckpt_interval: 2420

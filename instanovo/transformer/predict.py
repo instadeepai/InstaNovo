@@ -92,7 +92,9 @@ def get_preds(
         logger.warning(
             f"Inference has been configured with max_charge={max_charge}, but model has max_charge={model_max_charge}."
         )
-        logger.warning(f"Overwriting max_charge to Model value: {max_charge}.")
+        logger.warning(
+            f"Overwriting max_charge config to model value: {model_max_charge}."
+        )
         max_charge = model_max_charge
 
     sdf.filter_rows(
@@ -176,7 +178,13 @@ def get_preds(
     elif num_beams > 1:
         decoder = BeamSearchDecoder(model=model)
     else:
-        decoder = GreedyDecoder(model=model)
+        decoder = GreedyDecoder(
+            model=model,
+            suppressed_residues=config.get("suppressed_residues", None),
+            disable_terminal_residues_anywhere=config.get(
+                "disable_terminal_residues_anywhere", True
+            ),
+        )
 
     index_cols = config.get("index_columns", ["precursor_mz", "precursor_charge"])
     cols = [x for x in sdf.df.columns if x in index_cols]
@@ -394,7 +402,7 @@ def main(config: DictConfig) -> None:
         )
 
     logger.info(f"Loading model from {model_path}")
-    model, model_config = InstaNovo.load(model_path)
+    model, model_config = InstaNovo.from_pretrained(model_path)
     logger.info(f"Config:\n{config}")
     logger.info(f"Model params: {np.sum([p.numel() for p in model.parameters()]):,d}")
 

@@ -4,7 +4,7 @@ aiohappyeyeballs==2.4.3
     # via
     #   -c requirements/requirements.txt
     #   aiohttp
-aiohttp==3.10.9
+aiohttp==3.10.10
     # via
     #   -c requirements/requirements.txt
     #   google-auth
@@ -43,17 +43,17 @@ click==8.1.7
     # via
     #   -c requirements/requirements.txt
     #   genbadge
-coverage==7.6.2
+coverage==7.6.4
     # via
     #   -r requirements/requirements-dev.in
     #   pytest-cov
 crcmod==1.7
     # via gsutil
-cryptography==43.0.1
+cryptography==43.0.3
     # via pyopenssl
 defusedxml==0.7.1
     # via genbadge
-distlib==0.3.8
+distlib==0.3.9
     # via virtualenv
 execnet==2.1.1
     # via pytest-xdist
@@ -69,7 +69,7 @@ flake8==7.1.1
     # via flake8-html
 flake8-html==0.4.3
     # via genbadge
-frozenlist==1.4.1
+frozenlist==1.5.0
     # via
     #   -c requirements/requirements.txt
     #   aiohttp
@@ -93,7 +93,7 @@ google-reauth==0.1.1
     # via
     #   gcs-oauth2-boto-plugin
     #   gsutil
-gsutil==5.30
+gsutil==5.31
     # via -r requirements/requirements-dev.in
 httplib2==0.20.4
     # via
@@ -116,7 +116,7 @@ jinja2==3.1.4
     #   -c requirements/requirements.txt
     #   flake8-html
     #   pytest-html
-markupsafe==3.0.1
+markupsafe==3.0.2
     # via
     #   -c requirements/requirements.txt
     #   jinja2
@@ -141,7 +141,7 @@ packaging==24.1
     # via
     #   -c requirements/requirements.txt
     #   pytest
-pillow==10.4.0
+pillow==11.0.0
     # via
     #   -c requirements/requirements.txt
     #   genbadge
@@ -178,7 +178,7 @@ pyopenssl==24.2.1
     # via
     #   gcs-oauth2-boto-plugin
     #   gsutil
-pyparsing==3.1.4
+pyparsing==3.2.0
     # via
     #   -c requirements/requirements.txt
     #   httplib2
@@ -227,7 +227,7 @@ rsa==4.7.2
     #   gcs-oauth2-boto-plugin
     #   google-auth
     #   oauth2client
-setuptools==75.1.0
+setuptools==75.2.0
     # via
     #   -c requirements/requirements.txt
     #   genbadge
@@ -248,9 +248,9 @@ urllib3==2.2.3
     # via
     #   -c requirements/requirements.txt
     #   requests
-virtualenv==20.26.6
+virtualenv==20.27.0
     # via pre-commit
-yarl==1.14.0
+yarl==1.16.0
     # via
     #   -c requirements/requirements.txt
     #   aiohttp
