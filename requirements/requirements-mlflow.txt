@@ -2,8 +2,6 @@
 #    uv pip compile requirements/requirements-mlflow.in --output-file=requirements/requirements-mlflow.txt
 alembic==1.13.3
     # via mlflow
-aniso8601==9.0.1
-    # via graphene
 asn1crypto==1.5.1
     # via scramp
 blinker==1.8.2
@@ -42,7 +40,7 @@ cycler==0.12.1
     # via
     #   -c requirements/requirements.txt
     #   matplotlib
-databricks-sdk==0.34.0
+databricks-sdk==0.36.0
     # via mlflow-skinny
 deprecated==1.2.14
     # via
@@ -99,7 +97,7 @@ googleapis-common-protos==1.65.0
     # via
     #   -c requirements/requirements.txt
     #   google-api-core
-graphene==3.3
+graphene==3.4
     # via mlflow
 graphql-core==3.2.5
     # via
@@ -138,14 +136,14 @@ kiwisolver==1.4.7
     # via
     #   -c requirements/requirements.txt
     #   matplotlib
-mako==1.3.5
+mako==1.3.6
     # via alembic
 markdown==3.7
     # via
     #   -c requirements/requirements-docs.txt
     #   -c requirements/requirements.txt
     #   mlflow
-markupsafe==3.0.1
+markupsafe==3.0.2
     # via
     #   -c requirements/requirements-dev.txt
     #   -c requirements/requirements-docs.txt
@@ -193,23 +191,23 @@ pandas==2.2.3
     #   mlflow
 pg8000==1.31.2
     # via -r requirements/requirements-mlflow.in
-pillow==10.4.0
+pillow==11.0.0
     # via
     #   -c requirements/requirements-dev.txt
     #   -c requirements/requirements.txt
     #   matplotlib
-proto-plus==1.24.0
+proto-plus==1.25.0
     # via
     #   -c requirements/requirements.txt
     #   google-api-core
-protobuf==5.28.2
+protobuf==5.28.3
     # via
     #   -c requirements/requirements.txt
     #   google-api-core
     #   googleapis-common-protos
     #   mlflow-skinny
     #   proto-plus
-psycopg2-binary==2.9.9
+psycopg2-binary==2.9.10
     # via -r requirements/requirements-mlflow.in
 pyarrow==17.0.0
     # via
@@ -274,7 +272,7 @@ scipy==1.14.1
     #   scikit-learn
 scramp==1.4.5
     # via pg8000
-setuptools==75.1.0
+setuptools==75.2.0
     # via
     #   -c requirements/requirements-dev.txt
     #   -c requirements/requirements.txt
@@ -291,7 +289,7 @@ smmap==5.0.1
     #   -c requirements/requirements-docs.txt
     #   -c requirements/requirements.txt
     #   gitdb
-sqlalchemy==2.0.35
+sqlalchemy==2.0.36
     # via
     #   alembic
     #   mlflow
@@ -305,6 +303,7 @@ typing-extensions==4.12.2
     # via
     #   -c requirements/requirements.txt
     #   alembic
+    #   graphene
     #   opentelemetry-sdk
     #   sqlalchemy
 tzdata==2024.2
@@ -318,7 +317,7 @@ urllib3==2.2.3
     #   -c requirements/requirements.txt
     #   docker
     #   requests
-webob==1.8.8
+webob==1.8.9
     # via wsgi-basic-auth
 werkzeug==3.0.4
     # via

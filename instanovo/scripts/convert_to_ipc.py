@@ -292,7 +292,7 @@ def main() -> None:
         convert_mgf_ipc(
             source,
             target,
-            args.max_charge,
+            int(args.max_charge),
             use_old_schema=args.use_old_schema,
             verbose=args.verbose,
         )
@@ -300,7 +300,7 @@ def main() -> None:
         convert_mzml_mzxml_ipc(
             source,
             target,
-            args.max_charge,
+            int(args.max_charge),
             use_old_schema=args.use_old_schema,
             verbose=args.verbose,
         )

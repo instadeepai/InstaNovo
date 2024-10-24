@@ -102,6 +102,10 @@ def test_main(mock_get_preds: Any, mock_load: Any) -> None:
         main(mock_config)
 
     mock_config["model_path"] = "fake_path/model.ckpt"
+    with pytest.raises(
+        FileNotFoundError, match="No file found at path: fake_path/model.ckpt"
+    ):
+        main(mock_config)
 
     mock_param1 = MagicMock()
     mock_param1.numel.return_value = 100
@@ -112,7 +116,8 @@ def test_main(mock_get_preds: Any, mock_load: Any) -> None:
     mock_config["save_beams"] = True
     mock_config["num_beams"] = 1
 
-    main(mock_config)
+    with patch("os.path.isfile", return_value=True):
+        main(mock_config)
 
     assert not mock_config["save_beams"]
 

@@ -68,14 +68,12 @@ def main(
         extract_path + "/instanovo_test_resources"
     ):
         print(
-            f"Skipping download and extraction. Path '{extract_path}'/instanovo_test_resources already exists and is non-empty."
+            f"Skipping download and extraction. Path '{extract_path}/instanovo_test_resources' already exists and is non-empty."
         )
         return
 
     get_zenodo(zenodo_url, zip_path)
     unzip_zenodo(zip_path, extract_path)
-
-    os.makedirs("./tests/instanovo_test_resources/train_test", exist_ok=True)
 
 
 if __name__ == "__main__":

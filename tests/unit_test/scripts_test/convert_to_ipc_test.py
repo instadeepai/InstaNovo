@@ -6,6 +6,7 @@ from unittest.mock import patch
 
 import pandas as pd
 import polars as pl
+from numpy import array
 
 from instanovo.scripts.convert_to_ipc import convert_mgf_ipc
 from instanovo.scripts.convert_to_ipc import convert_mzml_mzxml_ipc
@@ -81,8 +82,56 @@ def test_main_mgf_conversion(tmp_path: Path) -> None:
                 main()
 
                 mock_convert_mgf_ipc.assert_called_once_with(
-                    source_file, target_file, "5", use_old_schema=False, verbose=True
+                    source_file, target_file, 5, use_old_schema=False, verbose=True
                 )
+
+
+def test_main_file_conversion(tmp_path: Path, dir_paths: tuple[str, str]) -> None:
+    """Tests the mgf conversion call in main for an example file."""
+    _, data_dir = dir_paths
+    source_file = data_dir + "/example.mgf"
+    target_file = tmp_path / "target.ipc"
+
+    test_args = [
+        "instanovo/scripts/convert_to_ipc.py",
+        str(source_file),
+        str(target_file),
+        "--source_type",
+        "mgf",
+        "--max_charge",
+        "2",
+        "--verbose",
+    ]
+
+    with patch("sys.argv", test_args):
+        main()
+
+    expected_df = pd.DataFrame(
+        {
+            "experiment_name": ["example", "example"],
+            "evidence_index": [1, 2],
+            "scan_number": [1, 3],
+            "sequence": ["FHHTIGGSR", "TTVINMPR"],
+            "modified_sequence": ["FHHTIGGSR", "TTVINM[15.99]PR"],
+            "precursor_mass": [1012.515869140626, 948.505798339844],
+            "precursor_mz": [506.257934570313, 474.252899169922],
+            "precursor_charge": [2, 2],
+            "retention_time": [100.0, 300.0],
+            "mz_array": [
+                array([10.0, 20.0, 30.0, 40.0]),
+                array([10.0, 20.0, 30.0, 40.0]),
+            ],
+            "intensity_array": [
+                array([1.0, 1.5, 1.0, 1.5]),
+                array([1.0, 1.5, 1.0, 1.5]),
+            ],
+            "scans": ["1", "3"],
+        }
+    )
+
+    df = pl.read_ipc(tmp_path / "target.ipc").to_pandas()
+
+    assert df.equals(expected_df)
 
 
 def test_main_mzml_conversion(tmp_path: Path) -> None:
@@ -110,7 +159,7 @@ def test_main_mzml_conversion(tmp_path: Path) -> None:
                 main()
 
                 mock_convert_mzml_mzxml_ipc.assert_called_once_with(
-                    source_file, target_file, "5", use_old_schema=False, verbose=True
+                    source_file, target_file, 5, use_old_schema=False, verbose=True
                 )
 
 
@@ -139,5 +188,5 @@ def test_main_mxzml_conversion(tmp_path: Path) -> None:
                 main()
 
                 mock_convert_mzml_mzxml_ipc.assert_called_once_with(
-                    source_file, target_file, "5", use_old_schema=False, verbose=True
+                    source_file, target_file, 5, use_old_schema=False, verbose=True
                 )

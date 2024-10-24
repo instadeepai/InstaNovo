@@ -105,11 +105,11 @@ configobj==5.0.9
     # via dvc
 contourpy==1.3.0
     # via matplotlib
-cryptography==43.0.1
+cryptography==43.0.3
     # via asyncssh
 cycler==0.12.1
     # via matplotlib
-datasets==3.0.1
+datasets==3.0.2
     # via -r requirements/requirements.in
 debugpy==1.8.7
     # via ipykernel
@@ -133,12 +133,12 @@ distro==1.9.0
     #   iterative-telemetry
 dpath==2.2.0
     # via dvc
-dulwich==0.22.1
+dulwich==0.22.3
     # via
     #   dvc
     #   dvc-studio-client
     #   scmrepo
-dvc==3.55.2
+dvc==3.56.0
     # via
     #   -r requirements/requirements.in
     #   dvc-gs
@@ -181,11 +181,11 @@ fonttools==4.54.1
     # via matplotlib
 fqdn==1.5.1
     # via jsonschema
-frozenlist==1.4.1
+frozenlist==1.5.0
     # via
     #   aiohttp
     #   aiosignal
-fsspec==2024.6.1
+fsspec==2024.9.0
     # via
     #   datasets
     #   dvc
@@ -208,7 +208,7 @@ funcy==2.0
     #   scmrepo
 future==1.0.0
     # via neptune
-gcsfs==2024.6.1
+gcsfs==2024.9.0.post1
     # via dvc-gs
 gitdb==4.0.11
     # via gitpython
@@ -243,11 +243,11 @@ googleapis-common-protos==1.65.0
     # via google-api-core
 grandalf==0.8
     # via dvc
-grpcio==1.66.2
+grpcio==1.67.0
     # via tensorboard
 gto==1.7.1
     # via dvc
-huggingface-hub==0.25.2
+huggingface-hub==0.26.1
     # via datasets
 hydra-core==1.3.2
     # via dvc
@@ -305,7 +305,7 @@ kombu==5.4.2
     #   dvc-task
 lark==1.2.2
     # via spectrum-utils
-lightning-utilities==0.11.7
+lightning-utilities==0.11.8
     # via
     #   pytorch-lightning
     #   torchmetrics
@@ -317,7 +317,7 @@ markdown==3.7
     # via tensorboard
 markdown-it-py==3.0.0
     # via rich
-markupsafe==3.0.1
+markupsafe==3.0.2
     # via
     #   jinja2
     #   werkzeug
@@ -352,7 +352,7 @@ neptune==1.12.0
     # via -r requirements/requirements.in
 nest-asyncio==1.6.0
     # via ipykernel
-networkx==3.4.1
+networkx==3.4.2
     # via
     #   dvc
     #   matchms
@@ -420,7 +420,7 @@ omegaconf==2.3.0
     #   -r requirements/requirements.in
     #   dvc
     #   hydra-core
-orjson==3.10.7
+orjson==3.10.10
     # via
     #   dvc-data
     #   sqltrie
@@ -455,7 +455,7 @@ pexpect==4.9.0
     # via ipython
 pickydict==0.5.0
     # via matchms
-pillow==10.4.0
+pillow==11.0.0
     # via
     #   matchms
     #   matplotlib
@@ -465,7 +465,7 @@ platformdirs==3.11.0
     # via
     #   dvc
     #   jupyter-core
-polars==1.9.0
+polars==1.11.0
     # via -r requirements/requirements.in
 prompt-toolkit==3.0.48
     # via
@@ -473,15 +473,15 @@ prompt-toolkit==3.0.48
     #   ipython
 propcache==0.2.0
     # via yarl
-proto-plus==1.24.0
+proto-plus==1.25.0
     # via google-api-core
-protobuf==5.28.2
+protobuf==5.28.3
     # via
     #   google-api-core
     #   googleapis-common-protos
     #   proto-plus
     #   tensorboard
-psutil==6.0.0
+psutil==6.1.0
     # via
     #   dvc
     #   flufl-lock
@@ -525,7 +525,7 @@ pyjwt==2.9.0
     # via neptune
 pyopenms==3.2.0
     # via -r requirements/requirements.in
-pyopenms-viz==0.1.2
+pyopenms-viz==0.1.5
     # via -r requirements/requirements.in
 pyparsing==3.2.0
     # via
@@ -533,7 +533,7 @@ pyparsing==3.2.0
     #   grandalf
     #   matplotlib
     #   pydot
-pyteomics==4.7.4
+pyteomics==4.7.5
     # via
     #   matchms
     #   spectrum-utils
@@ -600,7 +600,7 @@ rfc3339-validator==0.1.4
     # via jsonschema
 rfc3986-validator==0.1.1
     # via jsonschema
-rich==13.9.2
+rich==13.9.3
     # via
     #   dvc
     #   gto
@@ -615,9 +615,9 @@ ruamel-yaml==0.18.6
     # via
     #   dvc
     #   gto
-ruamel-yaml-clib==0.2.8
+ruamel-yaml-clib==0.2.12
     # via ruamel-yaml
-s3fs==2024.6.1
+s3fs==2024.9.0
     # via -r requirements/requirements.in
 s3transfer==0.10.3
     # via boto3
@@ -634,7 +634,7 @@ scmrepo==3.3.8
     #   gto
 semver==3.0.2
     # via gto
-setuptools==75.1.0
+setuptools==75.2.0
     # via
     #   lightning-utilities
     #   tensorboard
@@ -694,7 +694,7 @@ torch==2.4.1
     #   -r requirements/requirements.in
     #   pytorch-lightning
     #   torchmetrics
-torchmetrics==1.4.3
+torchmetrics==1.5.1
     # via pytorch-lightning
 tornado==6.4.1
     # via
@@ -781,7 +781,7 @@ wrapt==1.16.0
     #   deprecated
 xxhash==3.5.0
     # via datasets
-yarl==1.15.2
+yarl==1.16.0
     # via aiohttp
 zc-lockfile==3.0.post1
     # via dvc
