@@ -1,0 +1,10 @@
+{
+    "transformer": {
+        "instanovo-extended": {
+            "url": "https://github.com/instadeepai/InstaNovo/releases/download/1.0.0/instanovo_extended.ckpt"
+        }
+    },
+    "diffusion": {
+
+    }
+}
