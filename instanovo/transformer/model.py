@@ -81,7 +81,6 @@ class InstaNovo(nn.Module, Decodable):
         self.encoder = nn.TransformerEncoder(
             encoder_layer,
             num_layers=n_layers,
-            # enable_nested_tensor=False, TODO: Figure out the correct way to handle this
         )
 
         # Decoder
@@ -213,9 +212,6 @@ class InstaNovo(nn.Module, Decodable):
                 for data in response.iter_content(chunk_size=1024):
                     size = file.write(data)
                     progress_bar.update(size)
-        # else:
-        #     TODO: Optional verbose logging
-        #     print(f"Model {model_id} already cached at {cached_file}")
 
         # Load and return the model
         return cls.load(str(cached_file))

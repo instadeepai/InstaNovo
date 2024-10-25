@@ -228,7 +228,6 @@ def collate_batch(
     return spectra, precursors, spectra_mask, peptides, peptides_mask
 
 
-# TODO: move to generic utils
 def load_ipc_shards(
     data_path: str | Path, split: str = "train", remap_cols: bool = True
 ) -> pl.DataFrame:

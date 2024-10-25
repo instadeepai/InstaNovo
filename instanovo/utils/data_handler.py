@@ -123,7 +123,6 @@ class SpectrumDataFrame:
                         fp for fp in self._file_paths if fp.endswith(".parquet")
                     ]
                     for temp_df in df_iterator:
-                        # TODO: better way to generate id than hash?
                         temp_parquet_path = os.path.join(
                             self._temp_directory, f"temp_{uuid.uuid4().hex}.parquet"
                         )
@@ -173,7 +172,6 @@ class SpectrumDataFrame:
                 self.df = SpectrumDataFrame._shuffle_df(self.df)
         elif self._is_native:
             # Sort files alphabetically
-            # TODO: Do we want this? Keeps consistent when loading files across devices
             self._file_paths.sort()
             self._update_file_indices()
 
@@ -978,7 +976,6 @@ class SpectrumDataFrame:
         """
         if isinstance(dataset, str):
             dataset = load_dataset(dataset, **kwargs)
-        # TODO: Explore dataset.to_pandas(batched=True)
         return cls.from_pandas(
             dataset.to_pandas(), shuffle=shuffle, is_annotated=is_annotated
         )
