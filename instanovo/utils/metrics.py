@@ -99,8 +99,6 @@ class Metrics:
                 n_pred_aa += len(pred)
                 n_pred_pep += 1
 
-                # pred = [x.replace('I', 'L') for x in pred]
-                # n_match_aa += np.sum([m[0]==' ' for m in difflib.ndiff(targ,pred)])
                 n_match = self._novor_match(targ, pred)
                 n_match_aa += n_match
 

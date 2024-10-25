@@ -188,7 +188,6 @@ class SpectrumDataFrame:
         """Shuffle the rows of the given DataFrame."""
         shuffled_indices = np.random.permutation(len(df))
         return df[shuffled_indices]
-        # return df.with_row_count("row_nr").select(pl.all().shuffle())
 
     @staticmethod
     def _sanitise_peptide(peptide: str) -> str:
@@ -533,10 +532,6 @@ class SpectrumDataFrame:
             )
 
         return row_dict
-
-    # def iterable(self, df: pl.DataFrame) -> None:
-    #     """Iterates dataset. Supports streaming?"""
-    #     pass
 
     @property
     def is_annotated(self) -> bool:
@@ -906,8 +901,6 @@ class SpectrumDataFrame:
         Returns:
             SpectrumDataFrame: The loaded SpectrumDataFrame.
         """
-        # spectra = list(load_from_mzxml(source))
-        # return cls.from_matchms(spectra)
         df = SpectrumDataFrame._df_from_dict(read_mzxml(source))
         return cls.from_polars(df)
 
@@ -921,8 +914,6 @@ class SpectrumDataFrame:
         Returns:
             pl.DataFrame: The loaded polars DataFrame.
         """
-        # spectra = list(load_from_mzxml(source))
-        # return SpectrumDataFrame._df_from_matchms(spectra)
         return SpectrumDataFrame._df_from_dict(read_mzxml(source))
 
     @classmethod
@@ -935,8 +926,6 @@ class SpectrumDataFrame:
         Returns:
             SpectrumDataFrame: The loaded SpectrumDataFrame.
         """
-        # spectra = list(load_from_mzml(source))
-        # return cls.from_matchms(spectra)
         df = SpectrumDataFrame._df_from_dict(read_mzml(source))
         return cls.from_polars(df)
 
@@ -950,8 +939,6 @@ class SpectrumDataFrame:
         Returns:
             pl.DataFrame: The loaded polars DataFrame.
         """
-        # spectra = list(load_from_mzml(source))
-        # return SpectrumDataFrame._df_from_matchms(spectra)
         return SpectrumDataFrame._df_from_dict(read_mzml(source))
 
     @classmethod
@@ -1155,7 +1142,6 @@ class SpectrumDataFrame:
         for row in df.iter_rows(named=True):
             metadata = {
                 "peptide_sequence": row[ANNOTATED_COLUMN],
-                # "pepmass": row[MSColumns.PRECURSOR_MASS.value],
                 "precursor_mz": row[MSColumns.PRECURSOR_MZ.value],
                 "charge": row[MSColumns.PRECURSOR_CHARGE.value],
                 "retention_time": row[MSColumns.RETENTION_TIME.value],
@@ -1396,9 +1382,6 @@ class SpectrumDataFrame:
             )
 
         return num_matches_precursor
-
-    # def filter(self, *args, **kwargs) -> "SpectrumDataFrame":
-    #     return self.df.filter(*args, **kwargs)
 
     def sample_subset(self, fraction: float, seed: int | None = None) -> None:
         """Sample a subset of the dataset.

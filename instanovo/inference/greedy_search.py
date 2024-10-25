@@ -168,9 +168,6 @@ class GreedyDecoder(Decoder):
                 (batch_size), device=device, dtype=bool
             )  # bool (batch_size, )
 
-            # Keeps track of which stopped early or terminated with a bad stop condition. These predictions will be deleted.
-            # bad_stop_condition = torch.zeros((batch_size), device=device, dtype=bool) # bool (batch_size, )
-
             # Extract precursor mass from `precursors`
             precursor_mass = precursors[
                 :, PrecursorDimension.PRECURSOR_MASS.value
@@ -298,9 +295,6 @@ class GreedyDecoder(Decoder):
                     :, self.model.residue_set.EOS_INDEX
                 ] = -float("inf")
                 # Allow the model to predict PAD when all residues are -inf
-                # next_token_probabilities_filtered[
-                #     :, self.model.residue_set.PAD_INDEX
-                # ] = -float("inf")
                 next_token_probabilities_filtered[
                     :, self.model.residue_set.SOS_INDEX
                 ] = -float("inf")
@@ -399,12 +393,6 @@ class GreedyDecoder(Decoder):
                 next_token_is_eos = next_token[:, 0] == self.model.residue_set.EOS_INDEX
                 next_is_complete = next_token_is_eos | beam_confidence_filter
 
-                # Check for a bad stop
-                # bad_stop_condition = beam_confidence_filter
-                # bad_stop_condition_full = torch.zeros((batch_size,), device=spectra.device, dtype=bad_stop_condition.dtype)
-                # bad_stop_condition_full[~complete_beams] = bad_stop_condition
-                # bad_stop_condition = bad_stop_condition | bad_stop_condition_full
-
                 # Expand and update complete beams
                 next_is_complete_full = torch.zeros(
                     (batch_size,), device=spectra.device, dtype=complete_beams.dtype
@@ -420,9 +408,6 @@ class GreedyDecoder(Decoder):
         # Clean up predictions that are empty
         result = []
         for i in range(batch_size):
-            # if bad_prediction[i]:
-            #     result.append([])
-            #     continue
             sequence = self.model.decode(sequences[i])
             result.append(
                 ScoredSequence(
