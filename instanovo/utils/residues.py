@@ -47,14 +47,11 @@ class ResidueSet:
         }
         # Split on amino acids allowing for modifications eg. AM(ox)Z -> [A, M(ox), Z]
         # Groups A-Z with any suffix
-        # self.tokenizer_regex = r"(?<=.)(?=[A-Z])"
         self.tokenizer_regex = r"(\([^)]+\))|([A-Z](?:\([^)]+\))?)"
 
         self.PAD_INDEX: int = self.residue_to_index[SpecialTokens.PAD_TOKEN.value]
         self.SOS_INDEX: int = self.residue_to_index[SpecialTokens.SOS_TOKEN.value]
         self.EOS_INDEX: int = self.residue_to_index[SpecialTokens.EOS_TOKEN.value]
-
-        # TODO: Add support for specifying which residues are n-terminal only.
 
     def update_remapping(self, mapping: dict[str, str]) -> None:
         """Update the residue remapping for specific datasets.
@@ -111,8 +108,6 @@ class ResidueSet:
         Returns:
             list[str]: The sequence of residues forming the peptide.
         """
-        # return re.split(self.tokenizer_regex, sequence)
-        # TODO: find a way to handle N-terminal PTMs appearing at any position
         return [
             item
             for sublist in re.findall(self.tokenizer_regex, sequence)

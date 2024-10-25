@@ -65,7 +65,6 @@ class MultiScalePeakEmbedding(nn.Module):
         freqs = 2 * np.pi / torch.logspace(-2, -3, int(h_size / 2), dtype=torch.float64)
         self.register_buffer("freqs", freqs)
 
-    # @torch.autocast("cuda", dtype=torch.float32)
     def forward(
         self, spectra: Float[Spectrum, " batch"]
     ) -> Float[SpectrumEmbedding, " batch"]:

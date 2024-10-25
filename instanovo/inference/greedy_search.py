@@ -40,7 +40,6 @@ class GreedyDecoder(Decoder):
                 "The model is missing the required attribute: residue_set"
             )
 
-        # TODO: Check if this can be replaced with model.get_residue_masses(mass_scale=10000)/10000
         # We would need to divide the scaled masses as we use floating point masses.
         # These residue masses are per amino acid and include special tokens, special tokens have a mass of 0.
         self.residue_masses = torch.zeros(
@@ -169,9 +168,6 @@ class GreedyDecoder(Decoder):
                 (batch_size), device=device, dtype=bool
             )  # bool (batch_size, )
 
-            # Keeps track of which stopped early or terminated with a bad stop condition. These predictions will be deleted.
-            # bad_stop_condition = torch.zeros((batch_size), device=device, dtype=bool) # bool (batch_size, )
-
             # Extract precursor mass from `precursors`
             precursor_mass = precursors[
                 :, PrecursorDimension.PRECURSOR_MASS.value
@@ -188,7 +184,6 @@ class GreedyDecoder(Decoder):
                 precursor_mass.to(torch.float64) - H2O_MASS
             )  # float64 (batch_size, )
 
-            # TODO: only check when close to precursor mass? Might not be worth the overhead.
             # Idea is if remaining < check_zone, we do the valid mass and complete checks.
             # check_zone = self.residue_masses.max().expand(batch_size) + mass_target_delta
 
@@ -232,7 +227,6 @@ class GreedyDecoder(Decoder):
                 )  # bool (sub_batch_size, )
                 # This loop checks if mass is within tolerance for 0 to max_isotopes (inclusive)
                 for j in range(0, max_isotope + 1, 1):
-                    # TODO: Use vectorized approach for this
                     isotope = CARBON_MASS_DELTA * j  # float
                     remaining_lesser_isotope = (
                         remaining_mass_incomplete - isotope < mass_target_incomplete
@@ -250,7 +244,6 @@ class GreedyDecoder(Decoder):
                     )  # bool (sub_batch_size, )
                     if remaining_within_range.any() and j > 0:
                         # If we did hit an isotope, correct the remaining mass accordingly
-                        # TODO check this
                         remaining_mass_incomplete[remaining_within_range] = (
                             remaining_mass_incomplete[remaining_within_range] - isotope
                         )
@@ -302,9 +295,6 @@ class GreedyDecoder(Decoder):
                     :, self.model.residue_set.EOS_INDEX
                 ] = -float("inf")
                 # Allow the model to predict PAD when all residues are -inf
-                # next_token_probabilities_filtered[
-                #     :, self.model.residue_set.PAD_INDEX
-                # ] = -float("inf")
                 next_token_probabilities_filtered[
                     :, self.model.residue_set.SOS_INDEX
                 ] = -float("inf")
@@ -403,12 +393,6 @@ class GreedyDecoder(Decoder):
                 next_token_is_eos = next_token[:, 0] == self.model.residue_set.EOS_INDEX
                 next_is_complete = next_token_is_eos | beam_confidence_filter
 
-                # Check for a bad stop
-                # bad_stop_condition = beam_confidence_filter
-                # bad_stop_condition_full = torch.zeros((batch_size,), device=spectra.device, dtype=bad_stop_condition.dtype)
-                # bad_stop_condition_full[~complete_beams] = bad_stop_condition
-                # bad_stop_condition = bad_stop_condition | bad_stop_condition_full
-
                 # Expand and update complete beams
                 next_is_complete_full = torch.zeros(
                     (batch_size,), device=spectra.device, dtype=complete_beams.dtype
@@ -424,14 +408,11 @@ class GreedyDecoder(Decoder):
         # Clean up predictions that are empty
         result = []
         for i in range(batch_size):
-            # if bad_prediction[i]:
-            #     result.append([])
-            #     continue
             sequence = self.model.decode(sequences[i])
             result.append(
                 ScoredSequence(
                     sequence=sequence,  # list[str] (sequence_length)
-                    mass_error=remaining_mass[i].item(),  # float - TODO check this
+                    mass_error=remaining_mass[i].item(),  # float
                     sequence_log_probability=log_probabilities[i, 0].item(),  # float
                     token_log_probabilities=[
                         x.cpu().item()

@@ -194,9 +194,7 @@ def get_preds(
     preds: dict[int, list[list[str]]] = {i: [] for i in range(num_beams)}
     targs: list[str] = []
     sequence_log_probs: dict[int, list[float]] = {i: [] for i in range(num_beams)}
-    token_log_probs: dict[int, list[list[float]]] = {
-        i: [] for i in range(num_beams)
-    }  # TODO
+    token_log_probs: dict[int, list[list[float]]] = {i: [] for i in range(num_beams)}
 
     start = time.time()
 
@@ -294,8 +292,6 @@ def get_preds(
         auc = metrics.calc_auc(
             pred_df["targets"], preds[0], np.exp(pred_df["log_probs"])
         )
-
-        # TODO: per residue scoring
 
         logger.info(f"Performance on {data_path}:")
         logger.info(f"  aa_er       {aa_er:.5f}")
@@ -419,7 +415,6 @@ def main(config: DictConfig) -> None:
 
 def _setup_knapsack(model: InstaNovo) -> Knapsack:
     residue_masses = dict(model.residue_set.residue_masses.copy())
-    # TODO: Handle negative masses in knapsack:
     if any([x < 0 for x in residue_masses.values()]):
         raise NotImplementedError(
             "Negative mass found in residues, this will break the knapsack graph. Either disable knapsack or use strictly positive masses"

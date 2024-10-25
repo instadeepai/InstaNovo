@@ -435,9 +435,6 @@ def train(
             lambda row: remove_modifications(row["sequence"]) in valid_unique
         )
         # Save splits
-        # TODO: Optionally load the data splits
-        # TODO: Allow loading of data splits in `predict.py`
-        # TODO: Upload to Aichor
         split_path = os.path.join(
             config.get("model_save_folder_path", "./checkpoints"), "splits.csv"
         )
@@ -904,7 +901,6 @@ def main(config: DictConfig) -> None:
     _set_author_neptune_api_token()
 
     # Unnest hydra configs
-    # TODO Use the nested configs by default
     sub_configs_list = ["model", "dataset", "residues"]
     for sub_name in sub_configs_list:
         if sub_name in config:
