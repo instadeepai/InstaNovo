@@ -221,9 +221,7 @@ train_acpt:
 ## Train InstaNovo on AC-PT, Phospho and PRIDE data
 train_extended:
 	mkdir -p ./data
-	gcloud auth list
-	gcloud projects get-iam-policy ext-dtu-denovo-sequencing-gcp
-	gsutil -d -m cp -R gs://denovo_formatted_ipc/identity_splits ./data
+	gsutil -m cp -R gs://denovo_formatted_ipc/identity_splits ./data
 	mkdir -p ./data/extended
 	cp -R ./data/identity_splits/ac_pt_shards/*.ipc ./data/extended
 	python ./scripts/move_shards.py ./data/identity_splits/pride_extended/ ./data/extended/ 100

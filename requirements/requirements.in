@@ -1,5 +1,6 @@
 click
 datasets
+hydra-core
 dvc
 dvc-gs
 ipykernel

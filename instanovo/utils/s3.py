@@ -11,7 +11,8 @@ from pytorch_lightning.strategies import DDPStrategy
 from tensorboard.compat.tensorflow_stub.io.gfile import _REGISTERED_FILESYSTEMS
 from tensorboard.compat.tensorflow_stub.io.gfile import register_filesystem
 
-logger = logging.getLogger("instanovo.utils.s3")
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 
 def upload(source: str, target: str) -> None:
@@ -20,10 +21,10 @@ def upload(source: str, target: str) -> None:
         return
     s3 = _create_s3fs()
 
-    logging.info(f"Uploading {source} to {target}")
+    logger.info(f"Uploading {source} to {target}")
     with open(source, "rb") as local_fp, s3.open(target, "wb") as remote_fp:
         remote_fp.write(local_fp.read())
-        logging.info(f"Wrote {source} to {target}")
+        logger.info(f"Wrote {source} to {target}")
 
 
 def download(source: str, target: str) -> None:
@@ -32,10 +33,10 @@ def download(source: str, target: str) -> None:
         return
     s3 = _create_s3fs()
 
-    logging.info(f"Downloading {source} to {target}")
+    logger.info(f"Downloading {source} to {target}")
     with open(target, "wb") as local_fp, s3.open(source, "rb") as remote_fp:
         local_fp.write(remote_fp.read())
-        logging.info(f"Wrote {source} to {target}")
+        logger.info(f"Wrote {source} to {target}")
 
 
 def get_checkpoint_path(model_filename: str, local_path: str = "checkpoints") -> str:
@@ -49,7 +50,7 @@ def get_checkpoint_path(model_filename: str, local_path: str = "checkpoints") ->
     os.makedirs(local_path, exist_ok=True)
     local_path = f"{local_path}/model.ckpt"
 
-    logging.info(f"Downloading {model_filename} from S3 to {local_path}")
+    logger.info(f"Downloading {model_filename} from S3 to {local_path}")
     download(model_filename, target=local_path)
 
     return local_path

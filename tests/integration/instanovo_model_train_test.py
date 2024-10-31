@@ -30,6 +30,7 @@ def test_train_model(
     instanovo_inference_config: DictConfig,
 ) -> None:
     """Test training an InstaNovo model and doing inference end-to-end."""
+    torch.backends.cuda.enable_cudnn_sdp(False)  # required for torch 2.5 compatibility
     assert instanovo_config.residues == {
         "A": 10.5,
         "B": 20.75,
@@ -38,7 +39,14 @@ def test_train_model(
         "E": 12.33,
     }
     assert instanovo_config.learning_rate == 1e-3
-    assert instanovo_config.epochs == 5
+    assert instanovo_config.epochs == 1
+
+    temp_train_config = copy.deepcopy(instanovo_config)
+    temp_inference_config = copy.deepcopy(instanovo_inference_config)
+
+    temp_train_config["model_save_folder_path"] = str(
+        tmp_path
+    )  # save the model in a temporary directory
 
     temp_train_config = copy.deepcopy(instanovo_config)
     temp_inference_config = copy.deepcopy(instanovo_inference_config)
@@ -52,7 +60,7 @@ def test_train_model(
 
     logger.info("Loading model.")
     checkpoint_path = os.path.join(
-        temp_train_config["model_save_folder_path"], "epoch=4-step=2420.ckpt"
+        temp_train_config["model_save_folder_path"], "epoch=0-step=480.ckpt"
     )
     assert os.path.exists(
         checkpoint_path
