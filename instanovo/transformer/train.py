@@ -397,6 +397,8 @@ def train(
             partition=config.get("train_partition", None),
             column_mapping=config.get("column_remapping", None),
             max_shard_size=config.get("max_shard_size", 100_000),
+            preshuffle_across_shards=config.get("preshuffle_shards", False),
+            verbose=config.get("verbose_loading", True),
         )
         valid_sdf = SpectrumDataFrame.load(
             config.get("valid_path", None) or config.get("train_path"),
@@ -722,7 +724,7 @@ def train(
     metrics = Metrics(residue_set, config["isotope_error_range"])
 
     # Use as an additional data sanity check
-    if config.get("perform_data_checks", True):
+    if config.get("validate_precursor_mass", True):
         logger.info("Sanity checking precursor masses for training set...")
         train_sdf.validate_precursor_mass(metrics)
         logger.info("Sanity checking precursor masses for validation set...")

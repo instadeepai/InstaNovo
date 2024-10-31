@@ -127,7 +127,7 @@ pygments==2.18.0
     #   -c requirements/requirements-dev.txt
     #   -c requirements/requirements.txt
     #   mkdocs-material
-pymdown-extensions==10.11.2
+pymdown-extensions==10.12
     # via
     #   -r requirements/requirements-docs.in
     #   mkdocs-material
@@ -155,7 +155,6 @@ requests==2.32.3
     #   mkdocs-material
 six==1.16.0
     # via
-    #   -c requirements/requirements-dev.txt
     #   -c requirements/requirements.txt
     #   python-dateutil
 smmap==5.0.1
