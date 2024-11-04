@@ -1,5 +1,3 @@
--c requirements.txt
--c requirements-dev.txt
 mkdocs
 mkdocs-gen-files
 mkdocs-git-revision-date-plugin

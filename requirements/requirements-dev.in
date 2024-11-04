@@ -1,5 +1,6 @@
 -c requirements.txt
 allure-pytest
+ipykernel
 coverage
 genbadge[all]
 gsutil
