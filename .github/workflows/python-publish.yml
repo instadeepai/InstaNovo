@@ -23,7 +23,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: "3.x"
           cache: "pip" # caching pip dependencies
@@ -34,12 +34,12 @@ jobs:
       - name: Build package
         run: python -m build
       - name: Publish package
-        uses: pypa/gh-action-pypi-publish@27b31702a0e7fc50959f5ad993c78deac1bdfc29
+        uses: pypa/gh-action-pypi-publish@v1.12
         with:
           user: __token__
           password: ${{ secrets.PYPI_API_TOKEN }}
       - name: refresh PyPI badge
-        uses: fjogeleit/http-request-action@v1
+        uses: fjogeleit/http-request-action@v1.16
         with:
           url: https://camo.githubusercontent.com/a22fbcbadf81751212d5367cce341631bc28d7749b9cd5c317fbf0706a30c9ae/68747470733a2f2f62616467652e667572792e696f2f70792f696e7374616e6f766f2e737667
           method: PURGE
