@@ -10,7 +10,7 @@ logger.setLevel(logging.INFO)
 
 
 def main() -> None:
-    """Convert data to ipc."""
+    """Convert data to spectrum data frame and save as parquet."""
     logging.basicConfig(level=logging.INFO)
     parser = argparse.ArgumentParser()
 
