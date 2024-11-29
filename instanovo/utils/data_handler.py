@@ -20,6 +20,7 @@ import asyncio
 from concurrent.futures import ThreadPoolExecutor
 import shutil
 from datasets import Dataset, load_dataset
+import re
 
 from instanovo.constants import (
     PROTON_MASS_AMU,
@@ -109,7 +110,7 @@ class SpectrumDataFrame:
                 raise FileNotFoundError(f"No files matching '{file_paths}' were found.")
 
             # If any of the files are not .parquet, create a tempdir with the converted files.
-            if not all([fp.endswith(".parquet") for fp in self._file_paths]):
+            if not all([fp.lower().endswith(".parquet") for fp in self._file_paths]):
                 # If lazy make tempdir, if not convert to non-native and load all contents into df
                 # Only iterate over non-parquet files
                 df_iterator = SpectrumDataFrame.get_data_shards(
@@ -124,7 +125,7 @@ class SpectrumDataFrame:
                     self._temp_directory = tempfile.mkdtemp()
 
                     new_file_paths = [
-                        fp for fp in self._file_paths if fp.endswith(".parquet")
+                        fp for fp in self._file_paths if fp.lower().endswith(".parquet")
                     ]
                     for temp_df in df_iterator:
                         # TODO: better way to generate id than hash?
@@ -142,9 +143,29 @@ class SpectrumDataFrame:
                             for temp_df in df_iterator
                         ]
                     )
+                    # Ensure parquet files are re-added
+                    self.df = pl.concat(
+                        [self.df]
+                        + [
+                            SpectrumDataFrame._cast_columns(pl.read_parquet(fp))
+                            for fp in self._file_paths
+                            if fp.lower().endswith(".parquet")
+                        ]
+                    )
                     # Native is disabled if not lazy
                     self._is_native = False
                     self._file_paths = []
+            elif not self._is_lazy:
+                # Loaded native, convert to lazy
+                self.df = pl.concat(
+                    [
+                        SpectrumDataFrame._cast_columns(pl.read_parquet(fp))
+                        for fp in self._file_paths
+                    ]
+                )
+                # Native is disabled if not lazy
+                self._is_native = False
+                self._file_paths = []
 
             if self._file_paths is not None:
                 self._filter_series_per_file: dict[str, pl.Series] = {
@@ -1204,11 +1225,29 @@ class SpectrumDataFrame:
         )
 
     @staticmethod
+    def _parse_scan_number(scan_number: str, index: int) -> int | None:
+        """Try parse scan number."""
+        if scan_number.isdigit():
+            return int(scan_number)
+
+        # Use regex to extract the value after 'scan='
+        match = re.search(r"scan=(\d+)", scan_number)
+        if match:
+            return int(match.group(1))
+
+        # use index if scan number cannot be accessed
+        return index
+
+    @staticmethod
     def _df_from_dict(data: dict[str, Any]) -> pl.DataFrame:
         df = pl.DataFrame(
             {
                 "scan_number": pl.Series(
-                    np.arange(len(data["sequence"])), dtype=pl.Int64
+                    [
+                        SpectrumDataFrame._parse_scan_number(str(x), i)
+                        for i, x in enumerate(data["scan_number"])
+                    ],
+                    dtype=pl.Int64,
                 ),
                 ANNOTATED_COLUMN: pl.Series(data["sequence"], dtype=pl.Utf8),
                 # Calculate precursor mass
