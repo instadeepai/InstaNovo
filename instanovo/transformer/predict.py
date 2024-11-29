@@ -264,9 +264,10 @@ def get_preds(
     delta = time.time() - start
 
     logger.info(f"Time taken for {data_path} is {delta:.1f} seconds")
-    logger.info(
-        f"Average time per batch (bs={config['batch_size']}): {delta/len(dl):.1f} seconds"
-    )
+    if len(dl) > 0:
+        logger.info(
+            f"Average time per batch (bs={config['batch_size']}): {delta/len(dl):.1f} seconds"
+        )
 
     if not denovo:
         pred_df["targets"] = targs
