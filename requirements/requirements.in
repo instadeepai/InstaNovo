@@ -1,8 +1,6 @@
 click
 datasets
 hydra-core
-dvc
-dvc-gs
 ipykernel
 jaxtyping
 jiwer
@@ -22,5 +20,4 @@ spectrum_utils
 tensorboard
 torch<2.5
 tqdm
-transfusion-asr
 python-dotenv
