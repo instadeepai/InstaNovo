@@ -22,7 +22,7 @@ classifiers = [
     "License :: OSI Approved :: Apache Software License",
     "Operating System :: OS Independent",
 ]
-dynamic = ["version", "readme", "dependencies"] # , "optional-dependencies"]
+dynamic = ["version", "readme", "dependencies" , "optional-dependencies"]
 
 [tool.setuptools]
 include-package-data = true  # To use MANIFEST.in for including extra files

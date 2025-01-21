@@ -9,7 +9,7 @@ defaults:
 tb_summarywriter: "./logs/instanovo/instanovo-unit-test"
 
 # Training parameters
-warmup_iters: 1000
+warmup_iters: 480
 max_iters: 3_000_000
 learning_rate: 1e-3
 train_batch_size: 32
@@ -17,7 +17,7 @@ grad_accumulation: 1
 
 # Logging parameters
 logger:
-epochs: 5
+epochs: 1
 num_sanity_val_steps: 10
 console_logging_steps: 50
 tensorboard_logging_steps: 500
@@ -29,4 +29,4 @@ valid_subset: 1.0
 
 # Checkpointing parameters
 model_save_folder_path: ./tests/instanovo_test_resources/train_test
-ckpt_interval: 2420
+ckpt_interval: 480

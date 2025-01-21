@@ -1,6 +1,7 @@
 click
 datasets
 hydra-core
+ipykernel
 jaxtyping
 jiwer
 matchms
@@ -10,12 +11,13 @@ omegaconf
 pandas
 polars
 pyopenms
+pyopenms-viz
 python-dotenv
 pytorch_lightning
 s3fs
 scikit-learn
 spectrum_utils
 tensorboard
-torch
+torch<2.5
 tqdm
 python-dotenv

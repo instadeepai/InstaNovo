@@ -2,7 +2,6 @@
 allure-pytest
 coverage
 genbadge[all]
-gsutil
 pre-commit
 pytest
 pytest-cov

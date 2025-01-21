@@ -4,6 +4,12 @@ from typing import Optional
 from typing import Tuple
 
 import torch
+import json
+import os
+import requests
+from urllib.parse import urlsplit
+from tqdm import tqdm
+from pathlib import Path
 from jaxtyping import Bool
 from jaxtyping import Float
 from jaxtyping import Integer
@@ -26,6 +32,9 @@ from instanovo.types import Spectrum
 from instanovo.types import SpectrumEmbedding
 from instanovo.types import SpectrumMask
 from instanovo.utils import ResidueSet
+
+MODELS_PATH = Path(__file__).parent.parent / "models.json"
+MODEL_TYPE = "transformer"
 
 
 class InstaNovo(nn.Module, Decodable):
@@ -113,9 +122,21 @@ class InstaNovo(nn.Module, Decodable):
             )
         return ~mask.bool()
 
+    @staticmethod
+    def get_pretrained() -> list[str]:
+        """Get a list of pretrained model ids."""
+        # Load the models.json file
+        with open(MODELS_PATH, "r") as f:
+            models_config = json.load(f)
+
+        if MODEL_TYPE not in models_config:
+            return []
+
+        return list(models_config[MODEL_TYPE].keys())
+
     @classmethod
     def load(cls, path: str) -> Tuple["InstaNovo", "DictConfig"]:
-        """Load model from checkpoint."""
+        """Load model from checkpoint path."""
         # Add  to allow list
         _whitelist_torch_omegaconf()
         ckpt = torch.load(path, map_location="cpu", weights_only=True)
@@ -144,6 +165,60 @@ class InstaNovo(nn.Module, Decodable):
         model.load_state_dict(ckpt["state_dict"])
 
         return model, config
+
+    @classmethod
+    def from_pretrained(cls, model_id: str) -> Tuple["InstaNovo", "DictConfig"]:
+        """Download and load by model id or model path."""
+        # Check if model_id is a local file path
+        if "/" in model_id or "\\" in model_id or "." in model_id:
+            if os.path.isfile(model_id):
+                return cls.load(model_id)
+            else:
+                raise FileNotFoundError(f"No file found at path: {model_id}")
+
+        # Load the models.json file
+        with open(MODELS_PATH, "r") as f:
+            models_config = json.load(f)
+
+        # Find the model in the config
+        if MODEL_TYPE not in models_config or model_id not in models_config[MODEL_TYPE]:
+            raise ValueError(
+                f"Model {model_id} not found in models.json, options are [{', '.join(models_config[MODEL_TYPE].keys())}]"
+            )
+
+        model_info = models_config[MODEL_TYPE][model_id]
+        url = model_info["url"]
+
+        # Create cache directory if it doesn't exist
+        cache_dir = Path.home() / ".cache" / "instanovo"
+        cache_dir.mkdir(parents=True, exist_ok=True)
+
+        # Generate a filename for the cached model
+        file_name = urlsplit(url).path.split("/")[-1]
+        cached_file = cache_dir / file_name
+
+        # Check if the file is already cached
+        if not cached_file.exists():
+            # If not cached, download the file with a progress bar
+            response = requests.get(url, stream=True)
+            total_size = int(response.headers.get("content-length", 0))
+
+            with open(cached_file, "wb") as file, tqdm(
+                desc=file_name,
+                total=total_size,
+                unit="iB",
+                unit_scale=True,
+                unit_divisor=1024,
+            ) as progress_bar:
+                for data in response.iter_content(chunk_size=1024):
+                    size = file.write(data)
+                    progress_bar.update(size)
+        # else:
+        #     TODO: Optional verbose logging
+        #     print(f"Model {model_id} already cached at {cached_file}")
+
+        # Load and return the model
+        return cls.load(str(cached_file))
 
     def forward(
         self,
