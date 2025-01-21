@@ -21,9 +21,18 @@ class GreedyDecoder(Decoder):
     models that conform to the `Decodable` interface.
     """
 
-    def __init__(self, model: Decodable, mass_scale: int = MASS_SCALE):
+    def __init__(
+        self,
+        model: Decodable,
+        suppressed_residues: list[str] | None = None,
+        mass_scale: int = MASS_SCALE,
+        disable_terminal_residues_anywhere: bool = True,
+    ):
         super().__init__(model=model)
         self.mass_scale = mass_scale
+        self.disable_terminal_residues_anywhere = disable_terminal_residues_anywhere
+
+        suppressed_residues = suppressed_residues or []
 
         # NOTE: Greedy search requires `residue_set` class in the model, update all methods accordingly.
         if not hasattr(model, "residue_set"):
@@ -37,10 +46,32 @@ class GreedyDecoder(Decoder):
         self.residue_masses = torch.zeros(
             (len(self.model.residue_set),), dtype=torch.float64
         )
+        terminal_residues_idx: list[int] = []
+        suppressed_residues_idx: list[int] = []
         for i, residue in enumerate(model.residue_set.vocab):
             if residue in self.model.residue_set.special_tokens:
                 continue
             self.residue_masses[i] = self.model.residue_set.get_mass(residue)
+            # If no residue is attached, assume it is a n-terminal residue
+            if not residue[0].isalpha():
+                terminal_residues_idx.append(i)
+
+            # Check if residue is suppressed
+            if residue in suppressed_residues:
+                suppressed_residues_idx.append(i)
+                suppressed_residues.remove(residue)
+
+        if len(suppressed_residues) > 0:
+            raise ValueError(
+                f"Suppressed residues not found in vocabulary: {suppressed_residues}"
+            )
+
+        self.terminal_residue_indices = torch.tensor(
+            terminal_residues_idx, dtype=torch.long
+        )
+        self.suppressed_residue_indices = torch.tensor(
+            suppressed_residues_idx, dtype=torch.long
+        )
 
         self.vocab_size = len(self.model.residue_set)
 
@@ -270,10 +301,53 @@ class GreedyDecoder(Decoder):
                 next_token_probabilities_filtered[
                     :, self.model.residue_set.EOS_INDEX
                 ] = -float("inf")
+                # Allow the model to predict PAD when all residues are -inf
+                # next_token_probabilities_filtered[
+                #     :, self.model.residue_set.PAD_INDEX
+                # ] = -float("inf")
                 next_token_probabilities_filtered[
                     :, self.model.residue_set.SOS_INDEX
                 ] = -float("inf")
-                # TODO set probability of n-terminal modifications to 0 when i > 0, requires n-terms to be specified in residue_set
+                next_token_probabilities_filtered[
+                    :, self.suppressed_residue_indices
+                ] = -float("inf")
+                # Set probability of n-terminal modifications to -inf when i > 0
+                if self.disable_terminal_residues_anywhere:
+                    # Check if adding terminal residues would result in a complete sequence
+                    # First generate remaining mass matrix with isotopes
+                    remaining_mass_incomplete_isotope = remaining_mass_incomplete[
+                        :, None
+                    ].expand(sub_batch_size, max_isotope + 1) - CARBON_MASS_DELTA * (
+                        torch.arange(max_isotope + 1, device=device)
+                    )
+                    # Expand with terminal residues and subtract
+                    remaining_mass_incomplete_isotope_delta = (
+                        remaining_mass_incomplete_isotope[:, :, None].expand(
+                            sub_batch_size,
+                            max_isotope + 1,
+                            self.terminal_residue_indices.shape[0],
+                        )
+                        - self.residue_masses[self.terminal_residue_indices]
+                    )
+
+                    # If within target delta, allow these residues to be predicted, otherwise set probability to -inf
+                    allow_terminal = (
+                        remaining_mass_incomplete_isotope_delta.abs()
+                        < mass_target_incomplete[:, None, None]
+                    ).any(dim=1)
+                    allow_terminal_full = torch.ones(
+                        (sub_batch_size, self.vocab_size),
+                        device=spectra.device,
+                        dtype=bool,
+                    )
+                    allow_terminal_full[:, self.terminal_residue_indices] = (
+                        allow_terminal
+                    )
+
+                    # Set to -inf
+                    next_token_probabilities_filtered[~allow_terminal_full] = -float(
+                        "inf"
+                    )
 
                 # Step 5: Select next token:
                 next_token = next_token_probabilities_filtered.argmax(-1).unsqueeze(
@@ -362,7 +436,7 @@ class GreedyDecoder(Decoder):
                     token_log_probabilities=[
                         x.cpu().item()
                         for x in all_log_probabilities[i, : len(sequence)]
-                    ],  # list[float] (sequence_length) excludes EOS
+                    ][::-1],  # list[float] (sequence_length) excludes EOS
                 )
             )
 

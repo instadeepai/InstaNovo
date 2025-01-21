@@ -5,12 +5,13 @@ defaults:
 # Data paths and output location
 data_path: ./tests/instanovo_test_resources/example_data/test_sample.mgf # type: .ipc
 model_path: ./tests/instanovo_test_resources/model.ckpt # type: .ckpt
-output_path: ./tests/instanovo_test_resources/train_test/test_sample_preds.csv # type: .csv
+output_path: ./tests/instanovo_test_resources/test_sample_preds.csv # type: .csv
 knapsack_path: ./tests/instanovo_test_resources/example_knapsack # type: directory
 use_knapsack: False
 
 num_beams: 5
 max_length: 30
+max_charge: 3
 
 subset: 1
 

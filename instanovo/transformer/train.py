@@ -123,7 +123,7 @@ class PTModule(ptl.LightningModule):
         """Model forward pass."""
         return self.model(spectra, precursors, peptides, spectra_mask, peptides_mask)  # type: ignore
 
-    def training_step(  # need to update this
+    def training_step(
         self,
         batch: tuple[
             Float[Spectrum, " batch"],
@@ -157,7 +157,6 @@ class PTModule(ptl.LightningModule):
 
         peptides = peptides.to(self.device)
 
-        # preds = self.forward(spectra, precursors, peptides, spectra_mask, peptides_mask)
         preds = self.compiled_forward(
             spectra, precursors, peptides, spectra_mask, peptides_mask
         )
@@ -228,8 +227,6 @@ class PTModule(ptl.LightningModule):
         spectra = spectra.to(self.device)
         precursors = precursors.to(self.device)
         spectra_mask = spectra_mask.to(self.device)
-        # peptides = peptides.to(self.device)
-        # peptides_mask = peptides_mask.to(self.device)
 
         # Loss
         peptides = peptides.to(self.device)
@@ -364,7 +361,6 @@ def train(
     """Training function."""
     torch.manual_seed(config.get("seed", 101))
     torch.set_float32_matmul_precision("high")
-    # os.environ['TORCH_CUDNN_SDPA_ENABLED'] = '1'
 
     time_now = datetime.datetime.now().strftime("_%y_%m_%d_%H_%M")
     if s3.register_tb():
@@ -401,6 +397,8 @@ def train(
             partition=config.get("train_partition", None),
             column_mapping=config.get("column_remapping", None),
             max_shard_size=config.get("max_shard_size", 100_000),
+            preshuffle_across_shards=config.get("preshuffle_shards", False),
+            verbose=config.get("verbose_loading", True),
         )
         valid_sdf = SpectrumDataFrame.load(
             config.get("valid_path", None) or config.get("train_path"),
@@ -543,8 +541,6 @@ def train(
     logger.info(
         f"Data loaded: {len(train_ds):,} training samples; {len(valid_ds):,} validation samples"
     )
-    # logger.info(f"Train columns: {train_df.columns}")
-    # logger.info(f"Valid columns: {valid_df.columns}")
 
     train_sequences = pl.Series(list(train_sdf.get_unique_sequences()))
     valid_sequences = pl.Series(list(valid_sdf.get_unique_sequences()))
@@ -604,7 +600,6 @@ def train(
         num_workers=0,  # SDF requirement is 0
         shuffle=False,  # SDF requirement
         collate_fn=collate_batch,
-        # multiprocessing_context="fork",
     )
 
     valid_dl = DataLoader(
@@ -613,7 +608,6 @@ def train(
         num_workers=0,  # SDF requirement is 0
         shuffle=False,
         collate_fn=collate_batch,
-        # multiprocessing_context="fork",
     )
 
     # Update rates based on bs=32
@@ -730,7 +724,7 @@ def train(
     metrics = Metrics(residue_set, config["isotope_error_range"])
 
     # Use as an additional data sanity check
-    if config.get("perform_data_checks", True):
+    if config.get("validate_precursor_mass", True):
         logger.info("Sanity checking precursor masses for training set...")
         train_sdf.validate_precursor_mass(metrics)
         logger.info("Sanity checking precursor masses for validation set...")
