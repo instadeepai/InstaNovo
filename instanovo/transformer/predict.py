@@ -92,7 +92,9 @@ def get_preds(
         logger.warning(
             f"Inference has been configured with max_charge={max_charge}, but model has max_charge={model_max_charge}."
         )
-        logger.warning(f"Overwriting max_charge to Model value: {max_charge}.")
+        logger.warning(
+            f"Overwriting max_charge config to model value: {model_max_charge}."
+        )
         max_charge = model_max_charge
 
     sdf.filter_rows(
@@ -176,7 +178,13 @@ def get_preds(
     elif num_beams > 1:
         decoder = BeamSearchDecoder(model=model)
     else:
-        decoder = GreedyDecoder(model=model)
+        decoder = GreedyDecoder(
+            model=model,
+            suppressed_residues=config.get("suppressed_residues", None),
+            disable_terminal_residues_anywhere=config.get(
+                "disable_terminal_residues_anywhere", True
+            ),
+        )
 
     index_cols = config.get("index_columns", ["precursor_mz", "precursor_charge"])
     cols = [x for x in sdf.df.columns if x in index_cols]
@@ -331,40 +339,54 @@ def get_preds(
         filter_precursor_ppm = config.get("filter_precursor_ppm", None)
         if filter_precursor_ppm:
             idx = pred_df["delta_mass_ppm"] < filter_precursor_ppm
-            filtered_preds = pd.Series(preds[0])
-            filtered_preds[~idx] = ""
-            aa_prec, aa_recall, pep_recall, pep_prec = metrics.compute_precision_recall(
-                pred_df["targets"], filtered_preds
-            )
             logger.info(
                 f"Performance with filtering at {filter_precursor_ppm} ppm delta mass:"
             )
-            logger.info(f"  aa_prec     {aa_prec:.5f}")
-            logger.info(f"  aa_recall   {aa_recall:.5f}")
-            logger.info(f"  pep_prec    {pep_prec:.5f}")
-            logger.info(f"  pep_recall  {pep_recall:.5f}")
-            logger.info(
-                f"Rows filtered: {len(sdf)-np.sum(idx)} ({(len(sdf)-np.sum(idx))/len(sdf)*100:.2f}%)"
-            )
+            if np.sum(idx) > 0:
+                filtered_preds = pd.Series(preds[0])
+                filtered_preds[~idx] = ""
+                aa_prec, aa_recall, pep_recall, pep_prec = (
+                    metrics.compute_precision_recall(pred_df["targets"], filtered_preds)
+                )
+                logger.info(f"  aa_prec     {aa_prec:.5f}")
+                logger.info(f"  aa_recall   {aa_recall:.5f}")
+                logger.info(f"  pep_prec    {pep_prec:.5f}")
+                logger.info(f"  pep_recall  {pep_recall:.5f}")
+                logger.info(
+                    f"Rows filtered: {len(sdf)-np.sum(idx)} ({(len(sdf)-np.sum(idx))/len(sdf)*100:.2f}%)"
+                )
+                if np.sum(idx) < 1000:
+                    logger.info(
+                        f"Metrics calculated on a small number of samples ({np.sum(idx)}), interpret with care"
+                    )
+            else:
+                logger.info("No predictions met criteria, skipping metrics.")
 
         model_confidence_no_pred = config.get("filter_confidence", None)
         if model_confidence_no_pred:
             idx = np.exp(pred_df["log_probs"]) > model_confidence_no_pred
-            filtered_preds = pd.Series(preds[0])
-            filtered_preds[~idx] = ""
-            aa_prec, aa_recall, pep_recall, pep_prec = metrics.compute_precision_recall(
-                pred_df["targets"], filtered_preds
-            )
             logger.info(
                 f"Performance with filtering confidence < {model_confidence_no_pred}"
             )
-            logger.info(f"  aa_prec     {aa_prec:.5f}")
-            logger.info(f"  aa_recall   {aa_recall:.5f}")
-            logger.info(f"  pep_prec    {pep_prec:.5f}")
-            logger.info(f"  pep_recall  {pep_recall:.5f}")
-            logger.info(
-                f"Rows filtered: {len(sdf)-np.sum(idx)} ({(len(sdf)-np.sum(idx))/len(sdf)*100:.2f}%)"
-            )
+            if np.sum(idx) > 0:
+                filtered_preds = pd.Series(preds[0])
+                filtered_preds[~idx] = ""
+                aa_prec, aa_recall, pep_recall, pep_prec = (
+                    metrics.compute_precision_recall(pred_df["targets"], filtered_preds)
+                )
+                logger.info(f"  aa_prec     {aa_prec:.5f}")
+                logger.info(f"  aa_recall   {aa_recall:.5f}")
+                logger.info(f"  pep_prec    {pep_prec:.5f}")
+                logger.info(f"  pep_recall  {pep_recall:.5f}")
+                logger.info(
+                    f"Rows filtered: {len(sdf)-np.sum(idx)} ({(len(sdf)-np.sum(idx))/len(sdf)*100:.2f}%)"
+                )
+                if np.sum(idx) < 1000:
+                    logger.info(
+                        f"Metrics calculated on a small number of samples ({np.sum(idx)}), interpret with care"
+                    )
+            else:
+                logger.info("No predictions met criteria, skipping metrics.")
 
     # Save output
     if output_path is not None:
@@ -395,7 +417,7 @@ def main(config: DictConfig) -> None:
         )
 
     logger.info(f"Loading model from {model_path}")
-    model, model_config = InstaNovo.load(model_path)
+    model, model_config = InstaNovo.from_pretrained(model_path)
     logger.info(f"Config:\n{config}")
     logger.info(f"Model params: {np.sum([p.numel() for p in model.parameters()]):,d}")
 

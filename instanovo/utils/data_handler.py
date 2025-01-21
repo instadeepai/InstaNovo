@@ -20,6 +20,7 @@ import asyncio
 from concurrent.futures import ThreadPoolExecutor
 import shutil
 from datasets import Dataset, load_dataset
+import re
 
 from instanovo.constants import (
     PROTON_MASS_AMU,
@@ -59,9 +60,11 @@ class SpectrumDataFrame:
         has_predictions: bool = False,
         is_lazy: bool = False,
         shuffle: bool = False,
+        preshuffle_across_shards: bool = True,
         max_shard_size: int = 100_000,
         custom_load_fn: Callable | None = None,
         column_mapping: dict[str, str] | None = None,
+        verbose: bool = False,
     ) -> None:
         """Initialize SpectrumDataFrame.
 
@@ -85,6 +88,7 @@ class SpectrumDataFrame:
         self._shuffle: bool = shuffle
         self._max_shard_size = max_shard_size
         self._custom_load_fn = custom_load_fn
+        self._verbose = verbose
         self.executor = None
         self._temp_directory = None
 
@@ -106,7 +110,7 @@ class SpectrumDataFrame:
                 raise FileNotFoundError(f"No files matching '{file_paths}' were found.")
 
             # If any of the files are not .parquet, create a tempdir with the converted files.
-            if not all([fp.endswith(".parquet") for fp in self._file_paths]):
+            if not all([fp.lower().endswith(".parquet") for fp in self._file_paths]):
                 # If lazy make tempdir, if not convert to non-native and load all contents into df
                 # Only iterate over non-parquet files
                 df_iterator = SpectrumDataFrame.get_data_shards(
@@ -114,13 +118,14 @@ class SpectrumDataFrame:
                     max_shard_size=self._max_shard_size,
                     custom_load_fn=custom_load_fn,
                     column_mapping=column_mapping,
+                    verbose=verbose,
                 )
 
                 if self._is_lazy:
                     self._temp_directory = tempfile.mkdtemp()
 
                     new_file_paths = [
-                        fp for fp in self._file_paths if fp.endswith(".parquet")
+                        fp for fp in self._file_paths if fp.lower().endswith(".parquet")
                     ]
                     for temp_df in df_iterator:
                         # TODO: better way to generate id than hash?
@@ -129,6 +134,7 @@ class SpectrumDataFrame:
                         )
                         temp_df.write_parquet(temp_parquet_path)
                         new_file_paths.append(temp_parquet_path)
+                        self._log(f"Saving temporary file to {temp_parquet_path}")
                     self._file_paths = new_file_paths
                 else:
                     self.df = pl.concat(
@@ -137,9 +143,29 @@ class SpectrumDataFrame:
                             for temp_df in df_iterator
                         ]
                     )
+                    # Ensure parquet files are re-added
+                    self.df = pl.concat(
+                        [self.df]
+                        + [
+                            SpectrumDataFrame._cast_columns(pl.read_parquet(fp))
+                            for fp in self._file_paths
+                            if fp.lower().endswith(".parquet")
+                        ]
+                    )
                     # Native is disabled if not lazy
                     self._is_native = False
                     self._file_paths = []
+            elif not self._is_lazy:
+                # Loaded native, convert to lazy
+                self.df = pl.concat(
+                    [
+                        SpectrumDataFrame._cast_columns(pl.read_parquet(fp))
+                        for fp in self._file_paths
+                    ]
+                )
+                # Native is disabled if not lazy
+                self._is_native = False
+                self._file_paths = []
 
             if self._file_paths is not None:
                 self._filter_series_per_file: dict[str, pl.Series] = {
@@ -152,22 +178,14 @@ class SpectrumDataFrame:
             self.df = df
 
         # Check all columns
+        self._log("Verifying loaded data")
         self._check_type_spec()
-
-        # Shuffled file handling, uses a two-step shuffle to optimise efficiency
-        self._current_index_in_file = (
-            0  # index in the current file, used in shuffle mode
-        )
-        self._next_file_index = 0  # index of the next file to be loaded in _file_paths
-        self._current_file: str | None = None  # filename of the current file
-        self._current_file_len = 0  # length of the current file
-        self._current_file_data: pl.DataFrame | None = (
-            None  # loaded data of the current file
-        )
-        self._current_file_position = 0  # starting index of the current file, used to
+        self._reset_current_file()
 
         if self._shuffle:
             if self._is_native:
+                if preshuffle_across_shards:
+                    self._preshuffle_files()
                 self._shuffle_file_order()
             else:
                 self.df = SpectrumDataFrame._shuffle_df(self.df)
@@ -243,6 +261,28 @@ class SpectrumDataFrame:
             )
         return file_paths
 
+    @staticmethod
+    def _concat_dataframes(df1: pl.DataFrame, df2: pl.DataFrame) -> pl.DataFrame:
+        df1_columns = set(df1.columns)
+        df2_columns = set(df2.columns)
+
+        # Find missing columns in both DataFrames
+        missing_in_df1 = df2_columns - df1_columns
+        missing_in_df2 = df1_columns - df2_columns
+
+        # Add missing columns to df1 with None values
+        for col in missing_in_df1:
+            df1 = df1.with_columns(pl.lit(None).cast(df2[col].dtype).alias(col))
+
+        # Add missing columns to df2 with None values
+        for col in missing_in_df2:
+            df2 = df2.with_columns(pl.lit(None).cast(df1[col].dtype).alias(col))
+
+        # Rearrange df2 to have the same order as df1
+        df2 = df2.select(df1.columns)
+
+        return pl.concat([df1, df2], how="vertical_relaxed")
+
     # flake8: noqa: CR001
     @staticmethod
     def get_data_shards(
@@ -251,6 +291,7 @@ class SpectrumDataFrame:
         column_mapping: dict[str, str] | None = None,
         max_shard_size: int = 100_000,
         add_index_cols: bool = True,
+        verbose: bool = False,
     ) -> Iterator[pl.DataFrame]:
         """Load data files into DataFrames one at a time to save memory.
 
@@ -259,13 +300,17 @@ class SpectrumDataFrame:
             custom_load_fn (Callable | None): Custom function to load the files.
             max_shard_size (int): Maximum size of data shards.
             add_index_cols (bool): Whether to add special indexing columns.
+            verbose (bool): Whether to using logger
 
         Yields:
             Iterator[pl.DataFrame]: DataFrames containing mass spectra data.
         """
         column_mapping = column_mapping or {}
         current_shard = None
-        for fp in file_paths:
+        for i, fp in enumerate(file_paths):
+            if verbose:
+                logger.info(f"Loading file {i:03,d} of {len(file_paths):03,d}: {fp}")
+
             if fp.endswith(".parquet"):
                 continue
 
@@ -275,7 +320,8 @@ class SpectrumDataFrame:
                 df = SpectrumDataFrame._df_from_any(fp)
 
             if df is None:
-                logger.info(f"Skipping {fp}")
+                if verbose:
+                    logger.info(f"Skipping {fp}")
                 continue
 
             # Add special columns for indexing
@@ -295,6 +341,8 @@ class SpectrumDataFrame:
 
             df = df.rename({k: v for k, v in column_mapping.items() if k in df.columns})
 
+            df = SpectrumDataFrame._cast_columns(df)
+
             # If df > shard_size, split it up first
             while len(df) > max_shard_size:
                 yield df[:max_shard_size]
@@ -304,10 +352,10 @@ class SpectrumDataFrame:
             if current_shard is None:
                 current_shard = df
             elif len(current_shard) + len(df) < max_shard_size:
-                current_shard = pl.concat([current_shard, df])
+                current_shard = SpectrumDataFrame._concat_dataframes(current_shard, df)
             else:
-                yield pl.concat(
-                    [current_shard, df[: (max_shard_size - len(current_shard))]]
+                yield SpectrumDataFrame._concat_dataframes(
+                    current_shard, df[: (max_shard_size - len(current_shard))]
                 )
                 current_shard = df[(max_shard_size - len(current_shard)) :]
         yield current_shard
@@ -330,8 +378,7 @@ class SpectrumDataFrame:
                 )["result"]
                 self._filter_series_per_file[fp] &= new_filter
 
-            if self._current_file is not None:
-                self._current_file_data = self._load_parquet_data(self._current_file)
+            self._reset_current_file()
             if not self._shuffle:
                 self._update_file_indices()
         else:
@@ -343,6 +390,10 @@ class SpectrumDataFrame:
                 ]
             )["result"]
             self.df = self.df.filter(new_filter)
+
+    def _log(self, text: str) -> None:
+        if self._verbose:
+            logger.info(text)
 
     def reset_filter(self) -> None:
         """Reset the filters applied to the DataFrame."""
@@ -356,8 +407,7 @@ class SpectrumDataFrame:
             )
             for fp in self._file_paths
         }
-        if self._current_file is not None:
-            self._current_file_data = self._load_parquet_data(self._current_file)
+        self._reset_current_file()
         if not self._shuffle:
             self._update_file_indices()
 
@@ -379,6 +429,97 @@ class SpectrumDataFrame:
             self._file_begin_index[fp] = cumulative_position
             height = self._filter_series_per_file[fp].sum()
             cumulative_position += height
+
+    def _preshuffle_files(self) -> None:
+        """Shuffle across all files."""
+        if not self._is_native:
+            return
+        num_files = len(self._file_paths)
+        if num_files <= 1:
+            return
+
+        self._log(
+            f"Pre-shuffling across {num_files:03,d} shards. This may take a while..."
+        )
+
+        self._log("Computing new mapping per original shard")
+        index_to_file_index = pl.concat(
+            [
+                pl.Series(np.full(self._filter_series_per_file[fp].sum(), i, dtype=int))
+                for i, fp in enumerate(self._file_paths)
+            ]
+        )
+
+        # To ensure consistent shard sizes, we sample based on index permutations
+        index_to_file_index = pl.Series(
+            np.random.permutation(index_to_file_index.to_numpy())
+        )
+
+        offset = 0
+        mapping_per_file = {}
+        for fp in self._file_paths:
+            height = len(self._filter_series_per_file[fp])
+            mapping_per_file[fp] = index_to_file_index[offset : offset + height]
+            offset += height
+
+        self._log("Extracting rows to create shuffled shards")
+        new_file_paths = []
+        for i in range(num_files):
+            df = None
+            for fp in self._file_paths:
+                temp_df = (
+                    pl.scan_parquet(fp).filter(mapping_per_file[fp] == i).collect()
+                )
+                if df is None:
+                    df = temp_df
+                else:
+                    df = SpectrumDataFrame._concat_dataframes(df, temp_df)
+
+            if df is None:
+                raise ValueError("No data in shard during reshuffle.")
+
+            temp_parquet_path = os.path.join(
+                str(self._temp_directory), f"temp_{uuid.uuid4().hex}.parquet"
+            )
+            df.write_parquet(temp_parquet_path)
+            new_file_paths.append(temp_parquet_path)
+            self._log(
+                f"Writing shuffled shard {i:03,d}/{num_files:03,d} to {temp_parquet_path}"
+            )
+
+        self._log("Removing unshuffled shards")
+        # Remove old temp files:
+        for fp in self._file_paths:
+            if (
+                os.path.commonpath([str(self._temp_directory), fp])
+                == self._temp_directory
+            ):
+                try:
+                    os.remove(fp)
+                except OSError as e:
+                    self._log(f"Error deleting temporary file {fp}: {e}")
+
+        self._file_paths = new_file_paths
+        self._filter_series_per_file = {
+            fp: pl.Series(
+                np.full(pl.scan_parquet(fp).collect().height, True, dtype=bool)
+            )
+            for fp in self._file_paths
+        }
+        self._log("Pre-shuffle complete")
+
+    def _reset_current_file(self) -> None:
+        # Shuffled file handling, uses a two-step shuffle to optimise efficiency
+        self._current_index_in_file = (
+            0  # index in the current file, used in shuffle mode
+        )
+        self._next_file_index = 0  # index of the next file to be loaded in _file_paths
+        self._current_file: str | None = None  # filename of the current file
+        self._current_file_len = 0  # length of the current file
+        self._current_file_data: pl.DataFrame | None = (
+            None  # loaded data of the current file
+        )
+        self._current_file_position = 0  # starting index of the current file, used to
 
     def _shuffle_file_order(self) -> None:
         """Shuffle the order of files in native mode."""
@@ -436,7 +577,7 @@ class SpectrumDataFrame:
                 self.executor, self._load_parquet_data, file_path
             )
         except Exception as e:
-            print(f"Error preloading file {file_path}: {e}")
+            logger.warning(f"Error preloading file {file_path}: {e}")
             self._next_file_future = None
 
     def __len__(self) -> int:  # noqa: CCE001
@@ -461,8 +602,11 @@ class SpectrumDataFrame:
         Raises:
             IndexError: If the DataFrame is empty or the index is out of range.
         """
-        if len(self) == 0:
+        length = len(self)
+        if length == 0:
             raise IndexError("Attempt to index empty SpectrumDataFrame")
+        if idx >= length:
+            raise IndexError
 
         # In shuffle, idx is ignored.
         if self._is_native:
@@ -770,6 +914,8 @@ class SpectrumDataFrame:
         column_mapping: dict[str, str] | None = None,
         lazy: bool = True,
         max_shard_size: int = 1_000_000,
+        preshuffle_across_shards: bool = False,
+        verbose: bool = False,
     ) -> "SpectrumDataFrame":
         """Load a SpectrumDataFrame from a source.
 
@@ -782,6 +928,7 @@ class SpectrumDataFrame:
             partition (str | None): Partition name of the dataset.
             lazy (bool): Whether to use lazy loading mode.
             max_shard_size (int): Maximum size of data shards.
+            preshuffle_across_shards (bool): Whether to perform a preshuffle across shards.
 
         Returns:
             SpectrumDataFrame: The loaded SpectrumDataFrame.
@@ -806,6 +953,8 @@ class SpectrumDataFrame:
             max_shard_size=max_shard_size,
             shuffle=shuffle,
             is_annotated=is_annotated,
+            preshuffle_across_shards=preshuffle_across_shards,
+            verbose=verbose,
         )
 
     @staticmethod
@@ -1076,11 +1225,29 @@ class SpectrumDataFrame:
         )
 
     @staticmethod
+    def _parse_scan_number(scan_number: str, index: int) -> int | None:
+        """Try parse scan number."""
+        if scan_number.isdigit():
+            return int(scan_number)
+
+        # Use regex to extract the value after 'scan='
+        match = re.search(r"scan=(\d+)", scan_number)
+        if match:
+            return int(match.group(1))
+
+        # use index if scan number cannot be accessed
+        return index
+
+    @staticmethod
     def _df_from_dict(data: dict[str, Any]) -> pl.DataFrame:
         df = pl.DataFrame(
             {
                 "scan_number": pl.Series(
-                    np.arange(len(data["sequence"])), dtype=pl.Int64
+                    [
+                        SpectrumDataFrame._parse_scan_number(str(x), i)
+                        for i, x in enumerate(data["scan_number"])
+                    ],
+                    dtype=pl.Int64,
                 ),
                 ANNOTATED_COLUMN: pl.Series(data["sequence"], dtype=pl.Utf8),
                 # Calculate precursor mass
@@ -1421,6 +1588,9 @@ class SpectrumDataFrame:
                     [True, False], size=filter.sum(), p=[fraction, 1 - fraction]
                 )
                 self._filter_series_per_file[fp] &= pl.Series(filter)
+                if not self._shuffle:
+                    self._update_file_indices()
+                self._reset_current_file()
         else:
             self.df = self.df.sample(fraction=fraction, seed=seed)
 

@@ -4,7 +4,7 @@ defaults:
 
 # Data paths and output location
 data_path: ./tests/instanovo_test_resources/example_data/test_sample.mgf # type: .ipc
-model_path: ./tests/instanovo_test_resources/train_test/epoch=4-step=2420.ckpt # type: .ckpt
+model_path: ./tests/instanovo_test_resources/model.ckpt # type: .ckpt
 output_path: ./tests/instanovo_test_resources/train_test/test_sample_preds.csv # type: .csv
 knapsack_path: ./tests/instanovo_test_resources/example_knapsack # type: directory
 use_knapsack: False
