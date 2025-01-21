@@ -13,7 +13,7 @@ from instanovo.inference.interfaces import ScoredSequence
 def test_greedy_decoder(instanovo_model: tuple[Any, Any]) -> None:
     """Test greedy decoder initialisation."""
     model, _ = instanovo_model
-    gd = GreedyDecoder(model, MASS_SCALE)
+    gd = GreedyDecoder(model, mass_scale=MASS_SCALE)
 
     assert gd.mass_scale == MASS_SCALE
     assert gd.vocab_size == 8
@@ -31,7 +31,7 @@ def test_decode(instanovo_model: tuple[Any, Any]) -> None:
     device = "cuda" if torch.cuda.is_available() else "cpu"
     model, _ = instanovo_model
     model = model.to(device)
-    gd = GreedyDecoder(model, MASS_SCALE)
+    gd = GreedyDecoder(model, mass_scale=MASS_SCALE)
 
     spectra = torch.tensor(
         [
@@ -60,12 +60,12 @@ def test_decode(instanovo_model: tuple[Any, Any]) -> None:
             mass_error=-6.347656196226126e-07,
             sequence_log_probability=-4.22208309173584,
             token_log_probabilities=[
-                -0.645194947719574,
-                -0.7691261768341064,
-                -0.9948660135269165,
-                -1.1169137954711914,
-                -0.6898691058158875,
                 -0.006113164126873016,
+                -0.6898691058158875,
+                -1.1169137954711914,
+                -0.9948660135269165,
+                -0.7691261768341064,
+                -0.645194947719574,
             ],
         )
     ]

@@ -1,4 +1,5 @@
 import os
+import copy
 from pathlib import Path
 from typing import Any
 from unittest.mock import patch, MagicMock
@@ -26,30 +27,31 @@ def test_train(
 ) -> None:
     """Test the transformer training function with different run configurations."""
     root_dir, _ = dir_paths
+    temp_config = copy.deepcopy(instanovo_config)
 
     # Check training when shards = False
-    instanovo_config["use_shards"] = False
-    train(instanovo_config)
+    temp_config["use_shards"] = False
+    train(temp_config)
     assert mock_fit.call_count == 1
 
     # Check training when valid_path = None
-    instanovo_config["use_shards"] = True
-    instanovo_config["valid_path"] = None
-    train(instanovo_config)
+    temp_config["use_shards"] = True
+    temp_config["valid_path"] = None
+    train(temp_config)
     assert mock_fit.call_count == 2
 
     # Check training when model_path is given
-    instanovo_config["train_from_scratch"] = False
-    instanovo_config["resume_checkpoint"] = os.path.join(root_dir, "model.ckpt")
-    train(instanovo_config)
+    temp_config["train_from_scratch"] = False
+    temp_config["resume_checkpoint"] = os.path.join(root_dir, "model.ckpt")
+    train(temp_config)
     assert mock_fit.call_count == 3
 
     # Check training when blacklist is given
-    instanovo_config["train_from_scratch"] = True
-    instanovo_config["blacklist"] = (
+    temp_config["train_from_scratch"] = True
+    temp_config["blacklist"] = (
         "./tests/instanovo_test_resources/example_data/blacklist.csv"
     )
-    train(instanovo_config)
+    train(temp_config)
     assert mock_fit.call_count == 4
 
 
