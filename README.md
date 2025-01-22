@@ -1,6 +1,7 @@
 # _De novo_ peptide sequencing with InstaNovo
 
 [![PyPI version](https://badge.fury.io/py/instanovo.svg)](https://badge.fury.io/py/instanovo)
+[![DOI](https://zenodo.org/badge/681625644.svg)](https://doi.org/10.5281/zenodo.14712453)
 
 <!-- [![Tests Status](./reports/junit/tests-badge.svg?dummy=8484744)](./reports/junit/report.html) -->
 <!-- [![Coverage Status](./reports/coverage/coverage-badge.svg?dummy=8484744)](./reports/coverage/index.html) -->
