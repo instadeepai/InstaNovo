@@ -182,3 +182,6 @@ lightning_logs/
 
 # Test resources
 tests/instanovo_test_resources*
+
+# Notebook output
+notebooks/predictions_kbs.csv

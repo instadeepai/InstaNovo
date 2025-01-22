@@ -16,6 +16,7 @@ from jaxtyping import Integer
 from omegaconf import DictConfig
 from torch import nn
 from torch import Tensor
+from importlib import resources
 
 from instanovo.constants import MAX_SEQUENCE_LENGTH
 from instanovo.transformer.layers import ConvPeakEmbedding
@@ -33,7 +34,6 @@ from instanovo.types import SpectrumEmbedding
 from instanovo.types import SpectrumMask
 from instanovo.utils import ResidueSet
 
-MODELS_PATH = Path(__file__).parent.parent / "models.json"
 MODEL_TYPE = "transformer"
 
 
@@ -126,7 +126,7 @@ class InstaNovo(nn.Module, Decodable):
     def get_pretrained() -> list[str]:
         """Get a list of pretrained model ids."""
         # Load the models.json file
-        with open(MODELS_PATH, "r") as f:
+        with resources.open_text("instanovo", "models.json") as f:
             models_config = json.load(f)
 
         if MODEL_TYPE not in models_config:
@@ -177,7 +177,7 @@ class InstaNovo(nn.Module, Decodable):
                 raise FileNotFoundError(f"No file found at path: {model_id}")
 
         # Load the models.json file
-        with open(MODELS_PATH, "r") as f:
+        with resources.open_text("instanovo", "models.json") as f:
             models_config = json.load(f)
 
         # Find the model in the config
