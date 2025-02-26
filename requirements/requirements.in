@@ -11,6 +11,7 @@ neptune
 numpy
 omegaconf
 pandas
+seaborn
 polars
 pyopenms
 pyopenms-viz
