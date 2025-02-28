@@ -282,10 +282,22 @@ def get_preds(
             pred_df[f"log_probs_beam_{i}"] = sequence_log_probs[i]
             pred_df[f"token_log_probs_{i}"] = token_log_probs[i]
 
+    # Always calculate delta_mass_ppm, even in de novo mode
+    metrics = Metrics(residue_set, config.get("isotope_error_range", [0, 1]))
+    # Calculate some additional information for filtering:
+    pred_df["delta_mass_ppm"] = pred_df.apply(
+        lambda row: np.min(
+            np.abs(
+                metrics.matches_precursor(
+                    preds[0][row.name], row["precursor_mz"], row["precursor_charge"]
+                )[1]
+            )
+        ),
+        axis=1,
+    )
+
     # Calculate metrics
     if not denovo:
-        metrics = Metrics(residue_set, config.get("isotope_error_range", [0, 1]))
-
         # Make sure we pass preds[0] without joining on ""
         # This is to handle cases where n-terminus modifications could be accidentally joined
         aa_prec, aa_recall, pep_recall, pep_prec = metrics.compute_precision_recall(
@@ -323,18 +335,6 @@ def get_preds(
             logger.info(f"  pep_prec    {pep_prec:.5f}")
             logger.info(f"  pep_recall  {pep_recall:.5f}")
             logger.info(f"  confidence  {threshold:.5f}")
-
-        # Calculate some additional information for filtering:
-        pred_df["delta_mass_ppm"] = pred_df.apply(
-            lambda row: np.min(
-                np.abs(
-                    metrics.matches_precursor(
-                        preds[0][row.name], row["precursor_mz"], row["precursor_charge"]
-                    )[1]
-                )
-            ),
-            axis=1,
-        )
 
         filter_precursor_ppm = config.get("filter_precursor_ppm", None)
         if filter_precursor_ppm:

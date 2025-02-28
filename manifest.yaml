@@ -10,26 +10,31 @@ builder:
 spec:
   operator: tf
   image: instanovo
-  command: make set-gcp-credentials && make tests && make coverage
+  # command: make set-gcp-credentials && make tests && make coverage
   # command: make set-gcp-credentials && make download_validation && make download_dataset_v2_ipc && make validate_instanovo
   # command: make set-gcp-credentials && make train_acpt
   # command: make set-gcp-credentials && make finetune_on_hcpt
   # command: make set-gcp-credentials && make finetune_on_phospho
-  # command: make set-gcp-credentials && make train_extended
+  command: make set-gcp-credentials && make train_extended_massive
   # command: make set-gcp-credentials && make eval_species_zero_shot
 
   tensorboard: # optional, disabled by default
     enabled: true
 
+  storage:
+    attachExistingPVCs: # optional, array
+      - name: "dtu-denovo-s-2e6da747d6d34f62-instanovo-da-200e9d5fce4a4085"
+        mountPoint: "/mnt/instanovo-data-kyber"
+
   types:
     Worker:
       count: 1
       resources:
-        cpus: 32
-        ramRatio: 8 # >= 2
+        cpus: 24 # Fair use per gpu: 27
+        ramRatio: 8 # Fair use per cpu: 9
 
         accelerators:
           gpu:
             count: 1
-            type: gpu # gpu, mig-1g.10gb, mig-3g.20gb, mig-3g.40gb
-            product: NVIDIA-A100-SXM4-80GB # NVIDIA-A100-SXM4-80GB NVIDIA-A100-SXM4-40GB
+            type: gpu
+            product: NVIDIA-H100-80GB-HBM3

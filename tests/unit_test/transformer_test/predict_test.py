@@ -241,7 +241,9 @@ def test_main(mock_get_preds: Any, mock_load: Any) -> None:
 
     assert not mock_config["save_beams"]
 
-    mock_load.assert_called_once_with(mock_config["model_path"])
+    mock_load.assert_called_once_with(
+        mock_config["model_path"], update_residues_to_unimod=True
+    )
     mock_get_preds.assert_called_once_with(mock_config, mock_model, mock_model_config)
 
 

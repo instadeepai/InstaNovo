@@ -209,7 +209,7 @@ set-gcp-credentials:
 ## Train commands																#
 #################################################################################
 
-.PHONY: train_acpt train_extended train_nine_species_v1 train_nine_species_v2 finetune_on_hcpt finetune_on_phospho finetune_on_nine_species_v2 ft_eval_nine_species_v2 zs_eval_nine_species_v2 eval_abhi eval_species_zero_shot
+.PHONY: train_acpt train_extended train_extended_massive train_nine_species_v1 train_nine_species_v2 finetune_on_hcpt finetune_on_phospho finetune_on_nine_species_v2 ft_eval_nine_species_v2 zs_eval_nine_species_v2 eval_abhi eval_species_zero_shot
 
 ## Train InstaNovo on AC-PT
 train_acpt:
@@ -220,14 +220,12 @@ train_acpt:
 
 ## Train InstaNovo on AC-PT, Phospho and PRIDE data
 train_extended:
-	mkdir -p ./data
-	gsutil -m cp -R gs://denovo_formatted_ipc/identity_splits ./data
-	mkdir -p ./data/extended
-	cp -R ./data/identity_splits/ac_pt_shards/*.ipc ./data/extended
-	python ./scripts/move_shards.py ./data/identity_splits/pride_extended/ ./data/extended/ 100
-	python ./scripts/move_shards.py ./data/identity_splits/phospho/ ./data/extended/ 200
 	python -m instanovo.transformer.train \
 		--config-name instanovo_extended
+
+train_extended_massive:
+	python -m instanovo.transformer.train \
+		--config-name instanovo_extended_massive
 
 ## Train InstaNovo on nine species v1 data
 train_nine_species_v1:

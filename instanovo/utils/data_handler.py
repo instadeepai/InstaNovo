@@ -13,6 +13,7 @@ import glob
 import os
 import random
 import tempfile
+from itertools import chain
 from typing import Iterator, Callable, Any, cast
 import uuid
 import numpy as np
@@ -21,6 +22,7 @@ from concurrent.futures import ThreadPoolExecutor
 import shutil
 from datasets import Dataset, load_dataset
 import re
+import time
 
 from instanovo.constants import (
     PROTON_MASS_AMU,
@@ -232,6 +234,10 @@ class SpectrumDataFrame:
         )
 
     @staticmethod
+    def _is_glob(path: str) -> bool:
+        return "*" in path or "?" in path or "[" in path
+
+    @staticmethod
     def _convert_file_paths(file_paths: str | list[str]) -> list[str]:
         """Convert a string or list of file paths to a list of file paths.
 
@@ -249,7 +255,7 @@ class SpectrumDataFrame:
                 raise ValueError(
                     "Input must be a string (filepath or glob) or a list of file paths. Found directory."
                 )
-            if "*" in file_paths or "?" in file_paths or "[" in file_paths:
+            if SpectrumDataFrame._is_glob(file_paths):
                 # Glob notation: path/to/data/*.parquet
                 return glob.glob(file_paths)
             else:
@@ -259,6 +265,17 @@ class SpectrumDataFrame:
             ValueError(
                 "Input must be a string (filepath or glob) or a list of file paths."
             )
+
+        # Expand if list of globs
+        file_paths = list(
+            chain.from_iterable(
+                [
+                    glob.glob(path) if SpectrumDataFrame._is_glob(path) else [path]
+                    for path in file_paths
+                ]
+            )
+        )
+
         return file_paths
 
     @staticmethod
@@ -462,8 +479,12 @@ class SpectrumDataFrame:
             mapping_per_file[fp] = index_to_file_index[offset : offset + height]
             offset += height
 
+        if self._temp_directory is None:
+            self._temp_directory = tempfile.mkdtemp()
+
         self._log("Extracting rows to create shuffled shards")
         new_file_paths = []
+        start = time.time()
         for i in range(num_files):
             df = None
             for fp in self._file_paths:
@@ -483,8 +504,11 @@ class SpectrumDataFrame:
             )
             df.write_parquet(temp_parquet_path)
             new_file_paths.append(temp_parquet_path)
+
+            delta = time.time() - start
+            est_total = delta / (i + 1) * (num_files - i - 1)
             self._log(
-                f"Writing shuffled shard {i:03,d}/{num_files:03,d} to {temp_parquet_path}"
+                f"Writing shuffled shard {i:03,d}/{num_files:03,d} to {temp_parquet_path} [{_format_time(delta)}/{_format_time(est_total)}, {(delta / (i + 1)):.3f}s/it]"
             )
 
         self._log("Removing unshuffled shards")
@@ -1611,3 +1635,8 @@ class SpectrumDataFrame:
             self.executor.shutdown(wait=True)
         if self._temp_directory is not None and os.path.exists(self._temp_directory):
             shutil.rmtree(self._temp_directory)
+
+
+def _format_time(seconds: float) -> str:
+    seconds = int(seconds)
+    return f"{seconds//3600:02d}:{(seconds%3600)//60:02d}:{seconds%60:02d}"

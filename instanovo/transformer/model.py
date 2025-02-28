@@ -18,6 +18,7 @@ from torch import nn
 from torch import Tensor
 
 from instanovo.constants import MAX_SEQUENCE_LENGTH
+from instanovo.constants import LEGACY_PTM_TO_UNIMOD
 from instanovo.transformer.layers import ConvPeakEmbedding
 from instanovo.transformer.layers import MultiScalePeakEmbedding
 from instanovo.transformer.layers import PositionalEncoding
@@ -135,7 +136,9 @@ class InstaNovo(nn.Module, Decodable):
         return list(models_config[MODEL_TYPE].keys())
 
     @classmethod
-    def load(cls, path: str) -> Tuple["InstaNovo", "DictConfig"]:
+    def load(
+        cls, path: str, update_residues_to_unimod: bool = True
+    ) -> Tuple["InstaNovo", "DictConfig"]:
         """Load model from checkpoint path."""
         # Add  to allow list
         _whitelist_torch_omegaconf()
@@ -149,7 +152,14 @@ class InstaNovo(nn.Module, Decodable):
                 k.replace("model.", ""): v for k, v in ckpt["state_dict"].items()
             }
 
-        residue_set = ResidueSet(config["residues"])
+        residues = dict(config["residues"])
+        if update_residues_to_unimod:
+            residues = {
+                LEGACY_PTM_TO_UNIMOD[k] if k in LEGACY_PTM_TO_UNIMOD else k: v
+                for k, v in residues.items()
+            }
+
+        residue_set = ResidueSet(residues)
 
         model = cls(
             residue_set=residue_set,
@@ -167,12 +177,16 @@ class InstaNovo(nn.Module, Decodable):
         return model, config
 
     @classmethod
-    def from_pretrained(cls, model_id: str) -> Tuple["InstaNovo", "DictConfig"]:
+    def from_pretrained(
+        cls, model_id: str, update_residues_to_unimod: bool = True
+    ) -> Tuple["InstaNovo", "DictConfig"]:
         """Download and load by model id or model path."""
         # Check if model_id is a local file path
         if "/" in model_id or "\\" in model_id or "." in model_id:
             if os.path.isfile(model_id):
-                return cls.load(model_id)
+                return cls.load(
+                    model_id, update_residues_to_unimod=update_residues_to_unimod
+                )
             else:
                 raise FileNotFoundError(f"No file found at path: {model_id}")
 
@@ -218,7 +232,9 @@ class InstaNovo(nn.Module, Decodable):
         #     print(f"Model {model_id} already cached at {cached_file}")
 
         # Load and return the model
-        return cls.load(str(cached_file))
+        return cls.load(
+            str(cached_file), update_residues_to_unimod=update_residues_to_unimod
+        )
 
     def forward(
         self,
