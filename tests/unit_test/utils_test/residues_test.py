@@ -43,7 +43,10 @@ def test_init(residue_set: Any) -> None:
         6: "D",
         7: "E",
     }
-    assert rs.tokenizer_regex == r"(\([^)]+\))|([A-Z](?:\([^)]+\))?)"
+    assert (
+        rs.tokenizer_regex
+        == r"(\[UNIMOD:\d+\]|\([^)]+\))|([A-Z](?:\[UNIMOD:\d+\]|\([^)]+\))?)"
+    )
     assert rs.PAD_INDEX == 0
     assert rs.SOS_INDEX == 1
     assert rs.EOS_INDEX == 2

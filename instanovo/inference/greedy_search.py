@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import torch
 from jaxtyping import Float
+import logging
 
 from instanovo.types import PrecursorFeatures
 from instanovo.types import Spectrum
@@ -12,6 +13,9 @@ from instanovo.constants import PrecursorDimension
 from instanovo.inference.interfaces import Decodable
 from instanovo.inference.interfaces import Decoder
 from instanovo.inference.interfaces import ScoredSequence
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 
 class GreedyDecoder(Decoder):
@@ -62,8 +66,8 @@ class GreedyDecoder(Decoder):
                 suppressed_residues.remove(residue)
 
         if len(suppressed_residues) > 0:
-            raise ValueError(
-                f"Suppressed residues not found in vocabulary: {suppressed_residues}"
+            logger.warn(
+                f"Some suppressed residues not found in vocabulary: {suppressed_residues}"
             )
 
         self.terminal_residue_indices = torch.tensor(

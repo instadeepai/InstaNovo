@@ -46,9 +46,22 @@ class ResidueSet:
             index: residue for index, residue in enumerate(self.vocab)
         }
         # Split on amino acids allowing for modifications eg. AM(ox)Z -> [A, M(ox), Z]
-        # Groups A-Z with any suffix
-        # self.tokenizer_regex = r"(?<=.)(?=[A-Z])"
-        self.tokenizer_regex = r"(\([^)]+\))|([A-Z](?:\([^)]+\))?)"
+        # Supports brackets or unimod notation
+        self.tokenizer_regex = (
+            # First capture group: matches either:
+            # - A UNIMOD annotation like [UNIMOD:123]
+            # - Any text inside parentheses like (ox) or (+.98)
+            r"(\[UNIMOD:\d+\]|\([^)]+\))|"
+            # Second capture group: starts with a valid amino acid letter
+            # (including U for selenocysteine and O for pyrrolysine)
+            r"([A-Z]"
+            # Optionally followed by a UNIMOD annotation
+            r"(?:\[UNIMOD:\d+\]|"
+            # Or optionally followed by text in parentheses
+            r"\([^)]+\))?"
+            # Close second capture group
+            r")"
+        )
 
         self.PAD_INDEX: int = self.residue_to_index[SpecialTokens.PAD_TOKEN.value]
         self.SOS_INDEX: int = self.residue_to_index[SpecialTokens.SOS_TOKEN.value]

@@ -115,26 +115,51 @@ The configuration file for inference may be found under
 
 Note: the `denovo=True/False` flag controls whether metrics will be calculated.
 
+**Output description**
+
+When `output_path` is specified, a CSV file will be generated containing predictions for all the input spectra. The model will attempt to generate a peptide for every MS2 spectrum regardless of confidence. We recommend filtering the output using the **log_probs** and **delta_mass_ppm** columns.
+
+| Column            | Description                                    | Data Type    | Notes                             |
+|-----------------|------------------------------------------------|-------------|----------------------------------|
+| scan_number     | Scan number of the MS/MS spectrum              | Integer     | Unique identifier from the input file |
+| precursor_mz    | Precursor m/z (mass-to-charge ratio)           | Float       | The observed m/z of the precursor ion |
+| precursor_charge | Precursor charge state                         | Integer     | Charge state of the precursor ion |
+| experiment_name | Experiment name derived from input filename    | String      | Based on the input file name (mgf, mzml, or mzxml) |
+| spectrum_id     | Unique spectrum identifier                     | String      | Combination of experiment name and scan number (e.g., `yeast:17738`) |
+| targets         | Target peptide sequence                         | String      | Ground truth peptide sequence (if available) |
+| preds           | Predicted peptide sequence                     | String      | Model-predicted peptide sequence |
+| preds_tokenised | Predicted peptide sequence tokenized by amino acids | List[String] | Each amino acid token separated by commas |
+| log_probs       | Log probability of the entire predicted sequence | Float       | Natural logarithm of the sequence confidence, can be converted to probability with np.exp(log_probs). |
+| token_log_probs | Log probability of each token in the predicted sequence | List[Float] |  Natural logarithm of the sequence confidence per amino acid |
+| delta_mass_ppm  | Mass difference between precursor and predicted peptide in ppm | Float       | Mass deviation in parts per million |
+
+
 ### Models
 
-InstaNovo 1.0.0 includes a new model `instanovo_extended.ckpt` trained on a larger dataset with more PTMs
+InstaNovo 1.0.2 includes a new model `instanovo.ckpt` trained on a larger dataset with more PTMs.
+
+> Note: The InstaNovo Extended 1.0.0 training data mis-represented Cysteine as unmodified for the majority of the training data. Please update to the latest version of the model.
 
 **Training Datasets**
 - [ProteomeTools](https://www.proteometools.org/) Part [I (PXD004732)](https://www.ebi.ac.uk/pride/archive/projects/PXD004732), [II (PXD010595)](https://www.ebi.ac.uk/pride/archive/projects/PXD010595), and [III (PXD021013)](https://www.ebi.ac.uk/pride/archive/projects/PXD021013) \
 (referred to as the  all-confidence ProteomeTools `AC-PT` dataset in our paper)
 - Additional PRIDE dataset with more modifications: \
   ([PXD000666](https://www.ebi.ac.uk/pride/archive/projects/PXD000666), [PXD000867](https://www.ebi.ac.uk/pride/archive/projects/PXD000867), [PXD001839](https://www.ebi.ac.uk/pride/archive/projects/PXD001839), [PXD003155](https://www.ebi.ac.uk/pride/archive/projects/PXD003155), [PXD004364](https://www.ebi.ac.uk/pride/archive/projects/PXD004364), [PXD004612](https://www.ebi.ac.uk/pride/archive/projects/PXD004612), [PXD005230](https://www.ebi.ac.uk/pride/archive/projects/PXD005230), [PXD006692](https://www.ebi.ac.uk/pride/archive/projects/PXD006692), [PXD011360](https://www.ebi.ac.uk/pride/archive/projects/PXD011360), [PXD011536](https://www.ebi.ac.uk/pride/archive/projects/PXD011536), [PXD013543](https://www.ebi.ac.uk/pride/archive/projects/PXD013543), [PXD015928](https://www.ebi.ac.uk/pride/archive/projects/PXD015928), [PXD016793](https://www.ebi.ac.uk/pride/archive/projects/PXD016793), [PXD017671](https://www.ebi.ac.uk/pride/archive/projects/PXD017671), [PXD019431](https://www.ebi.ac.uk/pride/archive/projects/PXD019431), [PXD019852](https://www.ebi.ac.uk/pride/archive/projects/PXD019852), [PXD026910](https://www.ebi.ac.uk/pride/archive/projects/PXD026910), [PXD027772](https://www.ebi.ac.uk/pride/archive/projects/PXD027772))
+- [Massive-KB v1](https://massive.ucsd.edu/ProteoSAFe/static/massive.jsp)
 - Additional phosphorylation dataset \
 (not yet publicly released)
 
 **Natively Supported Modifications**
-- Oxidation of methionine
-- Cysteine alkylation / Carboxyamidomethylation
-- Asparagine and glutamine deamidation
-- Serine, Threonine, and Tyrosine phosphorylation
-- N-terminal ammonia loss
-- N-terminal carbamylation
-- N-terminal acetylation
+| Amino Acid                 | Single Letter | Modification      | Mass Delta (Da) | Unimod ID   |
+|-----------------------------|---------------|------------------|-----------------|-------------|
+| Methionine                 | M             | Oxidation       | +15.9949       | [[UNIMOD:35](https://www.unimod.org/modifications_view.php?editid1=35)] |
+| Cysteine                   | C             | Carboxyamidomethylation | +57.0215       | [[UNIMOD:4](https://www.unimod.org/modifications_view.php?editid1=4)] |
+| Asparagine, Glutamine      | N, Q          | Deamidation     | +0.9840        | [[UNIMOD:7](https://www.unimod.org/modifications_view.php?editid1=7)] |
+| Serine, Threonine, Tyrosine | S, T, Y       | Phosphorylation | +79.9663       | [[UNIMOD:21](https://www.unimod.org/modifications_view.php?editid1=21)] |
+| N-terminal                 | -             | Ammonia Loss    | -17.0265       | [[UNIMOD:385](https://www.unimod.org/modifications_view.php?editid1=385)] |
+| N-terminal                 | -             | Carbamylation   | +43.0058       | [[UNIMOD:5](https://www.unimod.org/modifications_view.php?editid1=5)] |
+| N-terminal                 | -             | Acetylation     | +42.0106       | [[UNIMOD:1](https://www.unimod.org/modifications_view.php?editid1=1)] |
+
 
 See residue configuration under [instanovo/configs/residues/extended.yaml](./instanovo/configs/residues/extended.yaml)
 
@@ -254,13 +279,13 @@ For example, the DataFrame for the
 dataset (introduced in [Tran _et al._ 2017](https://www.pnas.org/doi/full/10.1073/pnas.1705691114))
 looks as follows:
 
-|     | sequence                   | modified_sequence          | precursor_mz | precursor_charge | mz_array                             | intensity_array                     |
-| --: | :------------------------- | :------------------------- | -----------: | ---------------: | :----------------------------------- | :---------------------------------- |
-|   0 | GRVEGMEAR                  | GRVEGMEAR                  |      335.502 |                3 | [102.05527 104.052956 113.07079 ...] | [ 767.38837 2324.8787 598.8512 ...] |
-|   1 | IGEYK                      | IGEYK                      |      305.165 |                2 | [107.07023 110.071236 111.11693 ...] | [ 1055.4957 2251.3171 35508.96 ...] |
-|   2 | GVSREEIQR                  | GVSREEIQR                  |      358.528 |                3 | [103.039444 109.59844 112.08704 ...] | [801.19995 460.65268 808.3431 ...]  |
-|   3 | SSYHADEQVNEASK             | SSYHADEQVNEASK             |      522.234 |                3 | [101.07095 102.0552 110.07163 ...]   | [ 989.45154 2332.653 1170.6191 ...] |
-|   4 | DTFNTSSTSN(+.98)STSSSSSNSK | DTFNTSSTSN(+.98)STSSSSSNSK |      676.282 |                3 | [119.82458 120.08073 120.2038 ...]   | [ 487.86942 4806.1377 516.8846 ...] |
+|     | sequence                   | precursor_mz | precursor_charge | mz_array                             | intensity_array                     |
+| --: | :------------------------- | -----------: | ---------------: | :----------------------------------- | :---------------------------------- |
+|   0 | GRVEGMEAR                  |      335.502 |                3 | [102.05527 104.052956 113.07079 ...] | [ 767.38837 2324.8787 598.8512 ...] |
+|   1 | IGEYK                      |      305.165 |                2 | [107.07023 110.071236 111.11693 ...] | [ 1055.4957 2251.3171 35508.96 ...] |
+|   2 | GVSREEIQR                  |      358.528 |                3 | [103.039444 109.59844 112.08704 ...] | [801.19995 460.65268 808.3431 ...]  |
+|   3 | SSYHADEQVNEASK             |      522.234 |                3 | [101.07095 102.0552 110.07163 ...]   | [ 989.45154 2332.653 1170.6191 ...] |
+|   4 | DTFNTSSTSN[UNIMOD:7]STSSSSSNSK |      676.282 |                3 | [119.82458 120.08073 120.2038 ...]   | [ 487.86942 4806.1377 516.8846 ...] |
 
 For _de novo_ prediction, the `sequence` column is not required.
 
@@ -286,11 +311,7 @@ options:
                         maximum charge to filter out
 ```
 
-_Note: the target path should be a folder._
-
-<!-- ## Roadmap
-
-This code repo is currently under construction. -->
+_Note: the target path should be a directory/folder._
 
 **ToDo:**
 
@@ -319,4 +340,4 @@ The model checkpoints are licensed under Creative Commons Non-Commercial
 
 ## Acknowledgements
 
-Big thanks to Pathmanaban Ramasamy, Tine Claeys, and Lennart Martens for providing us with additional phosphorylation training data.
+Big thanks to Pathmanaban Ramasamy, Tine Claeys, and Lennart Martens of the [CompOmics](https://www.compomics.com/) research group for providing us with additional phosphorylation training data.
