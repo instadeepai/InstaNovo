@@ -64,7 +64,7 @@ Config options:
                     Defaults to `instanovo_acpt`
 ```
 
-Note: data is expected to be saved as Polars `.ipc` format. See section on data conversion.
+Note: data may be provided in any format supported by the SpectrumDataHandler. See section on data conversion for preferred formatting.
 
 To update the InstaNovo model config, modify the config file under
 [configs/instanovo/base.yaml](https://github.com/instadeepai/InstaNovo/blob/main/configs/instanovo/base.yaml)
