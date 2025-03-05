@@ -14,14 +14,14 @@ import os
 import random
 import tempfile
 from itertools import chain
-from typing import Iterator, Callable, Any, cast
+import re
+from typing import Iterator, Callable, Any, cast, Union
 import uuid
 import numpy as np
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
 import shutil
 from datasets import Dataset, load_dataset
-import re
 import time
 
 from instanovo.constants import (
@@ -93,6 +93,9 @@ class SpectrumDataFrame:
         self._verbose = verbose
         self.executor = None
         self._temp_directory = None
+        # String representation values:
+        self.max_items_per_column = 3
+        self.max_colname_length = 20
 
         if df is None and file_paths is None:
             raise ValueError("Must specify either df or file_paths, both are None.")
@@ -1635,6 +1638,166 @@ class SpectrumDataFrame:
             self.executor.shutdown(wait=True)
         if self._temp_directory is not None and os.path.exists(self._temp_directory):
             shutil.rmtree(self._temp_directory)
+
+    def _strip_shape_info(self, s: str) -> str:
+        """Adjust the string representation of a SpectrumDataFrame for lazy loading, stripping shape information that would only correspond to the first temporary file.
+
+        Parameters:
+            s (str): The string representation of the SpectrumDataFrame.
+
+        Returns:
+            str: The adjusted string representation of the SpectrumDataFrame.
+        """
+        # Pattern to match rows and columns lines
+        pattern = re.compile(r"(Rows:\s*\d+\s*Columns:\s*\d+)")
+        # Replace the shape with a placeholder
+        return pattern.sub("Shape: unknown in lazy loading mode.", s)
+
+    @staticmethod
+    def _truncate_list_repr(s: str, max_items: int = 3) -> str:
+        """Find and truncate long lists within the SpectrumDataFrame string preview.
+
+        Args:
+            s (str): String representation of SpectrumDataFrame.
+            max_items (int): Maximum number of list items to display at the list's head and tail.
+
+        Returns:
+            str: SpectrumDataFrame string representation with truncated list items, if necessary.
+        """
+
+        def process_list(match: re.Match) -> str:
+            # Extract the list content
+            list_content = match.group(1)
+            # Convert to a Python list
+            values = list(map(str.strip, list_content.split(",")))
+            # Truncate if necessary
+            if len(values) > 2 * max_items:
+                truncated = values[:max_items] + ["..."] + values[-max_items:]
+            else:
+                truncated = values
+            # Rebuild the list as a string
+            return f"[{', '.join(truncated)}]"
+
+        # Regex to find lists in the string
+        list_pattern = re.compile(r"\[([^\]]*?)\]")
+        # Apply truncation to all matches
+        return list_pattern.sub(process_list, s)
+
+    def _display_string_preview(
+        self, df: Union[pl.DataFrame, "SpectrumDataFrame"]
+    ) -> str:
+        """String preview of SpectrumDataFrame, truncating long list items.
+
+        Args:
+            df (Union(pl.DataFrame, "SpectrumDataFrame")): SpectrumDataFrame or Polars form of
+            SpectrumDataFrame for string representation.
+
+        Returns:
+            str: String representation of SpectrumDataFrame.
+        """
+        if type(df) is not pl.DataFrame:
+            df = df.to_polars(return_lazy=False)
+
+        preview = df.glimpse(
+            max_items_per_column=self.max_items_per_column,
+            max_colname_length=self.max_colname_length,
+            return_as_string=True,
+        )
+
+        if self.is_lazy:
+            preview = self._strip_shape_info(preview)
+
+        preview = self._truncate_list_repr(preview)
+
+        return preview
+
+    def __str__(self) -> str:
+        """A user-friendly string representation of the SpectrumDataFrame object.
+
+        Returns:
+            str: String representation of SpectrumDataFrame.
+        """
+        # Metadata summary
+        output = (
+            f"<SpectrumDataFrame | Lazy Loaded: {'Yes' if self.is_lazy else 'No'}>\n"
+        )
+
+        if not self.is_lazy and self._file_paths == []:
+            # Eager loading and non-parquet input case: the df is already loaded in memory
+            output += self._display_string_preview(self.df)
+
+        else:
+            # Lazy loading and parquet cases: only load the first temp file.
+            temp_sdf = self.load(self._file_paths[0])
+            output += self._display_string_preview(temp_sdf)
+
+        return output
+
+    def __repr__(self) -> str:
+        """An unambiguous string representation of the SpectrumDataFrame object.
+
+        This method is intended to provide enough detail to reconstruct the SpectrumDataFrame
+        object (if possible) or for debugging purposes. It includes all relevant attributes
+        in a nested format.
+
+        Returns:
+            str: String representation of SpectrumDataFrame.
+        """
+
+        def adjust_indentation(input_string: str) -> str:
+            """Adjusts the indentation of a multiline string based on the number of leading tabs.
+
+            Args:
+                input_string (str): The input string with potential leading tabs.
+
+            Returns:
+                str: A string with consistent indentation after each newline.
+            """
+            # Find the leading tabs at the beginning of the string
+            match = re.match(r"^(\t*)", input_string)
+            if match:
+                leading_tabs = match.group(1)  # Capture the leading tabs
+            else:
+                leading_tabs = ""
+
+            # Add the leading tabs after every newline
+            adjusted_string = input_string.replace("\n", "\n" + leading_tabs)
+
+            return adjusted_string
+
+        def pretty(d: dict, indent: int = 1) -> str:
+            """Recursively formats a dictionary into a pretty indented string.
+
+            Args:
+                d (dict): The dictionary to format.
+                indent (int): The current indentation level.
+
+            Returns:
+                str: A pretty-formatted string representation of the dictionary.
+            """
+            lines = []
+            for key, value in d.items():
+                lines.append("\t" * indent + str(key) + " =")  # Add the key
+                if isinstance(value, dict):
+                    # Recursively format nested dictionary
+                    lines.append(pretty(value, indent + 1))
+                else:
+                    # Add the value
+                    next_rep = "\t" * (indent + 1) + str(value)
+                    if isinstance(value, pl.DataFrame) or isinstance(value, pl.Series):
+                        # Find how many tabs are at the front of the string,
+                        # and add that many tabs after every newline entry.
+                        next_rep = adjust_indentation(next_rep)
+
+                    lines.append(next_rep)
+
+            return "\n".join(lines)
+
+        class_name = self.__class__.__name__
+        attributes = pretty(vars(self))
+        rep = f"{class_name}(\n{attributes}\n)"
+
+        return rep
 
 
 def _format_time(seconds: float) -> str:
