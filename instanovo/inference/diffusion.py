@@ -119,5 +119,7 @@ class DiffusionDecoder:
                 peptide = tokens[: tokens.index(self.residues.EOS_INDEX)]
             else:
                 peptide = tokens
-            output.append(self.residues.decode(peptide))
+            output.append(
+                self.residues.decode(peptide, reverse=False)
+            )  # we do not reverse peptide for diffusion
         return output

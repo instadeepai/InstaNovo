@@ -1,0 +1,51 @@
+defaults:
+  - instanovoplus_base
+  - _self_
+
+# general params
+vocab_size: 8
+
+layers: 6
+dim: 320
+nheads: 20
+dropout: 0.1
+attention_type: 'wavlm' # either 'normal' or 'wavlm'
+
+# wavlm attention parameters
+wavlm_num_bucket: 140
+wavlm_max_dist: 280
+
+dim_feedforward: 1280
+
+# timestep embedding params
+t_emb_dim: 320
+t_emb_max_period: 10000
+T: 20
+
+# conditioning params
+cond_emb_dim: 320
+drop_cond_prob: 0.1 # for classifier free guidance (same as original paper)
+
+cond_cross_attn_layers: # TODO check this is okay for 6 layers
+- 0
+- 2
+- 4
+
+# relative positional encoding params # TODO reduce these?
+conv_pos: 256 # typically 128, here 256
+conv_pos_groups: 32 # typically 16, here 32
+
+diffusion_type: multinomial # only 'multinomial' supported
+diffusion_s: 0.008
+
+# Model data parameters
+n_peaks: 11
+min_mz: 1.0
+max_mz: 1000.0
+min_intensity: 0.01
+remove_precursor_tol: 2.0
+max_charge: 3
+precursor_mass_tol: 50 # ppm
+isotope_error_range: [0, 1]
+
+max_length: 6

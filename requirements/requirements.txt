@@ -328,7 +328,6 @@ matchms==0.27.0
 matplotlib==3.9.2
     # via
     #   matchms
-    #   pyopenms
     #   seaborn
     #   spectrum-utils
 matplotlib-inline==0.1.7
@@ -374,7 +373,6 @@ numpy==1.26.4
     #   matplotlib
     #   numba
     #   pandas
-    #   pyopenms
     #   rdkit
     #   scikit-learn
     #   scipy
@@ -446,8 +444,6 @@ pandas==2.2.3
     #   datasets
     #   matchms
     #   neptune
-    #   pyopenms
-    #   pyopenms-viz
     #   seaborn
 parso==0.8.4
     # via jedi
@@ -527,10 +523,6 @@ pygtrie==2.5.0
     #   sqltrie
 pyjwt==2.9.0
     # via neptune
-pyopenms==3.2.0
-    # via -r requirements/requirements.in
-pyopenms-viz==0.1.5
-    # via -r requirements/requirements.in
 pyparsing==3.2.0
     # via
     #   dvc

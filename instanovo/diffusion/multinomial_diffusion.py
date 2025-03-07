@@ -14,6 +14,7 @@ from torch.distributions import Categorical
 from torch.nn.functional import log_softmax
 from torch.nn.functional import one_hot
 
+import instanovo.utils.s3 as s3
 from instanovo.diffusion.model import MassSpectrumTransFusion
 from instanovo.types import Peptide
 from instanovo.types import ResidueLogProbabilities
@@ -93,7 +94,13 @@ class MultinomialDiffusion(nn.Module):
             torch.log(1 - torch.exp(self.cumulative_schedule)),
         )
 
-    def save(self, path: str, overwrite: bool = False) -> None:
+    def save(
+        self,
+        path: str,
+        overwrite: bool = False,
+        temp_dir: str = "",  # type: ignore
+        ckpt_details: str = "",
+    ) -> None:
         """Save the model to a directory.
 
         Args:
@@ -106,39 +113,59 @@ class MultinomialDiffusion(nn.Module):
                 Whether to overwrite the directory if one already exists
                 for the model. Defaults to False.
 
+            temp_dir (str, optional):
+                Temporary directory to save intermediate files to.
+
+            ckpt_details (str, optional):
+                Additional checkpoint details to include in model save directory.
+
         Raises:
             FileExistsError: If `overwrite` is `False` and a directory already exists
                 for the model identifier.
         """
-        # Make directory
-        model_dir = os.path.join(path, self.config.name)
-        if os.path.exists(model_dir):
-            if overwrite:
-                shutil.rmtree(model_dir)
-            else:
-                raise FileExistsError
+        model_dir = os.path.join(path, ckpt_details)
 
-        os.mkdir(path=model_dir)
+        def save_file_local(filename: str, content: str) -> None:
+            """Save a file locally (no upload)."""
+            return
+
+        def save_file_s3(filename: str, content: str) -> None:
+            """Upload a file to S3."""
+            return s3.upload(  # type: ignore
+                content, s3.convert_to_s3_output(model_dir + "/" + filename)
+            )
+
+        if not temp_dir:
+            if os.path.exists(model_dir):
+                if overwrite:
+                    shutil.rmtree(model_dir)
+                else:
+                    raise FileExistsError
+
+            os.mkdir(path=model_dir)
+
+            save_path = model_dir
+            save_file = save_file_local
+
+        else:
+            save_path = temp_dir
+            save_file = save_file_s3
 
         # Save config
-        OmegaConf.save(config=self.config, f=os.path.join(model_dir, "config.yaml"))
-
-        # Save residues
-        residues = OmegaConf.create(self.residues.residue_masses)
-        OmegaConf.save(config=residues, f=os.path.join(model_dir, "residues.yaml"))
+        config_path = os.path.join(save_path, "config.yaml")
+        OmegaConf.save(config=self.config, f=config_path)
+        save_file("config.yaml", config_path)
 
         # Save schedule
-        torch.save(
-            torch.exp(self.diffusion_schedule),
-            os.path.join(model_dir, "diffusion_schedule.pt"),
-        )
+        diff_schedule_path = os.path.join(save_path, "diffusion_schedule.pt")
+        torch.save(torch.exp(self.diffusion_schedule), diff_schedule_path)
+        save_file("diffusion_schedule.pt", diff_schedule_path)
 
         # Save transition model
         self.transition_model.to("cpu")
-        torch.save(
-            self.transition_model.state_dict(),
-            os.path.join(model_dir, "transition_model.ckpt"),
-        )
+        transition_model_path = os.path.join(save_path, "transition_model.ckpt")
+        torch.save(self.transition_model.state_dict(), transition_model_path)
+        save_file("transition_model.ckpt", transition_model_path)
         self.transition_model.to(self.config.device)
 
     @classmethod
@@ -152,22 +179,33 @@ class MultinomialDiffusion(nn.Module):
         Returns:
             (MultinomialDiffusion): The loaded model.
         """
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+
         # Load config
         config = OmegaConf.load(os.path.join(path, "config.yaml"))
 
         # Load residues
-        residue_masses = OmegaConf.load(os.path.join(path, "residues.yaml"))
-        residues = ResidueSet(residue_masses=residue_masses)
+        residues = ResidueSet(
+            residue_masses=config["residues"],
+            residue_remapping=config["residue_remapping"],
+        )
 
         # Load schedule
-        diffusion_schedule = torch.load(os.path.join(path, "diffusion_schedule.pt"))
+        diffusion_schedule = torch.load(
+            os.path.join(path, "diffusion_schedule.pt"),
+            map_location=torch.device(device),
+        )
 
         # Load transition model
         transition_model = MassSpectrumTransFusion(
-            config.transition_model, config.max_length
+            config,
+            config.max_length,
         )
         transition_model.load_state_dict(
-            torch.load(os.path.join(path, "transition_model.ckpt"))
+            torch.load(
+                os.path.join(path, "transition_model.ckpt"),
+                map_location=torch.device(device),
+            )
         )
 
         return cls(
@@ -187,10 +225,10 @@ class MultinomialDiffusion(nn.Module):
         self.residues = residues
 
         num_residues = len(self.residues)
-        model_dim = self.config.transition_model.dim
+        model_dim = self.config.dim
 
         # 2. Update config
-        self.config.transition_model.vocab_size = num_residues
+        self.config.vocab_size = num_residues
 
         # 3. Update modules
         self.transition_model.char_embedding = nn.Embedding(

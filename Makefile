@@ -163,7 +163,7 @@ sync:
 ## Development commands																 	#
 #################################################################################
 
-.PHONY: tests coverage test-docker coverage-docker bash bash-dev docs set-gcp-credentials
+.PHONY: tests coverage test-docker coverage-docker bash bash-dev docs set-gcp-credentials add-kyber-pvc-data
 
 ## Run all tests
 tests:
@@ -205,11 +205,36 @@ set-gcp-credentials:
 	python -m instanovo.scripts.set_gcp_credentials
 	gcloud auth activate-service-account dtu-denovo-sa@ext-dtu-denovo-sequencing-gcp.iam.gserviceaccount.com --key-file=ext-dtu-denovo-sequencing-gcp.json --project=ext-dtu-denovo-sequencing-gcp
 
+## Add data to Kyber PVC
+add-kyber-pvc-data:
+	mkdir -p /mnt/instanovo-data-kyber/identity_splits_parquet/acpt
+	mkdir -p /mnt/instanovo-data-kyber/identity_splits_parquet/massivekb
+	mkdir -p /mnt/instanovo-data-kyber/identity_splits_parquet/phospho
+	mkdir -p /mnt/instanovo-data-kyber/identity_splits_parquet/pride
+
+	gsutil -m cp -R gs://denovo_formatted_ipc/identity_splits_parquet/acpt/*.parquet /mnt/instanovo-data-kyber/identity_splits_parquet/acpt
+	gsutil -m cp -R gs://denovo_formatted_ipc/identity_splits_parquet/massivekb/*.parquet /mnt/instanovo-data-kyber/identity_splits_parquet/massivekb
+	gsutil -m cp -R gs://denovo_formatted_ipc/identity_splits_parquet/phospho/*.parquet /mnt/instanovo-data-kyber/identity_splits_parquet/phospho
+	gsutil -m cp -R gs://denovo_formatted_ipc/identity_splits_parquet/pride/*.parquet /mnt/instanovo-data-kyber/identity_splits_parquet/pride
+
+	ls -lR /mnt/instanovo-data-kyber/identity_splits_parquet
+
+
 #################################################################################
 ## Train commands																#
 #################################################################################
 
-.PHONY: train_acpt train_extended train_extended_massive train_nine_species_v1 train_nine_species_v2 finetune_on_hcpt finetune_on_phospho finetune_on_nine_species_v2 ft_eval_nine_species_v2 zs_eval_nine_species_v2 eval_abhi eval_species_zero_shot
+.PHONY: train_acpt train_extended train_extended_massive train_nine_species_v1 train_nine_species_v2 train_instanovoplus_acpt train_instanovoplus_extended_massive finetune_on_hcpt finetune_on_phospho finetune_on_nine_species_v2 ft_eval_nine_species_v2 zs_eval_nine_species_v2 eval_abhi eval_species_zero_shot eval_instanovoplus_acpt
+
+## Train InstaNovo+ on AC-PT
+train_instanovoplus_acpt:
+	python -m instanovo.diffusion.train \
+		--config-name instanovoplus
+
+## Train InstaNovo+ on Extended + Massive-KB
+train_instanovoplus_extended_massive:
+	python -m instanovo.diffusion.train \
+		--config-name instanovoplus_extended_massive
 
 ## Train InstaNovo on AC-PT
 train_acpt:
@@ -292,6 +317,14 @@ finetune_on_nine_species_v2:
 
 	python -m instanovo.transformer.train \
 		--config-name instanovo_nine_species_v2
+
+## Evaluate InstaNovo+ on AC-PT
+eval_instanovoplus_acpt:
+	mkdir -p ./checkpoints
+	gsutil -m cp -R gs://denovo_checkpoints/acpt_diffusion_25e04470 ./checkpoints
+	ls -la ./checkpoints/acpt_diffusion_25e04470
+	python -m instanovo.diffusion.predict \
+		--config-name instanovoplus
 
 ## Evaluate InstaNovo on nine species v2 data from fine-tuned checkpoint
 ft_eval_nine_species_v2:
