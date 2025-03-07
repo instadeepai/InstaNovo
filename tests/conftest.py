@@ -13,10 +13,11 @@ import torch
 from hydra import compose, initialize
 from omegaconf import DictConfig, open_dict
 
+from instanovo.diffusion.multinomial_diffusion import MultinomialDiffusion
+from instanovo.inference.diffusion import DiffusionDecoder
 from instanovo.inference.knapsack_beam_search import KnapsackBeamSearchDecoder
 from instanovo.transformer.model import InstaNovo
 from instanovo.transformer.predict import _setup_knapsack
-
 
 # Add the root directory to the PYTHONPATH
 # This allows pytest to find the modules for testing
@@ -79,6 +80,32 @@ def instanovo_inference_config() -> DictConfig:
 
 
 @pytest.fixture(scope="session")
+def instanovoplus_config() -> DictConfig:
+    """A pytest fixture to read in a Hydra config for the Instanovo+ model unit and integration tests."""
+    with initialize(version_base=None, config_path="../instanovo/configs"):
+        cfg = compose(config_name="instanovoplus_unit_test")
+
+    sub_configs_list = ["model", "dataset", "residues"]
+    for sub_name in sub_configs_list:
+        if sub_name in cfg:
+            with open_dict(cfg):
+                temp = cfg[sub_name]
+                del cfg[sub_name]
+                cfg.update(temp)
+
+    return cfg
+
+
+@pytest.fixture(scope="session")
+def instanovoplus_inference_config() -> DictConfig:
+    """A pytest fixture to read in a Hydra config for inference of the Instanovo+ model unit and integration tests."""
+    with initialize(version_base=None, config_path="../instanovo/configs/inference"):
+        cfg = compose(config_name="instanovoplus_unit_test")
+
+    return cfg
+
+
+@pytest.fixture(scope="session")
 def dir_paths() -> tuple[str, str]:
     """A pytest fixture that returns the root and data directories for the unit and integration tests."""
     root_dir = "./tests/instanovo_test_resources"
@@ -94,6 +121,13 @@ def instanovo_checkpoint(dir_paths: tuple[str, str]) -> str:
 
 
 @pytest.fixture(scope="session")
+def instanovoplus_checkpoint(dir_paths: tuple[str, str]) -> str:
+    """A pytest fixture that returns the InstaNovo+ model checkpoint used for unit and integration tests."""
+    root_dir, _ = dir_paths
+    return os.path.join(root_dir, "instanovoplus")
+
+
+@pytest.fixture(scope="session")
 def instanovo_model(
     instanovo_checkpoint: str,
 ) -> tuple[Any, Any]:
@@ -103,10 +137,30 @@ def instanovo_model(
 
 
 @pytest.fixture(scope="session")
+def instanovoplus_model(
+    instanovoplus_checkpoint: str,
+) -> tuple[MultinomialDiffusion, DiffusionDecoder]:
+    """A pytest fixture to load an InstaNovo+ model from a specified checkpoint."""
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    diffusion_model = MultinomialDiffusion.load(instanovoplus_checkpoint)
+    diffusion_model = diffusion_model.to(device).eval()
+    diffusion_decoder = DiffusionDecoder(model=diffusion_model)
+
+    return diffusion_model, diffusion_decoder
+
+
+@pytest.fixture(scope="session")
 def residue_set(instanovo_model: tuple[Any, Any]) -> Any:
     """A pytest fixture to return the model's residue set used for unit and integration tests."""
     model, _ = instanovo_model
     return model.residue_set
+
+
+@pytest.fixture(scope="session")
+def instanovo_output_path(dir_paths: tuple[str, str]) -> str:
+    """A pytest fixture to load the pre-computed InstaNovo model predictions for unit and integration tests."""
+    root_dir, _ = dir_paths
+    return root_dir + "/predictions.csv"
 
 
 @pytest.fixture(scope="session")

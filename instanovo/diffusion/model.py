@@ -3,19 +3,19 @@ from __future__ import annotations
 from typing import Optional
 
 import torch
-from depthcharge.components.encoders import MassEncoder
+
 from jaxtyping import Bool
 from jaxtyping import Float
 from jaxtyping import Integer
 from torch import nn
 from torch import Tensor
+from omegaconf import DictConfig
+
 from transfusion.model import Pogfuse
 from transfusion.model import timestep_embedding
 from transfusion.model import TransFusion
 
-from instanovo.diffusion.config import MassSpectrumModelConfig
-from instanovo.diffusion.layers import CustomSpectrumEncoder
-from instanovo.diffusion.layers import LocalisedSpectrumEncoder
+from instanovo.diffusion.layers import TransformerEncoder
 from instanovo.types import Peptide
 from instanovo.types import PeptideEmbedding
 from instanovo.types import PeptideMask
@@ -33,12 +33,12 @@ class MassSpectrumTransformer(Pogfuse):
 
     def forward(
         self,
-        x: Float[SpectrumEmbedding, " batch"],
+        x: Float[PeptideEmbedding, " batch"],
         t_emb: Float[TimeEmbedding, " batch"],
         precursor_emb: Float[Tensor, "..."],
-        cond_emb: Optional[Float[PeptideEmbedding, " batch"]] = None,
-        x_padding_mask: Optional[Bool[SpectrumMask, " batch"]] = None,
-        cond_padding_mask: Optional[Bool[PeptideMask, " batch"]] = None,
+        cond_emb: Optional[Float[SpectrumEmbedding, " batch"]] = None,
+        x_padding_mask: Optional[Bool[PeptideMask, " batch"]] = None,
+        cond_padding_mask: Optional[Bool[SpectrumMask, " batch"]] = None,
         pos_bias: Optional[Float[Tensor, "..."]] = None,
     ) -> Float[Tensor, "batch token embedding"]:
         """Compute encodings with the model.
@@ -90,7 +90,9 @@ class MassSpectrumTransFusion(TransFusion):
     """Diffusion reconstruction model conditioned on mass spectra."""
 
     def __init__(
-        self, cfg: MassSpectrumModelConfig, max_transcript_len: int = 200
+        self,
+        cfg: DictConfig,  # ModelConfig,
+        max_transcript_len: int = 200,
     ) -> None:
         super().__init__(cfg, max_transcript_len)
         layers = []
@@ -115,29 +117,20 @@ class MassSpectrumTransFusion(TransFusion):
         self.layers = nn.ModuleList(layers)
 
         self.conditioning_pos_emb = None
-        if cfg.localised_attn:
-            self.encoder = LocalisedSpectrumEncoder(
-                dim_model=cfg.dim,
-                n_head=cfg.nheads,
-                dim_feedforward=cfg.dim,
-                n_layers=cfg.layers,
-                dropout=cfg.dropout,
-                window_size=cfg.window_size,
-                mass_encoding=cfg.mass_encoding,
-            )
-        else:
-            self.encoder = CustomSpectrumEncoder(
-                dim_model=cfg.dim,
-                n_head=cfg.nheads,
-                dim_feedforward=cfg.dim_feedforward,
-                n_layers=cfg.layers,
-                dropout=cfg.dropout,
-                mass_encoding=cfg.mass_encoding,
-            )
+
+        self.encoder = TransformerEncoder(
+            dim_model=cfg.dim,
+            n_head=cfg.nheads,
+            dim_feedforward=cfg.dim_feedforward,
+            n_layers=cfg.layers,
+            dropout=cfg.dropout,
+            use_flash_attention=cfg.use_flash_attention,
+            conv_peak_encoder=cfg.conv_peak_encoder,
+        )
 
         # precursor embedding
         self.charge_encoder = torch.nn.Embedding(cfg.max_charge, cfg.dim)
-        self.mass_encoder = MassEncoder(cfg.dim)
+        self.peak_encoder = self.encoder.peak_encoder
 
         self.cache_spectra = None
         self.cache_cond_emb = None
@@ -211,7 +204,7 @@ class MassSpectrumTransFusion(TransFusion):
                 self.cache_cond_padding_mask = cond_padding_mask
 
         # set mask for these conditional entries to true everywhere (i.e. mask them out)
-        masses = self.mass_encoder(precursors[:, None, [0]])
+        masses = self.peak_encoder.encode_mass(precursors[:, None, [0]])
         charges = self.charge_encoder(precursors[:, 1].int() - 1)
         precursor_emb = masses + charges[:, None, :]
 

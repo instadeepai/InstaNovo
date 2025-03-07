@@ -12,11 +12,15 @@ spec:
   image: instanovo
   # command: make set-gcp-credentials && make tests && make coverage
   # command: make set-gcp-credentials && make download_validation && make download_dataset_v2_ipc && make validate_instanovo
-  # command: make set-gcp-credentials && make train_acpt
+  # command: make set-gcp-credentials && make train_instanovoplus_acpt
+  command: make set-gcp-credentials && make train_instanovoplus_extended_massive
+  # command: make set-gcp-credentials && make inplus_eval_acpt
   # command: make set-gcp-credentials && make finetune_on_hcpt
   # command: make set-gcp-credentials && make finetune_on_phospho
-  command: make set-gcp-credentials && make train_extended_massive
+  # command: make set-gcp-credentials && make train_extended_massive
   # command: make set-gcp-credentials && make eval_species_zero_shot
+  # command: make set-gcp-credentials && make add-kyber-pvc-data && ls -lR /mnt/instanovo-data-kyber/identity_splits_parquet
+
 
   tensorboard: # optional, disabled by default
     enabled: true
@@ -25,6 +29,7 @@ spec:
     attachExistingPVCs: # optional, array
       - name: "dtu-denovo-s-2e6da747d6d34f62-instanovo-da-200e9d5fce4a4085"
         mountPoint: "/mnt/instanovo-data-kyber"
+
 
   types:
     Worker:

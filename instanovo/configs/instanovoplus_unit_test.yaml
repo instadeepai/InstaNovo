@@ -1,0 +1,32 @@
+defaults:
+  - instanovoplus
+  - _self_
+  - override model: instanovoplus_unit_test
+  - override dataset: unit_test
+  - override residues: unit_test
+
+# Overwritten when using Aichor
+tb_summarywriter: "./logs/instanovo/instanovoplus-unit-test"
+
+# Training parameters
+warmup_iters: 480
+learning_rate: 1e-3
+train_batch_size: 32
+grad_accumulation: 1
+
+# Logging parameters
+logger:
+epochs: 1
+num_sanity_val_steps: 10
+console_logging_steps: 50
+tensorboard_logging_steps: 500
+report_to:
+run_name: instanovoplus_unit_test
+
+# Training data parameters
+valid_subset: 1.0
+
+# Checkpointing parameters
+model_save_folder_path: # TODO when implemented we will use temp dir
+ckpt_interval:
+device:

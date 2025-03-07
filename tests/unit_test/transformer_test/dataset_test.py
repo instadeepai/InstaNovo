@@ -219,3 +219,59 @@ def test_load_shards(dir_paths: tuple[str, str]) -> None:
     _, data_dir = dir_paths
     df = load_ipc_shards(data_path=data_dir, split="test")
     assert len(df) == 1938
+
+
+def test_dataset_collate_diffusion(residue_set: Any) -> None:
+    """Test batch collation function for diffusion."""
+    data = {
+        "mz_array": [
+            [7.84, 18.215, 20.8, 28.64, 66.6, 38.55, 29.81, 49.965, 51.25, 27.25]
+        ],
+        "intensity_array": [[1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]],
+        "precursor_mz": [35.83],
+        "precursor_charge": [2],
+        "sequence": "ABCD",
+    }
+
+    df = pl.DataFrame(data)
+    sdf = SpectrumDataFrame(df)
+    sd = SpectrumDataset(
+        df=sdf,
+        residue_set=residue_set,
+        n_peaks=10,
+        min_mz=25,
+        peptide_pad_length=6,
+        diffusion=True,
+    )
+
+    output = collate_batch([sd[0]])
+
+    expected_output = (
+        torch.tensor(
+            [
+                [
+                    [27.2500, 0.3780],
+                    [28.6400, 0.3780],
+                    [29.8100, 0.3780],
+                    [38.5500, 0.3780],
+                    [49.9650, 0.3780],
+                    [51.2500, 0.3780],
+                    [66.6000, 0.3780],
+                ]
+            ]
+        ),
+        torch.tensor([[69.6455, 2.0000, 35.8300]]),
+        torch.tensor([[False, False, False, False, False, False, False]]),
+        torch.tensor([[6, 5, 4, 3, 0, 0]]),
+        torch.tensor(
+            [[False, False, False, False, False, False]],
+        ),
+    )
+
+    assert torch.allclose(output[0], expected_output[0], atol=1e-3), "Spectra mismatch"
+    assert torch.allclose(
+        output[1], expected_output[1], atol=1e-6
+    ), "Precursors mismatch"
+    assert torch.equal(output[2], expected_output[2]), "Spectra mask mismatch"
+    assert torch.equal(output[3], expected_output[3]), "Peptides mismatch"
+    assert torch.equal(output[4], expected_output[4]), "Peptides mask mismatch"

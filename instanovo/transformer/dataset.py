@@ -47,6 +47,7 @@ class SpectrumDataset(Dataset):
         return_str: bool = False,
         bin_spectra: bool = False,
         bin_size: float = 0.01,
+        diffusion: bool = False,
     ) -> None:
         super().__init__()
         self.df = df
@@ -63,6 +64,7 @@ class SpectrumDataset(Dataset):
         self.return_str = return_str
         self.bin_spectra = bin_spectra
         self.bin_size = bin_size
+        self.diffusion = diffusion
 
         if self.bin_spectra:
             self.bins = torch.arange(0, self.max_mz + self.bin_size, self.bin_size)
@@ -105,7 +107,7 @@ class SpectrumDataset(Dataset):
                 peptide_tokenized = peptide_tokenized[::-1]
 
             peptide_encoding = self.residue_set.encode(
-                peptide_tokenized, add_eos=True, return_tensor="pt"
+                peptide_tokenized, add_eos=not self.diffusion, return_tensor="pt"
             )
             # Does nothing when peptide_pad_length = 0 (default). This is used for torch.compile
             peptide_padded = torch.zeros(
