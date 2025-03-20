@@ -1,22 +1,22 @@
 import copy
+
 import polars as pl
 import pytest
 import torch
 from omegaconf import DictConfig
 from torch.utils.data import DataLoader
 
-from instanovo.diffusion.multinomial_diffusion import MultinomialDiffusion
+from instanovo.diffusion.multinomial_diffusion import InstaNovoPlus
 from instanovo.diffusion.predict import get_preds
 from instanovo.inference.diffusion import DiffusionDecoder
-from instanovo.transformer.dataset import collate_batch
-from instanovo.transformer.dataset import SpectrumDataset
+from instanovo.transformer.dataset import SpectrumDataset, collate_batch
 from instanovo.utils.data_handler import SpectrumDataFrame
 from tests.conftest import reset_seed
 
 
 @pytest.mark.usefixtures("_reset_seed")
 def test_model(
-    instanovoplus_model: tuple[MultinomialDiffusion, DiffusionDecoder],
+    instanovoplus_model: tuple[InstaNovoPlus, DiffusionDecoder],
     instanovoplus_config: DictConfig,
     dir_paths: tuple[str, str],
     instanovoplus_inference_config: DictConfig,
@@ -147,24 +147,28 @@ def test_model(
     pred_df = pl.read_csv(temp_inference_config["output_path"])
 
     assert temp_inference_config["subset"] == 1
+    assert (
+        temp_inference_config["instanovo_plus_model"]
+        == "./tests/instanovo_test_resources/instanovoplus"
+    )
     assert pred_df["targets"][0] == "DDCA"
     assert pred_df["diffusion_predictions"][0] == "EADCAD"
     assert (
         pred_df["diffusion_predictions_tokenised"][0]
         == "['E', 'A', 'D', 'C', 'A', 'D']"
     )
-    assert pred_df["diffusion_log_probs"][0] == pytest.approx(-0.267, rel=1e-1)
+    assert pred_df["diffusion_log_probabilities"][0] == pytest.approx(-0.267, rel=1e-1)
 
     reset_seed()
 
     # InstaNovo+ refinement case
     temp_inference_config["refine"] = True
 
-    temp_inference_config["instanovo_preds_path"] = instanovo_output_path
+    temp_inference_config["instanovo_predictions_path"] = instanovo_output_path
 
     with pytest.raises(
         ValueError,
-        match="All rows were dropped from the dataframe. No ID matches were present.",
+        match="All rows were dropped from the dataframe. No ID matches / predictions to refine were present.",
     ):
         get_preds(
             config=temp_inference_config,
@@ -174,7 +178,7 @@ def test_model(
 
     reset_seed()
 
-    temp_inference_config["instanovo_preds_path"] = (
+    temp_inference_config["instanovo_predictions_path"] = (
         root_dir + "/instanovoplus/sample_pred.csv"
     )
 
@@ -193,4 +197,4 @@ def test_model(
         pred_df["diffusion_predictions_tokenised"][0]
         == "['B', 'E', 'A', 'A', 'A', 'D']"
     )
-    assert pred_df["diffusion_log_probs"][0] == pytest.approx(-0.402, rel=1e-1)
+    assert pred_df["diffusion_log_probabilities"][0] == pytest.approx(-0.402, rel=1e-1)

@@ -1,3 +1,9 @@
+FROM alpine/curl AS vscode-installer
+
+RUN mkdir /aichor
+RUN curl -Lk 'https://code.visualstudio.com/sha/download?build=stable&os=cli-alpine-x64' --output /aichor/vscode_cli.tar.gz
+RUN tar -xf /aichor/vscode_cli.tar.gz -C /aichor
+
 FROM nvcr.io/nvidia/cuda:12.4.1-cudnn-devel-ubuntu22.04
 
 # When your experiment writes result files into a bind mount (directories mirrored using -v or --volume),
@@ -120,12 +126,9 @@ ENV VIRTUAL_ENV=${VENV_DIRECTORY}
 RUN python3 -m venv $VIRTUAL_ENV
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
-# Install python requirements
+# Install python packages
 RUN pip install uv && \
-    UV_HTTP_TIMEOUT=600 uv pip install --python $(which python) \
-                   --no-cache \
-                   -r requirements/requirements.txt \
-                   -r requirements/requirements-dev.txt
+    UV_HTTP_TIMEOUT=600 uv sync
 
 # Install InstaNovo
 RUN uv pip install --python $(which python) -e .
@@ -139,6 +142,10 @@ ENV LAST_COMMIT=${LAST_COMMIT}
 
 # Append the current directory to your python path
 ENV PYTHONPATH=$PWD:$PYTHONPATH
+
+# Copy the vscode binary on the final Dockerfile stage at '/aichor'
+# binary won't be findable in $PATH, it'll just be located at '/aichor/code'
+COPY --from=vscode-installer /aichor /aichor
 
 # Default Tensorboard port
 EXPOSE 6006

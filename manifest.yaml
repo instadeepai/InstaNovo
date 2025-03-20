@@ -12,8 +12,14 @@ spec:
   image: instanovo
   # command: make set-gcp-credentials && make tests && make coverage
   # command: make set-gcp-credentials && make download_validation && make download_dataset_v2_ipc && make validate_instanovo
+  # command: make set-gcp-credentials && make instanovo_plus_train_acpt
+  command: make set-gcp-credentials && make eval_instanovoplus_acpt
+  # command: make set-gcp-credentials && make train_nine_species_v1
+  # command: make set-gcp-credentials && make train_acpt
+  # command: make set-gcp-credentials && make ft_eval_nine_species_v2
+  # command: make set-gcp-credentials && make zs_eval_nine_species_v2
   # command: make set-gcp-credentials && make train_instanovoplus_acpt
-  command: make set-gcp-credentials && make train_instanovoplus_extended_massive
+  # command: make set-gcp-credentials && make train_instanovoplus_extended_massive
   # command: make set-gcp-credentials && make inplus_eval_acpt
   # command: make set-gcp-credentials && make finetune_on_hcpt
   # command: make set-gcp-credentials && make finetune_on_phospho
@@ -21,6 +27,11 @@ spec:
   # command: make set-gcp-credentials && make eval_species_zero_shot
   # command: make set-gcp-credentials && make add-kyber-pvc-data && ls -lR /mnt/instanovo-data-kyber/identity_splits_parquet
 
+  debug:
+    vscode:
+      enabled: false # required
+      path: "/aichor/code" # Optional, defaults to "code". Refer the absolute path of the binary if not findable in $PATH
+      provider: "github" # Optional, vscode tunnel provider. Options are "github" or "microsoft", defaults to "github"
 
   tensorboard: # optional, disabled by default
     enabled: true

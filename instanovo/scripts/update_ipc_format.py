@@ -1,13 +1,20 @@
+# /// script
+# requires-python = ">=3.10"
+# dependencies = [
+#     "polars",
+# ]
+# ///
 from __future__ import annotations
 
-import logging
-from pathlib import Path
 import argparse
+from pathlib import Path
 
 import polars as pl
 
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+from instanovo.__init__ import console
+from instanovo.utils.colorlogging import ColorLog
+
+logger = ColorLog(console, __name__).logger
 
 
 def update_ipc(source: Path, target: Path) -> pl.DataFrame:

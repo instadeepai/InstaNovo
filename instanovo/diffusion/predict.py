@@ -1,59 +1,55 @@
 from __future__ import annotations
 
-import logging
-import os
+import sys
 import time
-
-import torch
-import tqdm
-import yaml
-import hydra
-import numpy as np
-from omegaconf import DictConfig
 from pathlib import Path
+from typing import Any
+
 import polars as pl
+import torch
+from omegaconf import DictConfig
 from torch.utils.data import DataLoader
+from tqdm import tqdm
 
-from instanovo.constants import ANNOTATION_ERROR, ANNOTATED_COLUMN, DIFFUSION_START_STEP
-from instanovo.diffusion.multinomial_diffusion import MultinomialDiffusion
+from instanovo.__init__ import console
+from instanovo.constants import ANNOTATED_COLUMN, ANNOTATION_ERROR, DIFFUSION_START_STEP
+from instanovo.diffusion.multinomial_diffusion import InstaNovoPlus
 from instanovo.inference.diffusion import DiffusionDecoder
-from instanovo.transformer.dataset import collate_batch
-from instanovo.transformer.dataset import SpectrumDataset
-from instanovo.transformer.train import _set_author_neptune_api_token
+from instanovo.transformer.dataset import SpectrumDataset, collate_batch
 from instanovo.transformer.predict import _format_time
-from instanovo.utils import s3
-from instanovo.utils import Metrics
-from instanovo.utils import SpectrumDataFrame
+from instanovo.utils import Metrics, SpectrumDataFrame, s3
+from instanovo.utils.colorlogging import ColorLog
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+logger = ColorLog(console, __name__).logger
 
 CONFIG_PATH = Path(__file__).parent.parent / "configs" / "inference"
 
 
-# flake8: noqa: CCR001
 def get_preds(
     config: DictConfig,
-    model: MultinomialDiffusion,
+    model: InstaNovoPlus,
     model_config: DictConfig,
 ) -> None:
     """Predict peptides from spectra using the diffusion model for iterative refinement."""
     if config.get("denovo", False) and config.get("output_path", None) is None:
         raise ValueError(
-            "Must specify an output csv path in denovo mode. Please specify in config or with the cli flag output_path=`path/to/output.csv`"
+            "Must specify an output csv path in denovo mode. Please specify in config or with the cli flag --output-path `path/to/output.csv`"
         )
 
     data_path = config["data_path"]
     output_path = config.get("output_path", None)
 
-    if config.get("refine", False) and config.get("instanovo_preds_path", None) is None:
+    if (
+        config.get("refine", False)
+        and config.get("instanovo_predictions_path", None) is None
+    ):
         raise ValueError("The InstaNovo predictions csv path is missing.")
 
     # Some commomly used config variables
     denovo = config.get("denovo", False)
     use_basic_logging = config.get("use_basic_logging", True)
-    device = config.get("device", "cuda")
+    device = config.get("device", "cuda" if torch.cuda.is_available() else "cpu")
+    logger.info(f"Using device {device} for InstaNovo+ predictions")
     fp16 = config.get("fp16", True)
 
     if fp16 and device.lower() == "cpu":
@@ -103,45 +99,64 @@ def get_preds(
 
     sdf.sample_subset(fraction=config.get("subset", 1.0), seed=42)
     logger.info(
-        f"Data loaded, evaluating {config.get('subset', 1.0)*100:.1f}%, {len(sdf):,} samples in total."
+        f"Data loaded, evaluating {config.get('subset', 1.0) * 100:.1f}%, {len(sdf):,} samples in total."
     )
+
+    if sdf.df.is_empty():
+        logger.warning("No data found, exiting.")
+        sys.exit()
 
     if config.get("refine", False):
         logger.info("Loading InstaNovo predictions.")
-        instanovo_preds_df = pl.read_csv(config.get("instanovo_preds_path"))
+        instanovo_preds_df = pl.read_csv(config.get("instanovo_predictions_path"))
 
         if len(instanovo_preds_df) != len(sdf.df):
             logger.warning("Length mismatch between input data and predictions.")
 
         initial_rows = sdf.df.height
-        sdf.df = sdf.df.join(
-            instanovo_preds_df, on=config.get("id_col", "spectrum_id"), how="inner"
-        )
+        id_col = config.get("id_col", "spectrum_id")
+        if id_col not in sdf.df.columns:
+            raise ValueError(
+                f"The column '{id_col}' does not exist in the input data. Set an appropriate 'id_col' value in the config."
+            )
+        if id_col not in instanovo_preds_df.columns:
+            raise ValueError(
+                f"The column '{id_col}' does not exist in one InstaNovo predictions data. Set an appropriate 'id_col' value in the config."
+            )
+
+        sdf.df = sdf.df.join(instanovo_preds_df, on=id_col, how="inner")
+        sdf.df = sdf.df.filter(pl.col(config.get("pred_col", "predictions")) != "")
 
         if sdf.df.height == 0:
             raise ValueError(
-                "All rows were dropped from the dataframe. No ID matches were present."
+                "All rows were dropped from the dataframe. No ID matches / predictions to refine were present."
             )
 
         dropped_rows = initial_rows - sdf.df.height
         if dropped_rows > 0:
             logger.warning(
-                f"{dropped_rows} rows were dropped due to unmatched IDs in the inner join."
+                f"{dropped_rows} rows were dropped due to unmatched IDs, or empty predictions, in the inner join."
             )
 
         if not denovo:
             targets = sdf.df[ANNOTATED_COLUMN].to_list()  # these are not reversed
+            sdf.df = sdf.df.with_columns(
+                pl.Series("original_peptide", targets)
+            )  # add back to dataframe for temp workaround
 
         sdf.df = sdf.df.with_columns(
-            pl.coalesce(config.get("pred_col", "preds"), ANNOTATED_COLUMN).alias(
+            pl.coalesce(config.get("pred_col", "predictions"), ANNOTATED_COLUMN).alias(
                 ANNOTATED_COLUMN
             )
         )  # replace sequence column with instanovo predictions
-        sdf.df = sdf.df.drop(config.get("pred_col", "preds"))
+        sdf.df = sdf.df.drop(config.get("pred_col", "predictions"))
 
     else:
         if not denovo:
             targets = sdf.df[ANNOTATED_COLUMN].to_list()  # these are not reversed
+            sdf.df = sdf.df.with_columns(
+                pl.Series("original_peptide", targets)
+            )  # add back to dataframe for temp workaround
 
     residue_set = model.residues
     logger.info(f"Vocab: {residue_set.index_to_residue}")
@@ -156,7 +171,7 @@ def get_preds(
             logger.warning(
                 "Unsupported residues found in evaluation set! These rows will be dropped."
             )
-            logger.warning(f"Residues found: \n{data_residues-supported_residues}")
+            logger.warning(f"Residues found: \n{data_residues - supported_residues}")
             logger.warning(
                 "Please check residue remapping if a different convention has been used."
             )
@@ -169,7 +184,8 @@ def get_preds(
                     ]
                 )
             )
-            logger.warning(f"{original_size-len(sdf):,d} rows have been dropped.")
+            targets = sdf.df["original_peptide"].to_list()  # update targets post filter
+            logger.warning(f"{original_size - len(sdf):,d} rows have been dropped.")
             logger.warning("Peptide recall should recalculated accordingly.")
 
     ds = SpectrumDataset(  # peptides are not reversed here
@@ -205,7 +221,7 @@ def get_preds(
 
     start = time.time()
 
-    iter_dl = enumerate(dl)
+    iter_dl: enumerate[Any] | tqdm[tuple[int, Any]] = enumerate(dl)
     if not use_basic_logging:
         iter_dl = tqdm(enumerate(dl), total=len(dl))
 
@@ -240,7 +256,7 @@ def get_preds(
             delta = time.time() - start
             est_total = delta / (i + 1) * (len(dl) - i - 1)
             logger.info(
-                f"Batch {i+1:05d}/{len(dl):05d}, [{_format_time(delta)}/{_format_time(est_total)}, {(delta / (i + 1)):.3f}s/it]"
+                f"Batch {i + 1:05d}/{len(dl):05d}, [{_format_time(delta)}/{_format_time(est_total)}, {(delta / (i + 1)):.3f}s/it]"
             )
 
     # print("targets ", targets)
@@ -252,7 +268,7 @@ def get_preds(
     logger.info(f"Time taken for {data_path} is {delta:.1f} seconds")
     if len(dl) > 0:
         logger.info(
-            f"Average time per batch (bs={config['batch_size']}): {delta/len(dl):.1f} seconds"
+            f"Average time per batch (bs={config['batch_size']}): {delta / len(dl):.1f} seconds"
         )
 
     # Calculate metrics
@@ -285,11 +301,24 @@ def get_preds(
     logger.info("Saving predictions.")
     pred_df["diffusion_predictions_tokenised"] = results
     pred_df["diffusion_predictions"] = ["".join(pred) for pred in results]
-    pred_df["diffusion_log_probs"] = all_log_probs
+    pred_df["diffusion_log_probabilities"] = all_log_probs
     if not denovo:
         pred_df["targets"] = targets
     if config["refine"]:
-        pred_df["in_preds"] = sdf.df[ANNOTATED_COLUMN].to_list()
+        pred_df["transformer_predictions"] = sdf.df[ANNOTATED_COLUMN].to_list()
+        pred_df["transformer_predictions_tokenised"] = sdf.df[
+            config.get("pred_tok_col", "predictions_tokenised")
+        ]
+        pred_df["transformer_log_probabilities"] = sdf.df[
+            config.get("log_probs_col", "log_probabilities")
+        ]
+        if (
+            config.get("token_log_probs_col", "token_log_probabilities")
+            in sdf.df.columns
+        ):
+            pred_df["transformer_token_log_probabilities"] = sdf.df[
+                config.get("token_log_probs_col", "token_log_probabilities")
+            ]
 
     if output_path is not None:  # TODO this doesn't seem to overwrite previous csvs
         pred_df.to_csv(output_path, index=False)
@@ -298,37 +327,3 @@ def get_preds(
         # Upload to Aichor
         if s3._s3_enabled():
             s3.upload(output_path, s3.convert_to_s3_output(output_path))
-
-
-@hydra.main(
-    config_path=str(CONFIG_PATH), version_base=None, config_name="instanovoplus"
-)
-def main(config: DictConfig) -> None:
-    """Predict with the model."""
-    logger.info("Initializing inference.")
-    _set_author_neptune_api_token()
-
-    # Check config inputs
-    if not config.get("data_path", None):
-        raise ValueError(
-            "Expected data_path but found None. Please specify in predict config or with the cli flag `data_path=path/to/data.ipc`"
-        )
-
-    model_path = config.get("model_path", None)
-    if not model_path:
-        raise ValueError(
-            "Expected model_path but found None. Please specify in predict config or with the cli flag `model_path=path/to/model/`"
-        )
-
-    logger.info(f"Loading model from {model_path}")
-    model = MultinomialDiffusion.load(path=model_path)
-    model_config = yaml.safe_load(open(os.path.join(model_path, "config.yaml")))
-
-    logger.info(f"Config:\n{config}")
-    logger.info(f"Model params: {np.sum([p.numel() for p in model.parameters()]):,d}")
-
-    get_preds(config, model, model_config)
-
-
-if __name__ == "__main__":
-    main()

@@ -1,3 +1,9 @@
+# /// script
+# requires-python = ">=3.10"
+# dependencies = [
+#     "python-dotenv",
+# ]
+# ///
 """Set Google Storage credentials."""
 
 from __future__ import annotations

@@ -1,11 +1,12 @@
 import datetime
-import logging
+import math
 import os
 import shutil
 import sys
 import tempfile
 import time
 import warnings
+from pathlib import Path
 
 import hydra
 import neptune
@@ -13,46 +14,45 @@ import numpy as np
 import pandas as pd
 import polars as pl
 import torch
-
-from omegaconf import DictConfig
-from omegaconf import OmegaConf
-from omegaconf import open_dict
-from pathlib import Path
+from neptune.integrations.python_logger import NeptuneHandler
+from omegaconf import DictConfig, OmegaConf, open_dict
+from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
-from sklearn.model_selection import train_test_split
 
 import instanovo.utils.s3 as s3
-from instanovo.utils import SpectrumDataFrame
+from instanovo.__init__ import console
+from instanovo.constants import ANNOTATED_COLUMN, ANNOTATION_ERROR
+from instanovo.diffusion.multinomial_diffusion import (
+    DiffusionLoss,
+    InstaNovoPlus,
+    MassSpectrumTransFusion,
+    cosine_beta_schedule,
+)
+from instanovo.inference.diffusion import DiffusionDecoder
 from instanovo.transformer.dataset import (
     SpectrumDataset,
-    remove_modifications,
     collate_batch,
+    remove_modifications,
 )
 from instanovo.transformer.train import (
-    _set_author_neptune_api_token,
-    WarmupScheduler,
     NeptuneSummaryWriter,
+    WarmupScheduler,
     _format_time,
+    _set_author_neptune_api_token,
 )
-from instanovo.constants import ANNOTATION_ERROR, ANNOTATED_COLUMN
-from instanovo.inference.diffusion import DiffusionDecoder
-from instanovo.diffusion.multinomial_diffusion import MultinomialDiffusion
-from instanovo.diffusion.multinomial_diffusion import MassSpectrumTransFusion
-from instanovo.diffusion.multinomial_diffusion import cosine_beta_schedule
-from instanovo.diffusion.multinomial_diffusion import DiffusionLoss
+from instanovo.utils import SpectrumDataFrame
+from instanovo.utils.colorlogging import ColorLog
 from instanovo.utils.metrics import Metrics
 from instanovo.utils.residues import ResidueSet
 
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+logger = ColorLog(console, __name__).logger
 
 CONFIG_PATH = Path(__file__).parent.parent / "configs"
 
 warnings.filterwarnings("ignore", message=".*does not have many workers*")
 
 
-# flake8: noqa: CR001
 def train(config: DictConfig) -> None:
     """Training function."""
     torch.manual_seed(config.get("seed", 101))
@@ -68,12 +68,17 @@ def train(config: DictConfig) -> None:
         os.environ["NEPTUNE_PROJECT"] = "InstaDeep/denovo-sequencing"
         run = neptune.init_run(
             with_id=None,
-            description=config.get("run_name", "instanovo_acpt_base") + time_now,
+            name=config.get("run_name", "no_run_name_specified") + time_now,
+            dependencies=str(Path(__file__).parent.parent.parent / "uv.lock"),
+            tags=config.get("tags", []),
         )
         run.assign({"config": OmegaConf.to_yaml(config)})
         sw = NeptuneSummaryWriter(config["tb_summarywriter"], run)
+        logger.addHandler(NeptuneHandler(run=run))
     else:
         sw = SummaryWriter(config["tb_summarywriter"])
+
+    logger.info("Starting diffusion training")
 
     # Transformer vocabulary
     residue_set = ResidueSet(
@@ -163,7 +168,7 @@ def train(config: DictConfig) -> None:
             logger.warning(
                 "Unsupported residues found in evaluation set! These rows will be dropped."
             )
-            logger.info(f"New residues found: \n{data_residues-supported_residues}")
+            logger.info(f"New residues found: \n{data_residues - supported_residues}")
             logger.info(f"Residues supported: \n{supported_residues}")
             original_size = (len(train_sdf), len(valid_sdf))
             train_sdf.filter_rows(
@@ -184,10 +189,10 @@ def train(config: DictConfig) -> None:
             )
             new_size = (len(train_sdf), len(valid_sdf))
             logger.warning(
-                f"{original_size[0]-new_size[0]:,d} ({(original_size[0]-new_size[0])/original_size[0]*100:.2f}%) training rows dropped."
+                f"{original_size[0] - new_size[0]:,d} ({(original_size[0] - new_size[0]) / original_size[0] * 100:.2f}%) training rows dropped."
             )
             logger.warning(
-                f"{original_size[1]-new_size[1]:,d} ({(original_size[1]-new_size[1])/original_size[1]*100:.2f}%) validation rows dropped."
+                f"{original_size[1] - new_size[1]:,d} ({(original_size[1] - new_size[1]) / original_size[1] * 100:.2f}%) validation rows dropped."
             )
 
         # Check charge values:
@@ -337,7 +342,7 @@ def train(config: DictConfig) -> None:
         max_transcript_len=config["max_length"],
     )
     diffusion_schedule = cosine_beta_schedule(timesteps=config["time_steps"])
-    model = MultinomialDiffusion(
+    model = InstaNovoPlus(
         config=config,
         transition_model=transition_model,
         diffusion_schedule=diffusion_schedule,
@@ -345,16 +350,15 @@ def train(config: DictConfig) -> None:
     )
 
     if not config.get("train_from_scratch", True):
-        model_path = config["resume_checkpoint"]
+        resume_checkpoint_path = config["resume_checkpoint"]
     else:
-        model_path = None
+        resume_checkpoint_path = None
 
-    if model_path is not None:
-        logger.info(f"Loading model checkpoint from '{model_path}'")
+    if resume_checkpoint_path is not None:
+        logger.info(f"Loading model checkpoint from '{resume_checkpoint_path}'")
 
-        model_state = MultinomialDiffusion.load(
-            model_path
-        ).transition_model.state_dict()
+        diffusion_model, _diffusion_config = InstaNovoPlus.load(resume_checkpoint_path)
+        model_state = diffusion_model.transition_model.state_dict()
 
         aa_embed_size = model_state["head.1.weight"].shape[0]
         if aa_embed_size != len(residue_set):
@@ -401,12 +405,12 @@ def train(config: DictConfig) -> None:
                 f"Model checkpoint has {len(state_keys)} weights updated with '{resolution}' conflict resolution"
             )
 
-        k_missing = np.sum(
+        k_missing: int = np.sum(
             [x not in list(model_state.keys()) for x in list(model.state_dict().keys())]
         )
         if k_missing > 0:
             logger.warning(f"Model checkpoint is missing {k_missing} keys!")
-        k_missing = np.sum(
+        k_missing: int = np.sum(
             [x not in list(model.state_dict().keys()) for x in list(model_state.keys())]
         )
         if k_missing > 0:
@@ -418,7 +422,8 @@ def train(config: DictConfig) -> None:
     )
 
     # Train on GPU if available
-    device = "cuda" if torch.cuda.is_available() else "cpu"  # TODO use config device?
+    device = config.get("device", "cuda" if torch.cuda.is_available() else "cpu")
+    logger.info(f"Training InstaNovo+ on device: {device}")
     fp16 = config.get("fp16", True)
     if fp16 and device.lower() == "cpu":
         logger.warning("fp16 is enabled but device type is cpu. fp16 will be disabled.")
@@ -467,7 +472,7 @@ def train(config: DictConfig) -> None:
         logger.info("Model saving disabled")
 
     # Perform training loop
-    logger.info("Starting training.")
+    logger.info("InstaNovo+ training started.")
     global_step = 0
     train_epoch_start_time = None
     running_loss = None
@@ -603,14 +608,14 @@ def train(config: DictConfig) -> None:
                 est_total = delta / (epoch_step + 1) * (len(train_dl) - epoch_step - 1)
 
                 logger.info(
-                    f"[TRAIN] [Epoch {epoch:02d}/{num_epochs-1:02d} Step {global_step:06d}] "
+                    f"[TRAIN] [Epoch {epoch:02d}/{num_epochs - 1:02d} Step {global_step:06d}] "
                     + f"[Batch {epoch_step + 1:05d}/{len(train_dl):05d}] [{_format_time(delta)}/{_format_time(est_total)}, {(delta / (epoch_step + 1)):.3f}s/it]: "
                     + f"train_loss_raw={loss.item():.4f}, running_loss={running_loss:.4f}, LR={lr:.6f}"
                 )
 
             if (
                 global_step + 1
-            ) % int(  # TODO for global step 0, model will have trained a step
+            ) % math.ceil(  # TODO for global step 0, model will have trained a step
                 config.get("val_check_interval", 1.0) * len(train_dl)
             ) == 0 or global_step == 0:
                 valid_epoch(epoch, global_step)  # perform a validation loop
@@ -623,13 +628,13 @@ def train(config: DictConfig) -> None:
                 config.get("save_model", True)
                 and (global_step + 1) % config.get("ckpt_interval") == 0
             ):
-                logger.info("Saving model.")
                 ckpt_interval = f"epoch_{epoch}_step_{global_step}"
+                logger.info(f"Saving model {ckpt_interval}.")
                 model.save(
-                    path=config.model_save_folder_path,
+                    path=config.get("model_save_folder_path", "./checkpoints"),
+                    ckpt_details=ckpt_interval,
                     overwrite=True,
                     temp_dir=_temp_directory if s3._s3_enabled() else "",  # type: ignore
-                    ckpt_details=ckpt_interval,
                 )
 
             global_step += 1
@@ -639,7 +644,10 @@ def train(config: DictConfig) -> None:
     if _temp_directory is not None and os.path.exists(_temp_directory):
         shutil.rmtree(_temp_directory)
 
+    logger.info("InstaNovo+ training finished.")
 
+
+# TODO remove main function
 @hydra.main(
     config_path=str(CONFIG_PATH), version_base=None, config_name="instanovoplus"
 )
@@ -668,7 +676,3 @@ def main(config: DictConfig) -> None:
         raise ValueError("n_gpu > 1 currently not supported.")
 
     train(config)
-
-
-if __name__ == "__main__":
-    main()

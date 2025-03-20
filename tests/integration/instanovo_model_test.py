@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import os
 from typing import Any
 
@@ -13,6 +14,9 @@ from instanovo.transformer.dataset import collate_batch
 from instanovo.transformer.dataset import SpectrumDataset
 from instanovo.transformer.predict import get_preds
 from instanovo.utils.data_handler import SpectrumDataFrame
+
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
 
 
 def test_model(

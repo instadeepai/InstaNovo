@@ -2,17 +2,21 @@ from __future__ import annotations
 
 import logging
 import os
-from pathlib import Path
 import re
+from pathlib import Path
 
 import pytorch_lightning as pl
 import s3fs
 from pytorch_lightning.strategies import DDPStrategy
-from tensorboard.compat.tensorflow_stub.io.gfile import _REGISTERED_FILESYSTEMS
-from tensorboard.compat.tensorflow_stub.io.gfile import register_filesystem
+from tensorboard.compat.tensorflow_stub.io.gfile import (
+    _REGISTERED_FILESYSTEMS,
+    register_filesystem,
+)
 
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+from instanovo.__init__ import console
+from instanovo.utils.colorlogging import ColorLog
+
+logger = ColorLog(console, __name__).logger
 
 
 def upload(source: str, target: str) -> None:

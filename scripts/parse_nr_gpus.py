@@ -1,3 +1,9 @@
+# /// script
+# requires-python = ">=3.10"
+# dependencies = [
+#     "pyyaml",
+# ]
+# ///
 from __future__ import annotations
 
 import yaml

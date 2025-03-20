@@ -6,6 +6,8 @@ defaults:
 
 report_to: neptune
 run_name: instanovo_phospho_finetune
+tags:
+  - phospho
 learning_rate: 5e-4 #5e-4 5e-5
 train_batch_size: 256
 

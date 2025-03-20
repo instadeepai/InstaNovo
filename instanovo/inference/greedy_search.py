@@ -2,20 +2,19 @@ from __future__ import annotations
 
 import torch
 from jaxtyping import Float
-import logging
 
-from instanovo.types import PrecursorFeatures
-from instanovo.types import Spectrum
-from instanovo.constants import CARBON_MASS_DELTA
-from instanovo.constants import H2O_MASS
-from instanovo.constants import MASS_SCALE
-from instanovo.constants import PrecursorDimension
-from instanovo.inference.interfaces import Decodable
-from instanovo.inference.interfaces import Decoder
-from instanovo.inference.interfaces import ScoredSequence
+from instanovo.__init__ import console
+from instanovo.constants import (
+    CARBON_MASS_DELTA,
+    H2O_MASS,
+    MASS_SCALE,
+    PrecursorDimension,
+)
+from instanovo.inference.interfaces import Decodable, Decoder, ScoredSequence
+from instanovo.types import PrecursorFeatures, Spectrum
+from instanovo.utils.colorlogging import ColorLog
 
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+logger = ColorLog(console, __name__).logger
 
 
 class GreedyDecoder(Decoder):
@@ -66,7 +65,7 @@ class GreedyDecoder(Decoder):
                 suppressed_residues.remove(residue)
 
         if len(suppressed_residues) > 0:
-            logger.warn(
+            logger.warning(
                 f"Some suppressed residues not found in vocabulary: {suppressed_residues}"
             )
 

@@ -1,9 +1,6 @@
 # # Ignore all by default to reduce build context as much as possible
 *
 
-# Python requirements installed in the docker
-!requirements
-
 # # Allow to use the repository as a package
 !setup.py
 !setup.cfg

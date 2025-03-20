@@ -14,8 +14,10 @@ learning_rate: 1e-3
 train_batch_size: 32
 grad_accumulation: 1
 
+device: cpu
+fp16: False
+
 # Logging parameters
-logger:
 epochs: 1
 num_sanity_val_steps: 10
 console_logging_steps: 50
@@ -24,9 +26,9 @@ report_to:
 run_name: instanovoplus_unit_test
 
 # Training data parameters
-valid_subset: 1.0
+train_subset: 0.1
+valid_subset: 0.01
 
 # Checkpointing parameters
-model_save_folder_path: # TODO when implemented we will use temp dir
-ckpt_interval:
-device:
+model_save_folder_path: ./tests/instanovo_test_resources/diffusion_train_test
+ckpt_interval: 40

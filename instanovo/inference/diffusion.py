@@ -3,25 +3,18 @@ from __future__ import annotations
 from typing import Optional
 
 import torch
-from jaxtyping import Bool
-from jaxtyping import Float
-from jaxtyping import Integer
+from jaxtyping import Bool, Float, Integer
 from torch.distributions import Categorical
 
-from instanovo.constants import DIFFUSION_EVAL_STEPS
-from instanovo.constants import DIFFUSION_START_STEP
-from instanovo.diffusion.multinomial_diffusion import DiffusionLoss
-from instanovo.diffusion.multinomial_diffusion import MultinomialDiffusion
-from instanovo.types import Peptide
-from instanovo.types import PrecursorFeatures
-from instanovo.types import Spectrum
-from instanovo.types import SpectrumMask
+from instanovo.constants import DIFFUSION_EVAL_STEPS, DIFFUSION_START_STEP
+from instanovo.diffusion.multinomial_diffusion import DiffusionLoss, InstaNovoPlus
+from instanovo.types import Peptide, PrecursorFeatures, Spectrum, SpectrumMask
 
 
 class DiffusionDecoder:
     """Class for decoding from a diffusion model by forward sampling."""
 
-    def __init__(self, model: MultinomialDiffusion) -> None:
+    def __init__(self, model: InstaNovoPlus) -> None:
         self.model = model
         self.time_steps = model.time_steps
         self.residues = model.residues

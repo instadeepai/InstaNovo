@@ -1,31 +1,32 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any
 
 import torch
-from jaxtyping import Bool
-from jaxtyping import Float
-from jaxtyping import Integer
+from jaxtyping import Bool, Float, Integer
 from torch.nn.functional import one_hot
 
-from instanovo.constants import CARBON_MASS_DELTA
-from instanovo.constants import H2O_MASS
-from instanovo.constants import INTEGER
-from instanovo.constants import MASS_SCALE
-from instanovo.constants import PRECURSOR_DIM
-from instanovo.constants import PrecursorDimension
-from instanovo.inference.interfaces import Decodable
-from instanovo.inference.interfaces import Decoder
-from instanovo.inference.interfaces import ScoredSequence
-from instanovo.types import DiscretizedMass
-from instanovo.types import Peptide
-from instanovo.types import PrecursorFeatures
-from instanovo.types import ResidueLogProbabilities
-from instanovo.types import SequenceLogProbabilities
-from instanovo.types import TokenLogProbabilities
-from instanovo.types import Spectrum
-from instanovo.types import SpectrumEmbedding
-from instanovo.types import SpectrumMask
+from instanovo.constants import (
+    CARBON_MASS_DELTA,
+    H2O_MASS,
+    INTEGER,
+    MASS_SCALE,
+    PRECURSOR_DIM,
+    PrecursorDimension,
+)
+from instanovo.inference.interfaces import Decodable, Decoder, ScoredSequence
+from instanovo.types import (
+    DiscretizedMass,
+    Peptide,
+    PrecursorFeatures,
+    ResidueLogProbabilities,
+    SequenceLogProbabilities,
+    Spectrum,
+    SpectrumEmbedding,
+    SpectrumMask,
+    TokenLogProbabilities,
+)
 
 
 @dataclass
@@ -501,7 +502,7 @@ class BeamSearchDecoder(Decoder):
             spectrum_mask=beam_spectrum_mask,
         )
 
-    def decode(  # type:ignore
+    def decode(
         self,
         spectra: Float[Spectrum, " batch"],
         precursors: Float[PrecursorFeatures, " batch"],
@@ -510,7 +511,7 @@ class BeamSearchDecoder(Decoder):
         mass_tolerance: float = 5e-5,
         max_isotope: int = 1,
         return_beam: bool = False,
-    ) -> list[ScoredSequence] | list[list[ScoredSequence]]:
+    ) -> list[ScoredSequence] | list[list[ScoredSequence]] | list[Any]:
         """Decode predicted residue sequence for a batch of spectra using beam search.
 
         Args:
@@ -606,6 +607,10 @@ class BeamSearchDecoder(Decoder):
             for items in complete_items:
                 items.sort(key=lambda item: item.sequence_log_probability, reverse=True)
 
+            # TODO: remove this list[Any] type annotation
+            sequences: (
+                list[ScoredSequence] | list[list[ScoredSequence]] | list[Any]
+            ) = []
             if not return_beam:
                 sequences = [
                     items[0] if len(items) > 0 else [] for items in complete_items
@@ -615,7 +620,7 @@ class BeamSearchDecoder(Decoder):
                     items if len(items) > 0 else [] for items in complete_items
                 ]
 
-            return sequences  # type: ignore
+            return sequences
 
     def _init_prefilter(
         self,
