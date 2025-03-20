@@ -1,13 +1,13 @@
 # Data paths and output location
 data_path: /mnt/instanovo-data-kyber/ac_pt_shards/valid_shard_*.ipc # type: .mgf, .mzml or any other filetype supported by SpectrumDataFrame
-model_path: ./checkpoints/acpt_diffusion_25e04470  # type: directory
+instanovo_plus_model: instanovo-plus-v1.1.0  # type: directory
 output_path: ./instanovoplus_predictions.csv  # type: .csv
 knapsack_path: # type: directory
 
 refine: False
-instanovo_preds_path:
+instanovo_predictions_path:
 id_col: "Scan number"
-pred_col: "preds"
+pred_col: "predictions"
 
 # Data type only used if data_path is a directory.
 data_type: # .csv, .mgf, .mzml, .mzxml

@@ -4,20 +4,24 @@ defaults:
 
 # Data paths and output location
 data_path: ./tests/instanovo_test_resources/example_data/test_sample.mgf # type: .ipc
-model_path: ./tests/instanovo_test_resources/instanovoplus
+instanovo_plus_model: ./tests/instanovo_test_resources/instanovoplus
 output_path: ./tests/instanovo_test_resources/instanovoplus/test_sample_preds.csv # type: .csv
 
-instanovo_preds_path:
+instanovo_predictions_path:
 refine: False
 id_col: "scan_number"
 
 max_length: 6
 max_charge: 3
+denovo: False
 
 subset: 1
 
 batch_size: 32
-device: cpu #cuda
+device: cpu
 fp16: False
 
 residue_remapping: ""
+pred_col: preds
+pred_tok_col: preds_tokenised
+log_probs_col: log_probs

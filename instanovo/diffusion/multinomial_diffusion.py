@@ -1,25 +1,33 @@
 from __future__ import annotations
 
+import json
 import math
 import os
 import shutil
+from importlib import resources
+from pathlib import Path
+from typing import Tuple
+from urllib.parse import urlsplit
 
+import requests
 import torch
-from jaxtyping import Float
-from jaxtyping import Integer
-from omegaconf import DictConfig
-from omegaconf import OmegaConf
+from jaxtyping import Float, Integer
+from omegaconf import DictConfig, OmegaConf
 from torch import nn
 from torch.distributions import Categorical
-from torch.nn.functional import log_softmax
-from torch.nn.functional import one_hot
+from torch.nn.functional import log_softmax, one_hot
+from tqdm import tqdm
 
 import instanovo.utils.s3 as s3
+from instanovo.__init__ import console
 from instanovo.diffusion.model import MassSpectrumTransFusion
-from instanovo.types import Peptide
-from instanovo.types import ResidueLogProbabilities
-from instanovo.types import TimeStep
+from instanovo.types import Peptide, ResidueLogProbabilities, TimeStep
+from instanovo.utils.colorlogging import ColorLog
 from instanovo.utils.residues import ResidueSet
+
+MODEL_TYPE = "diffusion"
+
+logger = ColorLog(console, __name__).logger
 
 
 def cosine_beta_schedule(
@@ -38,7 +46,7 @@ def cosine_beta_schedule(
     return torch.sqrt(alphas)
 
 
-class MultinomialDiffusion(nn.Module):
+class InstaNovoPlus(nn.Module):
     r"""This class implements Multinomial Diffusion as described in Hoogeboom et al. 2021.
 
     Args:
@@ -70,6 +78,10 @@ class MultinomialDiffusion(nn.Module):
             residues and indices and residue masses.
     """
 
+    config_path: str
+    schedule_path: str
+    checkpoint_path: str
+
     def __init__(
         self,
         config: DictConfig,
@@ -97,9 +109,9 @@ class MultinomialDiffusion(nn.Module):
     def save(
         self,
         path: str,
+        ckpt_details: str,
         overwrite: bool = False,
         temp_dir: str = "",  # type: ignore
-        ckpt_details: str = "",
     ) -> None:
         """Save the model to a directory.
 
@@ -109,6 +121,9 @@ class MultinomialDiffusion(nn.Module):
                 The model is saved in a subdirectory with the model's
                 name identifier.
 
+            ckpt_details (str):
+                Additional checkpoint details to include in model save directory.
+
             overwrite (bool, optional):
                 Whether to overwrite the directory if one already exists
                 for the model. Defaults to False.
@@ -116,8 +131,6 @@ class MultinomialDiffusion(nn.Module):
             temp_dir (str, optional):
                 Temporary directory to save intermediate files to.
 
-            ckpt_details (str, optional):
-                Additional checkpoint details to include in model save directory.
 
         Raises:
             FileExistsError: If `overwrite` is `False` and a directory already exists
@@ -142,7 +155,7 @@ class MultinomialDiffusion(nn.Module):
                 else:
                     raise FileExistsError
 
-            os.mkdir(path=model_dir)
+            os.makedirs(name=model_dir, exist_ok=True)
 
             save_path = model_dir
             save_file = save_file_local
@@ -166,10 +179,28 @@ class MultinomialDiffusion(nn.Module):
         transition_model_path = os.path.join(save_path, "transition_model.ckpt")
         torch.save(self.transition_model.state_dict(), transition_model_path)
         save_file("transition_model.ckpt", transition_model_path)
-        self.transition_model.to(self.config.device)
+        device = self.config.get(
+            "device", "cuda" if torch.cuda.is_available() else "cpu"
+        )
+        logger.info(f"Moving transition model to device {device}")
+        self.transition_model.to(device)
+
+    @staticmethod
+    def get_pretrained() -> list[str]:
+        """Get a list of pretrained model ids."""
+        # Load the models.json file
+        with resources.files("instanovo").joinpath("models.json").open(
+            "r", encoding="utf-8"
+        ) as f:
+            models_config = json.load(f)
+
+        if MODEL_TYPE not in models_config:
+            return []
+
+        return list(models_config[MODEL_TYPE].keys())
 
     @classmethod
-    def load(cls, path: str) -> MultinomialDiffusion:
+    def load(cls, path: str) -> Tuple[InstaNovoPlus, DictConfig]:
         """Load a saved model.
 
         Args:
@@ -177,12 +208,14 @@ class MultinomialDiffusion(nn.Module):
                 Path to the directory where the model is saved.
 
         Returns:
-            (MultinomialDiffusion): The loaded model.
-        """
-        device = "cuda" if torch.cuda.is_available() else "cpu"
+            (InstaNovoPlus): The loaded model.
 
+        """
         # Load config
-        config = OmegaConf.load(os.path.join(path, "config.yaml"))
+        cls.config_path = os.path.join(path, "config.yaml")
+        config = OmegaConf.load(cls.config_path)
+        device = config.get("device", "cuda" if torch.cuda.is_available() else "cpu")
+        logger.info(f"Loading InstaNovoPlus model to device: {device}.")
 
         # Load residues
         residues = ResidueSet(
@@ -191,9 +224,9 @@ class MultinomialDiffusion(nn.Module):
         )
 
         # Load schedule
+        cls.schedule_path = os.path.join(path, "diffusion_schedule.pt")
         diffusion_schedule = torch.load(
-            os.path.join(path, "diffusion_schedule.pt"),
-            map_location=torch.device(device),
+            cls.schedule_path, map_location=torch.device(device), weights_only=True
         )
 
         # Load transition model
@@ -201,10 +234,12 @@ class MultinomialDiffusion(nn.Module):
             config,
             config.max_length,
         )
+        cls.checkpoint_path = os.path.join(path, "transition_model.ckpt")
         transition_model.load_state_dict(
             torch.load(
-                os.path.join(path, "transition_model.ckpt"),
+                cls.checkpoint_path,
                 map_location=torch.device(device),
+                weights_only=True,
             )
         )
 
@@ -213,7 +248,114 @@ class MultinomialDiffusion(nn.Module):
             transition_model=transition_model,
             diffusion_schedule=diffusion_schedule,
             residues=residues,
-        )
+        ), config
+
+    @classmethod
+    def from_pretrained(cls, model_id: str) -> Tuple["InstaNovoPlus", "DictConfig"]:
+        """Download and load by model id or model path."""
+        # Check if model_id is a local dir
+        expected_files = [
+            "config.yaml",
+            "diffusion_schedule.pt",
+            "transition_model.ckpt",
+        ]
+        if os.path.isdir(model_id):
+            if all(os.path.exists(os.path.join(model_id, fn)) for fn in expected_files):
+                return cls.load(model_id)
+            else:
+                missing_files = [
+                    fn
+                    for fn in expected_files
+                    if not os.path.exists(os.path.join(model_id, fn))
+                ]
+                raise FileNotFoundError(
+                    f"InstaNovo+ model directory {model_id} is missing the expected file(s): {', '.join(missing_files)}."
+                )
+
+        # Load the models.json file
+        with resources.files("instanovo").joinpath("models.json").open(
+            "r", encoding="utf-8"
+        ) as f:
+            models_config = json.load(f)
+
+        # Find the model in the config
+        if MODEL_TYPE not in models_config or model_id not in models_config[MODEL_TYPE]:
+            raise ValueError(
+                f"Model {model_id} not found in models.json, options are [{', '.join(models_config[MODEL_TYPE].keys())}]"
+            )
+
+        # Create cache directory if it doesn't exist
+        cache_dir = Path.home() / ".cache" / "instanovo"
+        cache_dir.mkdir(parents=True, exist_ok=True)
+
+        model_info = models_config[MODEL_TYPE][model_id]
+
+        if "remote" in model_info:
+            url = model_info["remote"]
+
+            # Generate a filename for the cached model
+            file_name = urlsplit(url).path.split("/")[-1]
+            cached_file = cache_dir / file_name
+
+            # Check if the file is already cached
+            if not cached_file.exists():
+                # If not cached, download the file with a progress bar
+                response = requests.get(url, stream=True)
+                total_size = int(response.headers.get("content-length", 0))
+                logger.info(f"Downloading model {model_id} from {url}")
+
+                with (
+                    open(cached_file, "wb") as file,
+                    tqdm(
+                        desc=file_name,
+                        total=total_size,
+                        unit="iB",
+                        unit_scale=True,
+                        unit_divisor=1024,
+                    ) as progress_bar,
+                ):
+                    for data in response.iter_content(chunk_size=1024):
+                        size = file.write(data)
+                        progress_bar.update(size)
+                if not os.path.getsize(cached_file) == total_size:
+                    raise ValueError(
+                        f"Downloaded file is incomplete. Expected size of {total_size} "
+                        "bytes does not match downloaded size of "
+                        f"{os.path.getsize(cached_file)} bytes."
+                    )
+            else:
+                logger.info(f"Model {model_id} already cached at {cached_file}")
+
+            # Load and return the model
+            logger.info(f"Loading model {model_id} (remote)")
+            return cls.load(str(cached_file))
+
+        elif "local" in model_info:
+            instanovo_plus_model = model_info["local"]
+            if os.path.isdir(instanovo_plus_model):
+                if all(
+                    os.path.exists(os.path.join(instanovo_plus_model, fn))
+                    for fn in expected_files
+                ):
+                    logger.info(f"Loading model {model_id} (local)")
+                    return cls.load(instanovo_plus_model)
+                else:
+                    missing_files = [
+                        fn
+                        for fn in expected_files
+                        if not os.path.exists(os.path.join(instanovo_plus_model, fn))
+                    ]
+                    raise FileNotFoundError(
+                        f"InstaNovo+ model directory {instanovo_plus_model} is missing the expected file(s): {', '.join(missing_files)}."
+                    )
+            else:
+                raise ValueError(
+                    f"Local model path '{instanovo_plus_model}' must exist, be a directory and containing the files {', '.join(expected_files)}."
+                )
+        else:
+            raise ValueError(
+                f"Model {model_id} does not have a valid 'remote', 'local' entry in models.json"
+            )
 
     def prepare_fine_tuning(self, residues: ResidueSet) -> None:
         """Prepare a model for fine-tuning on a dataset with a new residue vocabulary.
@@ -335,11 +477,11 @@ class DiffusionLoss(nn.Module):
     """Holds logic for calculating the diffusion loss.
 
     Args:
-        model (MultinomialDiffusion):
+        model (InstaNovoPlus):
             The multinomial diffusion class.
     """
 
-    def __init__(self, model: MultinomialDiffusion) -> None:
+    def __init__(self, model: InstaNovoPlus) -> None:
         super().__init__()
         self.time_steps = model.time_steps
         self.model = model

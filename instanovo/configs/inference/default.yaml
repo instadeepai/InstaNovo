@@ -1,6 +1,7 @@
 # Data paths and output location
 data_path: # type: .mgf, .mzml or any other filetype supported by SpectrumDataFrame
-model_path: instanovo-extended # type: .ckpt or model id
+instanovo_model: instanovo-v1.1.0 # type: model id or path to a *.ckpt file
+instanovo_plus_model: instanovo-plus-v1.1.0 # type: model id or path to a directory with *.ckpt, *.yaml and *.pt files
 output_path: # type: .csv
 knapsack_path: # type: directory
 
@@ -8,19 +9,23 @@ knapsack_path: # type: directory
 data_type: # .csv, .mgf, .mzml, .mzxml
 
 # Inference mode
-denovo: False
+denovo: True
+refine: True
 num_beams: 1 # 1 defaults to greedy search with basic filtering
 max_length: 40
 max_charge: 10 # Must be <= model max charge
 isotope_error_range: [0, 1]
+subset: 1.0 # Subset of dataset to perform inference on, useful for debugging
 use_knapsack: False
 save_beams: False
-subset: 1.0 # Subset of dataset to perform inference on, useful for debugging
+instanovo_predictions_path: # type: .csv
+id_col: "scan_number"
+pred_col: "predictions"
 
 # These two only work in greedy search
 # Residues whose log probability will be set to -inf
 suppressed_residues:
-  "(+25.98)" # legacy
+  ["(+25.98)"] # legacy
 # Stop model from predicting n-terminal modifications anywhere along the sequence
 disable_terminal_residues_anywhere: True
 
@@ -39,7 +44,7 @@ filter_precursor_ppm: 20
 filter_confidence: 1e-4
 filter_fdr_threshold: 0.05
 
-# Dataset specific configs, update everything to use unimod
+# Dataset specific configs
 residue_remapping:
   "M(ox)": "M[UNIMOD:35]" # Oxidation or Hydroxylation
   "M(+15.99)": "M[UNIMOD:35]"
@@ -68,6 +73,7 @@ column_map:
   "Mass spectrum": "mz_array"
   "Intensity": "intensity_array"
   "Raw intensity spectrum": "intensity_array"
+  "Scan number": "scan_number"
 
 # A list of columns that (if found) will be retained in output csv
 index_columns:

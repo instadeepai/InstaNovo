@@ -1,18 +1,17 @@
 from __future__ import annotations
 
 import bisect
-import logging
 import os
 import pickle
 from dataclasses import dataclass
 
 import numpy as np
 
-from instanovo.types import KnapsackChart
-from instanovo.types import MassArray
+from instanovo.__init__ import console
+from instanovo.types import KnapsackChart, MassArray
+from instanovo.utils.colorlogging import ColorLog
 
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
+logger = ColorLog(console, __name__).logger
 
 
 @dataclass

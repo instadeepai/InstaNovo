@@ -15,8 +15,10 @@ learning_rate: 1e-3
 train_batch_size: 32
 grad_accumulation: 1
 
+device: cpu
+fp16: False
+
 # Logging parameters
-logger:
 epochs: 1
 num_sanity_val_steps: 10
 console_logging_steps: 50

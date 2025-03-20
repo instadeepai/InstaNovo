@@ -1,6 +1,6 @@
 from unittest.mock import patch, mock_open
 
-from instanovo.scripts.parse_nr_gpus import parse_nr_gpus
+from scripts.parse_nr_gpus import parse_nr_gpus
 
 
 def test_parse_nr_gpus() -> None:

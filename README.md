@@ -40,84 +40,95 @@ To use InstaNovo, we need to install the module via `pip`:
 pip install instanovo
 ```
 
-It is recommended to install InstaNovo in a fresh environment, such as Conda or PyEnv. For example,
-if you have
-[conda](https://docs.conda.io/en/latest/)/[miniconda](https://docs.conda.io/projects/miniconda/en/latest/)
-installed:
+### Command line usage
 
-```bash
-conda env create -f environment.yml
-conda activate instanovo
+InstaNovo provides a comprehensive command line interface (CLI) for both prediction and training tasks.
+
+To get help and see the available commands:
+
+```
+instanovo --help
+```
+![`instanovo --help`](docs/assets/instanovo_help.svg)
+
+To see the version of InstaNovo, InstaNovo+ and some of the dependencies:
+
+```
+instanovo version
+```
+![`instanovo version`](docs/assets/instanovo_version.svg)
+
+### Predicting
+
+
+To get help about the prediction command line options:
+
+```
+instanovo predict --help
+```
+![`instanovo predict --help`](docs/assets/instanovo_predict_help.svg)
+
+### Running predictions with both InstaNovo and InstaNovo+
+
+The default is to run predictions first with the transformer-based InstaNovo model, and then further improve the performance by
+iterative refinement of these predicted sequences by the diffusion-based InstaNov+ model.
+
+```
+instanovo predict --data-path ./sample_data/spectra.mgf --output-path predictions.csv
 ```
 
-Note: InstaNovo is built for Python >= 3.10, <3.12 and tested on Linux.
+Which results in the following output:
 
-### Training
-
-To train auto-regressive InstaNovo using Hydra configs (see `--hydra-help` for more information):
-
-```bash
-usage: python -m instanovo.transformer.train [--config-name CONFIG_NAME]
-
-Config options:
-  config-name       Name of Hydra config in `/configs/`
-                    Defaults to `instanovo_acpt`
 ```
-
-Note: data may be provided in any format supported by the SpectrumDataHandler. See section on data conversion for preferred formatting.
-
-To update the InstaNovo model config, modify the config file under
-[configs/instanovo/base.yaml](https://github.com/instadeepai/InstaNovo/blob/main/configs/instanovo/base.yaml)
-
-### Prediction
-
-To get _de novo_ predictions from InstaNovo:
-
-```bash
-Usage: python -m instanovo.transformer.predict [--config-name CONFIG_NAME] data_path=path/to/data.mgf model_path=path/to/model.ckpt output_path=path/to/output.csv denovo=True
-
-  Predict with the model.
-
-Options:
-  data_path         Path to dataset to be evaluated. Must be specified
-                    in config or cli. Allows `.mgf`, `.mzxml`, a directory,
-                    or an `.ipc` file. Glob notation is supported: eg.:
-                    `./experiment/*.mgf`
-  model_path        Path to model to be used. Must be specified
-                    in config or cli. Model must be a `.ckpt` output by the
-                    training script.
-  output_path       Path to output csv file.
-  config-name       Name of Hydra config in `/configs/inference/`
-                    Defaults to `default`
+scan_number,precursor_mz,precursor_charge,experiment_name,spectrum_id,diffusion_predictions_tokenised,diffusion_predictions,diffusion_log_probabilities,transformer_predictions,transformer_predictions_tokenised,transformer_log_probabilities,transformer_token_log_probabilities
+0,451.25348,2,spectra,spectra:0,"['A', 'L', 'P', 'Y', 'T', 'P', 'K', 'K']",ALPYTPKK,-0.03160184621810913,LAHYNKK,"L, A, H, Y, N, K, K",-424.5889587402344,"[-0.5959059000015259, -0.0059959776699543, -0.01749008148908615, -0.03598890081048012, -0.48958998918533325, -1.5242897272109985, -0.656516432762146]"
 ```
 
 To evaluate InstaNovo performance on an annotated dataset:
 
 ```bash
-Usage: python -m instanovo.transformer.predict [--config-name CONFIG_NAME] data_path=path/to/data.mgf model_path=path/to/model.ckpt denovo=False
-
-  Predict with the model.
-
-Options:
-  data_path         Path to dataset to be evaluated. Must be specified
-                    in config or cli. Allows `.mgf`, `.mzxml`, a directory,
-                    or an `.ipc` file. Glob notation is supported: eg.:
-                    `./experiment/*.mgf`
-  model_path        Path to model to be used. Must be specified
-                    in config or cli. Model must be a `.ckpt` output by the
-                    training script.
-  config-name       Name of Hydra config in `/configs/inference/`
-                    Defaults to `default`
+instanovo predict --evaluation --data-path ./sample_data/spectra.mgf --output-path predictions.csv
 ```
 
-The configuration file for inference may be found under
-[/configs/inference/default.yaml](./configs/inference/default.yaml)
+Which results in the following output:
 
-Note: the `denovo=True/False` flag controls whether metrics will be calculated.
+```
+scan_number,precursor_mz,precursor_charge,experiment_name,spectrum_id,diffusion_predictions_tokenised,diffusion_predictions,diffusion_log_probabilities,targets,transformer_predictions,transformer_predictions_tokenised,transformer_log_probabilities,transformer_token_log_probabilities
+0,451.25348,2,spectra,spectra:0,"['L', 'A', 'H', 'Y', 'N', 'K', 'K']",LAHYNKK,-0.06637095659971237,IAHYNKR,LAHYNKK,"L, A, H, Y, N, K, K",-424.5889587402344,"[-0.5959059000015259, -0.0059959776699543, -0.01749008148908615, -0.03598890081048012, -0.48958998918533325, -1.5242897272109985, -0.656516432762146]"
+```
+Note that the `--evaluation` flag includes the `targets` column in the output, which contains the ground truth peptide sequence. Metrics will be calculated and displayed in the console.
+
+
+
+
+### Command line arguments and overriding config values
+
+
+The configuration file for inference may be found under
+[/configs/inference/](./configs/inference/) folder. By default, the [`default.yaml`](configs/inference/default.yaml) file is used.
+
+
+InstaNovo uses command line arguments for commonly used parameters:
+
+- `--data-path` - Path to the dataset to be evaluated. Allows `.mgf`, `.mzml`, `.mzxml`, `.ipc` or a directory. Glob notation is supported: eg.: `./experiment/*.mgf`
+- `--output-path` - Path to output csv file.
+- `--instanovo-model` - Model to use for InstaNovo. Either a model ID (currently supported: `instanovo-v1.1.0`) or a path to an Instanovo checkpoint file (.ckpt format).
+- `--instanovo-plus-model` - Model to use for InstaNovo+. Either a model ID (currently supported: `instanovo-plus-v1.1.0`) or a path to an Instanovo+ checkpoint directory (containing a `transition_model.ckpt`, `config.yaml` and `diffusion_schedule.pt` file)
+- `--denovo` - Whether to do *de novo* predictions. If you want to evaluate the model on annotated data, use the flag `--evaluation` flag.
+- `--with-refinement` - Whether to use InstaNovo+ for iterative refinement of InstaNovo predictions. Default is `True`. If you don't want to use refinement,use the flag `--no-refinement`.
+
+
+To override the configuration values in the config files, you can use command line arguments. For example, by default beam search with one beam is used. If you want to use beam search with 5 beams, you can use the following command:
+
+```bash
+instanovo predict --data-path ./sample_data/spectra.mgf --output-path predictions.csv num_beams=5
+```
+
+Note the lack of prefix `--` before `num_beams` in the command line argument because you are overriding the value of key defined in the config file.
 
 **Output description**
 
-When `output_path` is specified, a CSV file will be generated containing predictions for all the input spectra. The model will attempt to generate a peptide for every MS2 spectrum regardless of confidence. We recommend filtering the output using the **log_probs** and **delta_mass_ppm** columns.
+When `output_path` is specified, a CSV file will be generated containing predictions for all the input spectra. The model will attempt to generate a peptide for every MS2 spectrum regardless of confidence. We recommend filtering the output using the **log_probabilities** and **delta_mass_ppm** columns.
 
 | Column            | Description                                    | Data Type    | Notes                             |
 |-----------------|------------------------------------------------|-------------|----------------------------------|
@@ -127,16 +138,16 @@ When `output_path` is specified, a CSV file will be generated containing predict
 | experiment_name | Experiment name derived from input filename    | String      | Based on the input file name (mgf, mzml, or mzxml) |
 | spectrum_id     | Unique spectrum identifier                     | String      | Combination of experiment name and scan number (e.g., `yeast:17738`) |
 | targets         | Target peptide sequence                         | String      | Ground truth peptide sequence (if available) |
-| preds           | Predicted peptide sequence                     | String      | Model-predicted peptide sequence |
-| preds_tokenised | Predicted peptide sequence tokenized by amino acids | List[String] | Each amino acid token separated by commas |
-| log_probs       | Log probability of the entire predicted sequence | Float       | Natural logarithm of the sequence confidence, can be converted to probability with np.exp(log_probs). |
-| token_log_probs | Log probability of each token in the predicted sequence | List[Float] |  Natural logarithm of the sequence confidence per amino acid |
+| predictions           | Predicted peptide sequences                     | String      | Model-predicted peptide sequence |
+| predictions_tokenised | Predicted peptide sequence tokenized by amino acids | List[String] | Each amino acid token separated by commas |
+| log_probabilities       | Log probability of the entire predicted sequence | Float       | Natural logarithm of the sequence confidence, can be converted to probability with np.exp(log_probabilities). |
+| token_log_probabilities | Log probability of each token in the predicted sequence | List[Float] |  Natural logarithm of the sequence confidence per amino acid |
 | delta_mass_ppm  | Mass difference between precursor and predicted peptide in ppm | Float       | Mass deviation in parts per million |
 
 
 ### Models
 
-InstaNovo 1.0.2 includes a new model `instanovo.ckpt` trained on a larger dataset with more PTMs.
+InstaNovo 1.1.0 includes a new model `instanovo.ckpt` trained on a larger dataset with more PTMs.
 
 > Note: The InstaNovo Extended 1.0.0 training data mis-represented Cysteine as unmodified for the majority of the training data. Please update to the latest version of the model.
 
@@ -150,18 +161,92 @@ InstaNovo 1.0.2 includes a new model `instanovo.ckpt` trained on a larger datase
 (not yet publicly released)
 
 **Natively Supported Modifications**
+
 | Amino Acid                 | Single Letter | Modification      | Mass Delta (Da) | Unimod ID   |
 |-----------------------------|---------------|------------------|-----------------|-------------|
-| Methionine                 | M             | Oxidation       | +15.9949       | [[UNIMOD:35](https://www.unimod.org/modifications_view.php?editid1=35)] |
-| Cysteine                   | C             | Carboxyamidomethylation | +57.0215       | [[UNIMOD:4](https://www.unimod.org/modifications_view.php?editid1=4)] |
-| Asparagine, Glutamine      | N, Q          | Deamidation     | +0.9840        | [[UNIMOD:7](https://www.unimod.org/modifications_view.php?editid1=7)] |
-| Serine, Threonine, Tyrosine | S, T, Y       | Phosphorylation | +79.9663       | [[UNIMOD:21](https://www.unimod.org/modifications_view.php?editid1=21)] |
-| N-terminal                 | -             | Ammonia Loss    | -17.0265       | [[UNIMOD:385](https://www.unimod.org/modifications_view.php?editid1=385)] |
-| N-terminal                 | -             | Carbamylation   | +43.0058       | [[UNIMOD:5](https://www.unimod.org/modifications_view.php?editid1=5)] |
-| N-terminal                 | -             | Acetylation     | +42.0106       | [[UNIMOD:1](https://www.unimod.org/modifications_view.php?editid1=1)] |
+| Methionine                 | M             | Oxidation       | +15.9949       | [\[UNIMOD:35\]](https://www.unimod.org/modifications_view.php?editid1=35) |
+| Cysteine                   | C             | Carboxyamidomethylation | +57.0215       | [\[UNIMOD:4\]](https://www.unimod.org/modifications_view.php?editid1=4) |
+| Asparagine, Glutamine      | N, Q          | Deamidation     | +0.9840        | [\[UNIMOD:7\]](https://www.unimod.org/modifications_view.php?editid1=7) |
+| Serine, Threonine, Tyrosine | S, T, Y       | Phosphorylation | +79.9663       | [\[UNIMOD:21\]](https://www.unimod.org/modifications_view.php?editid1=21) |
+| N-terminal                 | -             | Ammonia Loss    | -17.0265       | [\[UNIMOD:385\]](https://www.unimod.org/modifications_view.php?editid1=385) |
+| N-terminal                 | -             | Carbamylation   | +43.0058       | [\[UNIMOD:5\]](https://www.unimod.org/modifications_view.php?editid1=5) |
+| N-terminal                 | -             | Acetylation     | +42.0106       | [\[UNIMOD:1\]](https://www.unimod.org/modifications_view.php?editid1=1) |
 
 
 See residue configuration under [instanovo/configs/residues/extended.yaml](./instanovo/configs/residues/extended.yaml)
+
+
+
+
+### Training
+
+Data to train on may be provided in any format supported by the SpectrumDataHandler. See section on data conversion for preferred formatting.
+
+#### Training InstaNovo
+
+To train the auto-regressive transformer model InstaNovo using the config file
+[instanovo/configs/instanovo.yaml](./instanovo/configs/instanovo.yaml), you can use the following command:
+
+```bash
+instanovo transformer train --help
+```
+
+![`instanovo transformer train --help`](docs/assets/instanovo_transformer_train_help.svg)
+
+
+To update the InstaNovo model config, modify the config file under
+[instanovo/configs/model/instanovo_base.yaml](instanovo/configs/model/instanovo_base.yaml)
+
+#### Training InstaNovo+
+
+To train the diffusion model InstaNovo+ using the config file
+[instanovo/configs/instanovoplus.yaml](instanovo/configs/instanovoplus.yaml), you can use the following command:
+
+```bash
+instanovo diffusion train --help
+```
+
+![`instanovo diffusion train --help`](docs/assets/instanovo_diffusion_train_help.svg)
+
+
+To update the InstaNovo+ model config, modify the config file under
+[instanovo/configs/model/instanovoplus_base.yaml](instanovo/configs/model/instanovoplus_base.yaml)
+
+### Advanced prediction options
+
+### Run predictions with only InstaNovo
+
+If you want to run predictions with only InstaNovo, you can use the following command:
+
+```bash
+instanovo transformer predict --help
+```
+![`instanovo transformer predict --help`](docs/assets/instanovo_transformer_predict_help.svg)
+
+
+### Run predictions with only InstaNovo+
+
+If you want to run predictions with only InstaNovo+, you can use the following command:
+
+```bash
+instanovo diffusion predict --help
+```
+![`instanovo diffusion predict --help`](docs/assets/instanovo_diffusion_predict_help.svg)
+
+### Run predictions with InstaNovo and InstaNovo+ in separate steps
+
+You can first run predictions with InstaNovo
+
+```bash
+instanovo transformer predict --data-path ./sample_data/spectra.mgf --output-path instanovo_predictions.csv
+```
+
+ and then use the predictions as input for InstaNovo+:
+
+```bash
+instanovo diffusion predict --data-path ./sample_data/spectra.mgf --output-path instanovo_plus_predictions.csv instanovo_predictions_path=instanovo_predictions.csv
+```
+
 
 ## Additional features
 
@@ -179,7 +264,7 @@ could use the following command to get _de novo_ predictions from all the files 
 `./experiment`:
 
 ```bash
-python -m instanovo.transformer.predict data_path=./experiment/*.mgf
+instanovo predict --data_path=./experiment/*.mgf
 ```
 
 Alternatively, a list of files may be specified in the
@@ -292,30 +377,139 @@ For _de novo_ prediction, the `sequence` column is not required.
 We also provide a conversion script for converting to native SpectrumDataFrame (sdf) format:
 
 ```bash
-usage: python -m instanovo.utils.convert_to_sdf source target [-h] [--is_annotated IS_ANNOTATED] [--name NAME] [--partition {train,valid,test}] [--shard_size SHARD_SIZE] [--max_charge MAX_CHARGE]
+instanovo convert --help
+```
+![`instanovo convert --help`](docs/assets/instanovo_convert_help.svg)
 
-positional arguments:
-  source                source file(s)
-  target                target folder to save data shards
 
-options:
-  -h, --help            show this help message and exit
-  --is_annotated IS_ANNOTATED
-                        whether dataset is annotated
-  --name NAME           name of saved dataset
-  --partition {train,valid,test}
-                        partition of saved dataset
-  --shard_size SHARD_SIZE
-                        length of saved data shards
-  --max_charge MAX_CHARGE
-                        maximum charge to filter out
+
+
+## Development
+
+### `uv` setup
+
+This project is set up to use [uv](https://docs.astral.sh/uv/) to manage Python and
+dependencies. First, be sure you
+[have uv installed](https://docs.astral.sh/uv/getting-started/installation/) on your system.
+
+On Linux and macOS:
+
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
-_Note: the target path should be a directory/folder._
+On Windows:
 
-**ToDo:**
+```powershell
+powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
+```
 
-- Multi-GPU support
+Note: InstaNovo is built for Python >=3.10, <3.13 and tested on Linux, Windows and macOS.
+
+### Fork and clone the repository
+
+Then [fork](https://github.com/instadeepai/InstaNovo/fork) this
+repo (having your own fork will make it easier to contribute) and
+[clone it](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository).
+
+
+```bash
+git clone https://github.com/YOUR-USERNAME/InstaNovo.git
+cd InstaNovo
+```
+
+Activate the virtual environment:
+
+```bash
+source .venv/bin/activate
+```
+
+And install the dependencies. If you don't have access to a GPU, you can install the CPU-only version of PyTorch:
+
+```bash
+uv sync --extra cpu
+uv run pre-commit install
+```
+
+If you do have access to an NVIDIA GPU, you can install the GPU version of PyTorch (recommended):
+
+```bash
+uv sync --extra cu124
+uv run pre-commit install
+```
+
+Both approaches above also install the development dependencies. If you also want to install the documentation dependencies, you can do so with:
+
+```bash
+uv sync --extra cu124 --group docs
+```
+
+To upgrade all packages to the latest versions, you can run:
+
+```bash
+uv lock --upgrade
+uv sync --extra cu124
+```
+
+### Basic development workflows
+
+#### Testing
+
+InstaNovo uses `pytest` for testing. To run the tests, you can use the following command:
+
+```bash
+uv run instanovo/scripts/get_zenodo_record.py # Download the test data
+python -m pytest --cov-report=html --cov --random-order --verbose .
+```
+
+To see the coverage report, run:
+
+```bash
+python -m coverage report -m
+```
+
+To view the coverage report in a browser, run:
+
+```bash
+python -m http.server --directory ./coverage
+```
+and navigate to `http://0.0.0.0:8000/` in your browser.
+
+#### Linting
+
+InstaNovo uses [pre-commit hooks](https://pre-commit.com/) to ensure code quality. To run the linters, you can use the following command:
+
+```bash
+pre-commit run --all-files
+```
+
+#### Building the documentation
+
+To build the documentation locally, you can use the following commands:
+
+```bash
+uv sync --extra cu124 --group docs
+git config --global --add safe.directory "$(dirname "$(pwd)")"
+rm -rf docs/reference
+python ./docs/gen_ref_nav.py
+mkdocs build --verbose --site-dir docs_public
+mkdocs serve
+```
+
+
+### Generating a requirements.txt file
+
+If you have a `pip` or  `conda` based workflow and want to generate a `requirements.txt` file, you can use the following command:
+
+```bash
+uv export --format requirements-txt > requirements.txt
+```
+
+### Setting Python interpreter in VSCode
+
+To set the Python interpreter in VSCode, open the Command Palette (`Ctrl+Shift+P`), search for `Python: Select Interpreter`, and select `./.venv/bin/python`.
+
+
 
 ## License
 
@@ -325,6 +519,8 @@ The model checkpoints are licensed under Creative Commons Non-Commercial
 ([CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/))
 
 ## BibTeX entry and citation info
+
+If you use InstaNovo in your research, please cite the following paper:
 
 ```bibtex
 @article{eloff_kalogeropoulos_2024_instanovo,

@@ -2,15 +2,13 @@ from __future__ import annotations
 
 import numpy
 import torch
-from jaxtyping import Float
-from jaxtyping import Integer
+from jaxtyping import Float, Integer
 
 from instanovo.constants import CARBON_MASS_DELTA
 from instanovo.inference.beam_search import BeamSearchDecoder
 from instanovo.inference.interfaces import Decodable
 from instanovo.inference.knapsack import Knapsack
-from instanovo.types import DiscretizedMass
-from instanovo.types import ResidueLogProbabilities
+from instanovo.types import DiscretizedMass, ResidueLogProbabilities
 
 
 class KnapsackBeamSearchDecoder(BeamSearchDecoder):
@@ -40,7 +38,6 @@ class KnapsackBeamSearchDecoder(BeamSearchDecoder):
         knapsack = Knapsack.from_file(path=path)
         return cls(model=model, knapsack=knapsack)
 
-    # flake8: noqa: CR001
     def prefilter_items(
         self,
         log_probabilities: Float[ResidueLogProbabilities, "batch beam residue"],

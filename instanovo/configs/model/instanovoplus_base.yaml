@@ -7,6 +7,9 @@ nheads: 8
 dropout: 0.1
 attention_type: 'wavlm' # either 'normal' or 'wavlm'
 
+# waveform encoder
+wav_encoder: "wavlm"  # only 'wavlm' currently supported
+
 # wavlm attention parameters
 wavlm_num_bucket: 140
 wavlm_max_dist: 280

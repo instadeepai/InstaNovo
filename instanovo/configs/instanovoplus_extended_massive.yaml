@@ -5,8 +5,11 @@ defaults:
   - override residues: extended_unimod
 
 run_name: instanovoplus_extended_massivekb
+tags:
+  - extended
+  - massivekb
 
-warmup_iters: 50000
+warmup_iters: 50000 #100000
 
 train_batch_size: 128
 preshuffle_shards: False # Using already shuffled shards

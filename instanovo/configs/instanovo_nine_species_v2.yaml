@@ -17,6 +17,8 @@ predict_batch_size: 64
 
 epochs: 1
 run_name: instanovo_nine_species_v2_ft
+tags:
+  - nine_species_v2
 
 train_subset: 1
 valid_subset: 0.05 # 1

@@ -13,7 +13,7 @@ import torch
 from hydra import compose, initialize
 from omegaconf import DictConfig, open_dict
 
-from instanovo.diffusion.multinomial_diffusion import MultinomialDiffusion
+from instanovo.diffusion.multinomial_diffusion import InstaNovoPlus
 from instanovo.inference.diffusion import DiffusionDecoder
 from instanovo.inference.knapsack_beam_search import KnapsackBeamSearchDecoder
 from instanovo.transformer.model import InstaNovo
@@ -139,10 +139,10 @@ def instanovo_model(
 @pytest.fixture(scope="session")
 def instanovoplus_model(
     instanovoplus_checkpoint: str,
-) -> tuple[MultinomialDiffusion, DiffusionDecoder]:
+) -> tuple[InstaNovoPlus, DiffusionDecoder]:
     """A pytest fixture to load an InstaNovo+ model from a specified checkpoint."""
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    diffusion_model = MultinomialDiffusion.load(instanovoplus_checkpoint)
+    diffusion_model, _ = InstaNovoPlus.load(instanovoplus_checkpoint)
     diffusion_model = diffusion_model.to(device).eval()
     diffusion_decoder = DiffusionDecoder(model=diffusion_model)
 

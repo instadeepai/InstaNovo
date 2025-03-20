@@ -5,9 +5,7 @@ import re
 import numpy as np
 import torch
 
-from instanovo.constants import H2O_MASS
-from instanovo.constants import PROTON_MASS_AMU
-from instanovo.constants import SpecialTokens
+from instanovo.constants import H2O_MASS, PROTON_MASS_AMU, SpecialTokens
 
 
 class ResidueSet:
@@ -227,3 +225,8 @@ class ResidueSet:
 
     def __len__(self) -> int:
         return len(self.index_to_residue)
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, ResidueSet):
+            return NotImplemented
+        return self.vocab == other.vocab

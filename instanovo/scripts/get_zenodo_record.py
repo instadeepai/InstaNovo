@@ -1,13 +1,29 @@
+# /// script
+# requires-python = ">=3.10"
+# dependencies = [
+#     "requests",
+#     "typer",
+#     "rich",
+# ]
+# ///
+
 from __future__ import annotations
 
 import logging
 import os
-import requests
 import zipfile
-from tqdm import tqdm
 
-import click
-
+import requests
+import typer
+from rich.console import Console
+from rich.progress import (
+    BarColumn,
+    DownloadColumn,
+    Progress,
+    TaskID,
+    TimeRemainingColumn,
+    TransferSpeedColumn,
+)
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -16,18 +32,19 @@ logger.setLevel(logging.INFO)
 RECORD_ID = "14961323"
 
 
-def get_zenodo(zenodo_url: str, zip_path: str) -> None:
+def get_zenodo(
+    zenodo_url: str, zip_path: str, progress: Progress, task_id: TaskID
+) -> None:
     """Fetches specified zenodo record."""
     try:
         response = requests.get(zenodo_url, stream=True)
-
         total_size = int(response.headers.get("content-length", 0))
+        progress.update(task_id, total=total_size)
 
-        with tqdm(total=total_size, unit="iB", unit_scale=True) as progress_bar:
-            with open(zip_path, "wb") as file:
-                for data in response.iter_content(chunk_size=8192):
-                    progress_bar.update(len(data))
-                    file.write(data)
+        with open(zip_path, "wb") as file:
+            for data in response.iter_content(chunk_size=8192):
+                file.write(data)
+                progress.update(task_id, advance=len(data))
 
         logger.info(f"Zip file at url {zenodo_url} downloaded to {zip_path}.")
 
@@ -51,30 +68,52 @@ def unzip_zenodo(zip_path: str, extract_path: str) -> None:
         raise
 
 
-@click.command()
-@click.option(
-    "--zenodo-url",
-    default=f"https://zenodo.org/records/{RECORD_ID}/files/instanovo_test_resources.zip",
-)
-@click.option("--zip-path", default="./tests/instanovo_test_resources.zip")
-@click.option("--extract-path", default="./tests")
+app = typer.Typer()
+
+
+@app.command()
 def main(
-    zenodo_url: str,
-    zip_path: str,
-    extract_path: str,
+    zenodo_url: str = typer.Option(
+        f"https://zenodo.org/records/{RECORD_ID}/files/instanovo_test_resources.zip",
+        help="URL of the Zenodo record to download",
+    ),
+    zip_path: str = typer.Option(
+        "./tests/instanovo_test_resources.zip",
+        help="Path where the downloaded zip file will be saved",
+    ),
+    extract_path: str = typer.Option(
+        "./tests", help="Path where the zip file contents will be extracted"
+    ),
 ) -> None:
     """Downloads and extracts the zenodo record used for unit and integration tests."""
-    if os.path.exists(extract_path + "/instanovo_test_resources") and os.listdir(
-        extract_path + "/instanovo_test_resources"
+    if os.path.exists(f"{extract_path}/instanovo_test_resources") and os.listdir(
+        f"{extract_path}/instanovo_test_resources"
     ):
-        print(
+        typer.echo(
             f"Skipping download and extraction. Path '{extract_path}/instanovo_test_resources' already exists and is non-empty."
         )
-        return
+        raise typer.Exit()
 
-    get_zenodo(zenodo_url, zip_path)
+    console = Console()  # Create a Console instance for Rich
+    progress = Progress(
+        DownloadColumn(),
+        BarColumn(),
+        "[progress.percentage]{task.percentage:>3.1f}%",
+        "•",
+        TransferSpeedColumn(),
+        "•",
+        TimeRemainingColumn(),
+        console=console,  # Pass the console instance to Progress
+    )
+
+    task_id = progress.add_task("download", filename=zip_path, start=False)
+
+    with progress:
+        progress.start_task(task_id)
+        get_zenodo(zenodo_url, zip_path, progress, task_id)
+
     unzip_zenodo(zip_path, extract_path)
 
 
 if __name__ == "__main__":
-    main()
+    app()

@@ -8,7 +8,7 @@ repos:
         args:
           - --max-line-length=100
           - --max-cognitive-complexity=15
-          - --ignore=E203,E266,E501,W503,F722
+          - --ignore=E203,E266,E501,W503,F722,CCR001,B008,CCE001
         additional_dependencies:
           - pep8-naming==0.13.3
           - flake8-absolute-import==1.0.0.1

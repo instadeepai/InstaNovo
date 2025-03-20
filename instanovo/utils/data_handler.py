@@ -1,41 +1,43 @@
 from __future__ import annotations
 
-import logging
-
-from matchms.exporting import save_as_mgf
-from matchms.importing import load_from_mgf
-from matchms import Spectrum
-import pandas as pd
-import polars as pl
-from pathlib import Path
-from enum import Enum
+import asyncio
 import glob
 import os
 import random
-import tempfile
-from itertools import chain
 import re
-from typing import Iterator, Callable, Any, cast, Union
-import uuid
-import numpy as np
-import asyncio
-from concurrent.futures import ThreadPoolExecutor
 import shutil
-from datasets import Dataset, load_dataset
+import tempfile
 import time
+import uuid
+from concurrent.futures import ThreadPoolExecutor
+from enum import Enum
+from itertools import chain
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, Callable, Iterator, Union, cast
+
+import numpy as np
+import pandas as pd
+import polars as pl
+from datasets import Dataset, load_dataset
+from matchms import Spectrum
+from matchms.exporting import save_as_mgf
+from matchms.importing import load_from_mgf
 
 from instanovo.constants import (
-    PROTON_MASS_AMU,
-    MSColumns,
-    MS_TYPES,
     ANNOTATED_COLUMN,
     ANNOTATION_ERROR,
+    MS_TYPES,
+    PROTON_MASS_AMU,
+    MSColumns,
 )
-from instanovo.utils import Metrics
+
+if TYPE_CHECKING:
+    from instanovo.utils import Metrics
+from instanovo.__init__ import console
+from instanovo.utils.colorlogging import ColorLog
 from instanovo.utils.msreader import read_mzml, read_mzxml
 
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+logger = ColorLog(console, __name__).logger
 
 
 class SpectrumDataFrame:
@@ -48,12 +50,11 @@ class SpectrumDataFrame:
     in chunks.
 
     Attributes:
-        is_annotated (bool): Whether the dataset is annotated with peptide sequences.
-        has_predictions (bool): Whether the dataset contains predictions.
-        is_lazy (bool): Whether lazy loading mode is used.
+        is_annotated: Whether the dataset is annotated with peptide sequences.
+        has_predictions: Whether the dataset contains predictions.
+        is_lazy: Whether lazy loading mode is used.
     """
 
-    # flake8: noqa: CCR001
     def __init__(
         self,
         df: pl.DataFrame | None = None,
@@ -115,7 +116,7 @@ class SpectrumDataFrame:
                 raise FileNotFoundError(f"No files matching '{file_paths}' were found.")
 
             # If any of the files are not .parquet, create a tempdir with the converted files.
-            if not all([fp.lower().endswith(".parquet") for fp in self._file_paths]):
+            if not all(fp.lower().endswith(".parquet") for fp in self._file_paths):
                 # If lazy make tempdir, if not convert to non-native and load all contents into df
                 # Only iterate over non-parquet files
                 df_iterator = SpectrumDataFrame.get_data_shards(
@@ -303,7 +304,6 @@ class SpectrumDataFrame:
 
         return pl.concat([df1, df2], how="vertical_relaxed")
 
-    # flake8: noqa: CR001
     @staticmethod
     def get_data_shards(
         file_paths: list[str],
@@ -327,7 +327,7 @@ class SpectrumDataFrame:
         """
         column_mapping = column_mapping or {}
         current_shard = None
-        for i, fp in enumerate(file_paths):
+        for i, fp in enumerate(file_paths, 1):
             if verbose:
                 logger.info(f"Loading file {i:03,d} of {len(file_paths):03,d}: {fp}")
 
@@ -607,7 +607,7 @@ class SpectrumDataFrame:
             logger.warning(f"Error preloading file {file_path}: {e}")
             self._next_file_future = None
 
-    def __len__(self) -> int:  # noqa: CCE001
+    def __len__(self) -> int:
         """Returns the total number of rows in the SpectrumDataFrame.
 
         Returns:
@@ -740,7 +740,7 @@ class SpectrumDataFrame:
 
     def save(
         self,
-        target: str,
+        target: Path,
         partition: str | None = None,
         name: str | None = None,
         max_shard_size: int | None = None,
@@ -748,10 +748,10 @@ class SpectrumDataFrame:
         """Save the dataset in parquet format with the option to partition and shard the data.
 
         Args:
-            target (str): Directory to save the dataset.
-            partition (str | None): Partition name to be included in the file names.
-            name (str | None): Dataset name to be included in the file names.
-            max_shard_size (int | None): Maximum size of the data shards.
+            target: Directory to save the dataset.
+            partition: Partition name to be included in the file names.
+            name: Dataset name to be included in the file names.
+            max_shard_size: Maximum size of the data shards.
         """
         max_shard_size = max_shard_size or self._max_shard_size
         partition = partition or "default"
@@ -761,25 +761,27 @@ class SpectrumDataFrame:
 
         shards = self._to_parquet_chunks(target, max_shard_size)
 
-        os.makedirs(target, exist_ok=True)
+        Path(target).mkdir(parents=True, exist_ok=True)
 
         for i, shard in enumerate(shards):
             filename = (
                 f"dataset-{name}-{partition}-{i:04d}-{total_num_files:04d}.parquet"
             )
-            shard.write_parquet(os.path.join(target, filename))
+            shard_path = os.path.join(target, filename)
+            logger.info(f"Writing {shard_path}")
+            shard.write_parquet(shard_path)
 
     def _to_parquet_chunks(
-        self, target: str, max_shard_size: int = 1_000_000
+        self, target: Path, max_shard_size: int = 1_000_000
     ) -> Iterator[pl.DataFrame]:
         """Generate DataFrame chunks to be saved as parquet files.
 
         Args:
-            target (str): Directory to save the parquet files.
-            max_shard_size (int): Maximum size of the data shards.
+            target: Directory to save the parquet files.
+            max_shard_size: Maximum size of the data shards.
 
         Yields:
-            Iterator[pl.DataFrame]: Chunks of DataFrames to be saved.
+            Chunks of DataFrames to be saved.
         """
         if self._is_native:
             current_shard = None
@@ -843,7 +845,7 @@ class SpectrumDataFrame:
             try:
                 os.remove(target)
             except OSError as e:
-                logger.warn(f"Error deleting existing file '{target}': {e}")
+                logger.warning(f"Error deleting existing file '{target}': {e}")
                 return  # Exit the method if we can't delete the file
 
         save_as_mgf(spectra, target, export_style=export_style)
@@ -883,7 +885,7 @@ class SpectrumDataFrame:
         Returns:
             pd.DataFrame: The dataset in pandas DataFrame format.
         """
-        return self.to_polars(return_lazy=False).to_pandas()
+        return cast(pd.DataFrame, self.to_polars(return_lazy=False).to_pandas())
 
     def to_polars(self, return_lazy: bool = True) -> pl.DataFrame | pl.LazyFrame:
         """Convert the dataset to a polars DataFrame.
@@ -1588,8 +1590,8 @@ class SpectrumDataFrame:
                 "None of the sequence labels in the dataset match the precursor mz. Check sequences and residue set for errors."
             )
         elif num_matches_precursor < len(self):
-            logger.warn(
-                f"{len(self) - num_matches_precursor:,d} ({(1 - num_matches_precursor/len(self))*100:.2f}%) of the sequence labels do not match the precursor mz to {tolerance}ppm."
+            logger.warning(
+                f"{len(self) - num_matches_precursor:,d} ({(1 - num_matches_precursor / len(self)) * 100:.2f}%) of the sequence labels do not match the precursor mz to {tolerance}ppm."
             )
 
         return num_matches_precursor
@@ -1610,7 +1612,8 @@ class SpectrumDataFrame:
             for fp in self._file_paths:
                 if seed:
                     np.random.seed(seed)
-                filter = self._filter_series_per_file[fp].to_numpy()
+                # TODO: variable "filter" is shadowing a python builtin
+                filter = self._filter_series_per_file[fp].to_numpy()  # noqa
                 filter[filter] = np.random.choice(
                     [True, False], size=filter.sum(), p=[fraction, 1 - fraction]
                 )
@@ -1802,4 +1805,4 @@ class SpectrumDataFrame:
 
 def _format_time(seconds: float) -> str:
     seconds = int(seconds)
-    return f"{seconds//3600:02d}:{(seconds%3600)//60:02d}:{seconds%60:02d}"
+    return f"{seconds // 3600:02d}:{(seconds % 3600) // 60:02d}:{seconds % 60:02d}"
