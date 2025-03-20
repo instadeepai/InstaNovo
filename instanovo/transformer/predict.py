@@ -412,10 +412,13 @@ def get_preds(
 
 def _setup_knapsack(model: InstaNovo) -> Knapsack:
     residue_masses = dict(model.residue_set.residue_masses.copy())
-    if any([x < 0 for x in residue_masses.values()]):
-        raise NotImplementedError(
-            "Negative mass found in residues, this will break the knapsack graph. Either disable knapsack or use strictly positive masses"
+    negative_residues = [k for k, v in residue_masses.items() if v < 0]
+    if len(negative_residues) > 0:
+        logger.warn(f"Negative mass found in residues: {negative_residues}.")
+        logger.warn(
+            "These residues will be disabled when using knapsack decoding. A future release is planned to support negative masses."
         )
+        residue_masses.update({k: 4000.0 for k in negative_residues})
     for special_residue in list(model.residue_set.residue_to_index.keys())[:3]:
         residue_masses[special_residue] = 0
     residue_indices = model.residue_set.residue_to_index
