@@ -4,8 +4,7 @@ import pytest
 import torch
 import torch.nn as nn
 
-from instanovo.transformer.layers import MultiScalePeakEmbedding
-from instanovo.transformer.layers import PositionalEncoding
+from instanovo.transformer.layers import MultiScalePeakEmbedding, PositionalEncoding
 
 
 @pytest.mark.usefixtures("_reset_seed")

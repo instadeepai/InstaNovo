@@ -14,7 +14,7 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 from instanovo.__init__ import console
-from instanovo.constants import ANNOTATED_COLUMN, ANNOTATION_ERROR, MASS_SCALE
+from instanovo.constants import ANNOTATED_COLUMN, ANNOTATION_ERROR, MASS_SCALE, MAX_MASS
 from instanovo.inference import (
     BeamSearchDecoder,
     Decoder,
@@ -41,7 +41,8 @@ def get_preds(
     """Get predictions from a trained model."""
     if config.get("denovo", False) and config.get("output_path", None) is None:
         raise ValueError(
-            "Must specify an output csv path in denovo mode. Please specify in config or with the cli flag --output-path `path/to/output.csv`"
+            "Must specify an output csv path in denovo mode. Please specify in config "
+            "or with the cli flag --output-path `path/to/output.csv`"
         )
 
     data_path = config["data_path"]
@@ -74,8 +75,9 @@ def get_preds(
         # More descriptive error message in predict mode.
         if str(e) == ANNOTATION_ERROR:
             raise ValueError(
-                "The sequence column is missing annotations, are you trying to run de novo prediction? Add the `denovo=True` flag"
-            )
+                "The sequence column is missing annotations, "
+                "are you trying to run de novo prediction? Add the `denovo=True` flag"
+            ) from e
         else:
             raise
 
@@ -85,25 +87,25 @@ def get_preds(
     model_max_charge = model_config.get("max_charge", 10)
     if max_charge > model_max_charge:
         logger.warning(
-            f"Inference has been configured with max_charge={max_charge}, but model has max_charge={model_max_charge}."
+            f"Inference has been configured with max_charge={max_charge}, "
+            f"but model has max_charge={model_max_charge}."
         )
-        logger.warning(
-            f"Overwriting max_charge config to model value: {model_max_charge}."
-        )
+        logger.warning(f"Overwriting max_charge config to model value: {model_max_charge}.")
         max_charge = model_max_charge
 
     sdf.filter_rows(
-        lambda row: (row["precursor_charge"] <= max_charge)
-        and (row["precursor_charge"] > 0)
+        lambda row: (row["precursor_charge"] <= max_charge) and (row["precursor_charge"] > 0)
     )
     if len(sdf) < original_size:
         logger.warning(
-            f"Found {original_size - len(sdf)} rows with charge > {max_charge}. These rows will be skipped."
+            f"Found {original_size - len(sdf)} rows with charge > {max_charge}. "
+            "These rows will be skipped."
         )
 
     sdf.sample_subset(fraction=config.get("subset", 1.0), seed=42)
     logger.info(
-        f"Data loaded, evaluating {config.get('subset', 1.0) * 100:.1f}%, {len(sdf):,} samples in total."
+        f"Data loaded, evaluating {config.get('subset', 1.0) * 100:.1f}%, {len(sdf):,} "
+        "samples in total."
     )
 
     if sdf.df.is_empty():
@@ -130,10 +132,8 @@ def get_preds(
             original_size = len(sdf)
             sdf.filter_rows(
                 lambda row: all(
-                    [
-                        residue in supported_residues
-                        for residue in set(residue_set.tokenize(row[ANNOTATED_COLUMN]))
-                    ]
+                    residue in supported_residues
+                    for residue in set(residue_set.tokenize(row[ANNOTATED_COLUMN]))
                 )
             )
             logger.warning(f"{original_size - len(sdf):,d} rows have been dropped.")
@@ -172,9 +172,7 @@ def get_preds(
                 knapsack.save(knapsack_path)
         else:
             logger.info("Knapsack path found. Loading...")
-            decoder = KnapsackBeamSearchDecoder.from_file(
-                model=model, path=knapsack_path
-            )
+            decoder = KnapsackBeamSearchDecoder.from_file(model=model, path=knapsack_path)
     elif num_beams > 1:
         logger.info(f"Using Beam Search with {num_beams} beam(s)")
         decoder = BeamSearchDecoder(model=model)
@@ -234,12 +232,8 @@ def get_preds(
                         token_log_probs[j].append([])
                     else:
                         preds[j].append(predictions[j].sequence)
-                        sequence_log_probs[j].append(
-                            predictions[j].sequence_log_probability
-                        )
-                        token_log_probs[j].append(
-                            predictions[j].token_log_probabilities
-                        )
+                        sequence_log_probs[j].append(predictions[j].sequence_log_probability)
+                        token_log_probs[j].append(predictions[j].token_log_probabilities)
         else:
             batch_predictions = cast(list[ScoredSequence], batch_predictions)
             for prediction in batch_predictions:
@@ -259,7 +253,8 @@ def get_preds(
             delta = time.time() - start
             est_total = delta / (i + 1) * (len(dl) - i - 1)
             logger.info(
-                f"Batch {i + 1:05d}/{len(dl):05d}, [{_format_time(delta)}/{_format_time(est_total)}, {(delta / (i + 1)):.3f}s/it]"
+                f"Batch {i + 1:05d}/{len(dl):05d}, [{_format_time(delta)}/"
+                f"{_format_time(est_total)}, {(delta / (i + 1)):.3f}s/it]"
             )
 
     delta = time.time() - start
@@ -273,13 +268,9 @@ def get_preds(
     if not denovo:
         pred_df["targets"] = targs
     pred_df[config.get("pred_col", "predictions")] = ["".join(x) for x in preds[0]]
-    pred_df[config.get("pred_tok_col", "predictions_tokenised")] = [
-        ", ".join(x) for x in preds[0]
-    ]
+    pred_df[config.get("pred_tok_col", "predictions_tokenised")] = [", ".join(x) for x in preds[0]]
     pred_df[config.get("log_probs_col", "log_probabilities")] = sequence_log_probs[0]
-    pred_df[config.get("token_log_probs_col", "token_log_probabilities")] = (
-        token_log_probs[0]
-    )
+    pred_df[config.get("token_log_probs_col", "token_log_probabilities")] = token_log_probs[0]
 
     if save_beams:
         for i in range(num_beams):
@@ -348,25 +339,25 @@ def get_preds(
         filter_precursor_ppm = config.get("filter_precursor_ppm", None)
         if filter_precursor_ppm:
             idx = pred_df["delta_mass_ppm"] < filter_precursor_ppm
-            logger.info(
-                f"Performance with filtering at {filter_precursor_ppm} ppm delta mass:"
-            )
+            logger.info(f"Performance with filtering at {filter_precursor_ppm} ppm delta mass:")
             if np.sum(idx) > 0:
                 filtered_preds = pd.Series(preds[0])
                 filtered_preds[~idx] = ""
-                aa_prec, aa_recall, pep_recall, pep_prec = (
-                    metrics.compute_precision_recall(pred_df["targets"], filtered_preds)
+                aa_prec, aa_recall, pep_recall, pep_prec = metrics.compute_precision_recall(
+                    pred_df["targets"], filtered_preds
                 )
                 logger.info(f"  aa_prec     {aa_prec:.5f}")
                 logger.info(f"  aa_recall   {aa_recall:.5f}")
                 logger.info(f"  pep_prec    {pep_prec:.5f}")
                 logger.info(f"  pep_recall  {pep_recall:.5f}")
                 logger.info(
-                    f"Rows filtered: {len(sdf) - np.sum(idx)} ({(len(sdf) - np.sum(idx)) / len(sdf) * 100:.2f}%)"
+                    f"Rows filtered: {len(sdf) - np.sum(idx)} "
+                    f"({(len(sdf) - np.sum(idx)) / len(sdf) * 100:.2f}%)"
                 )
                 if np.sum(idx) < 1000:
                     logger.info(
-                        f"Metrics calculated on a small number of samples ({np.sum(idx)}), interpret with care"
+                        f"Metrics calculated on a small number of samples ({np.sum(idx)}), "
+                        "interpret with care!"
                     )
             else:
                 logger.info("No predictions met criteria, skipping metrics.")
@@ -377,25 +368,25 @@ def get_preds(
                 np.exp(pred_df[config.get("log_probs_col", "log_probabilities")])
                 > model_confidence_no_pred
             )
-            logger.info(
-                f"Performance with filtering confidence < {model_confidence_no_pred}"
-            )
+            logger.info(f"Performance with filtering confidence < {model_confidence_no_pred}")
             if np.sum(idx) > 0:
                 filtered_preds = pd.Series(preds[0])
                 filtered_preds[~idx] = ""
-                aa_prec, aa_recall, pep_recall, pep_prec = (
-                    metrics.compute_precision_recall(pred_df["targets"], filtered_preds)
+                aa_prec, aa_recall, pep_recall, pep_prec = metrics.compute_precision_recall(
+                    pred_df["targets"], filtered_preds
                 )
                 logger.info(f"  aa_prec     {aa_prec:.5f}")
                 logger.info(f"  aa_recall   {aa_recall:.5f}")
                 logger.info(f"  pep_prec    {pep_prec:.5f}")
                 logger.info(f"  pep_recall  {pep_recall:.5f}")
                 logger.info(
-                    f"Rows filtered: {len(sdf) - np.sum(idx)} ({(len(sdf) - np.sum(idx)) / len(sdf) * 100:.2f}%)"
+                    f"Rows filtered: {len(sdf) - np.sum(idx)} "
+                    f"({(len(sdf) - np.sum(idx)) / len(sdf) * 100:.2f}%)"
                 )
                 if np.sum(idx) < 1000:
                     logger.info(
-                        f"Metrics calculated on a small number of samples ({np.sum(idx)}), interpret with care"
+                        f"Metrics calculated on a small number of samples ({np.sum(idx)}), "
+                        "interpret with care!"
                     )
             else:
                 logger.info("No predictions met criteria, skipping metrics.")
@@ -414,18 +405,19 @@ def _setup_knapsack(model: InstaNovo) -> Knapsack:
     residue_masses = dict(model.residue_set.residue_masses.copy())
     negative_residues = [k for k, v in residue_masses.items() if v < 0]
     if len(negative_residues) > 0:
-        logger.warn(f"Negative mass found in residues: {negative_residues}.")
-        logger.warn(
-            "These residues will be disabled when using knapsack decoding. A future release is planned to support negative masses."
+        logger.warning(f"Negative mass found in residues: {negative_residues}.")
+        logger.warning(
+            "These residues will be disabled when using knapsack decoding. "
+            "A future release is planned to support negative masses."
         )
-        residue_masses.update({k: 4000.0 for k in negative_residues})
+        residue_masses.update(dict.fromkeys(negative_residues, MAX_MASS))
     for special_residue in list(model.residue_set.residue_to_index.keys())[:3]:
         residue_masses[special_residue] = 0
     residue_indices = model.residue_set.residue_to_index
     return Knapsack.construct_knapsack(
         residue_masses=residue_masses,
         residue_indices=residue_indices,
-        max_mass=4000.00,
+        max_mass=MAX_MASS,
         mass_scale=MASS_SCALE,
     )
 

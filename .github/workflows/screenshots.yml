@@ -1,0 +1,39 @@
+name: Screenshots with rich-codex
+on:
+  push: # pull_request:
+    paths:
+      - "**.md"
+      - instanovo/main.py
+      - instanovo/scripts/get_zenodo_record.py
+      - scripts/splits_and_shards.py
+
+  workflow_dispatch:
+
+jobs:
+  rich_codex:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+
+      - name: Install dependencies
+        run: uv sync  --extra cpu --dev
+
+      - name: Generate terminal images with rich-codex
+        uses: ewels/rich-codex@v1
+        with:
+          timeout: 20
+          commit_changes: "true"
+          clean_img_paths: docs/assets/*.svg
+          terminal_theme: "MONOKAI"
+          use_pty: "true"

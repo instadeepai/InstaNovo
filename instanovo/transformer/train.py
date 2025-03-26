@@ -9,17 +9,18 @@ from pathlib import Path
 from typing import Any, Tuple, cast
 
 import hydra
+import lightning as L
 import neptune
 import numpy as np
 import pandas as pd
 import polars as pl
-import pytorch_lightning as ptl
 import torch
 from dotenv import load_dotenv
 from jaxtyping import Bool, Float, Integer
+from lightning.pytorch.strategies import DDPStrategy
 from neptune.integrations.python_logger import NeptuneHandler
-from omegaconf import DictConfig, OmegaConf, open_dict
-from pytorch_lightning.strategies import DDPStrategy
+from neptune.internal.utils.git import GitInfo
+from omegaconf import DictConfig, ListConfig, OmegaConf, open_dict
 from sklearn.model_selection import train_test_split
 from torch import Tensor, nn
 from torch.utils.data import DataLoader
@@ -29,11 +30,7 @@ import instanovo.utils.s3 as s3
 from instanovo.__init__ import console
 from instanovo.constants import ANNOTATED_COLUMN, ANNOTATION_ERROR
 from instanovo.inference import Decoder, GreedyDecoder, ScoredSequence
-from instanovo.transformer.dataset import (
-    SpectrumDataset,
-    collate_batch,
-    remove_modifications,
-)
+from instanovo.transformer.dataset import SpectrumDataset, collate_batch, remove_modifications
 from instanovo.transformer.model import InstaNovo
 from instanovo.types import (
     Peptide,
@@ -55,7 +52,7 @@ CONFIG_PATH = Path(__file__).parent.parent / "configs"
 warnings.filterwarnings("ignore", message=".*does not have many workers*")
 
 
-class PTModule(ptl.LightningModule):
+class PTModule(L.LightningModule):
     """PTL wrapper for model."""
 
     def __init__(
@@ -102,9 +99,7 @@ class PTModule(ptl.LightningModule):
             peptides_mask: Tensor,
         ) -> Tensor:
             """Compiled forward pass."""
-            return self.forward(
-                spectra, precursors, peptides, spectra_mask, peptides_mask
-            )
+            return self.forward(spectra, precursors, peptides, spectra_mask, peptides_mask)
 
         self.compiled_forward = compiled_forward
 
@@ -153,9 +148,7 @@ class PTModule(ptl.LightningModule):
 
         peptides = peptides.to(self.device)
 
-        preds = self.compiled_forward(
-            spectra, precursors, peptides, spectra_mask, peptides_mask
-        )
+        preds = self.compiled_forward(spectra, precursors, peptides, spectra_mask, peptides_mask)
 
         # Cut off EOS's prediction, ignore_index should take care of masking
         # EOS at positions < sequence_length will have a label of ignore_index
@@ -168,22 +161,23 @@ class PTModule(ptl.LightningModule):
             self.running_loss = 0.99 * self.running_loss + (1 - 0.99) * loss.item()
 
         if (
-            (self.steps + 1)
-            % int(self.config.get("console_logging_steps", 2000) * self.step_scale)
+            (self.steps + 1) % int(self.config.get("console_logging_steps", 2000) * self.step_scale)
         ) == 0:
             lr = self.trainer.lr_scheduler_configs[0].scheduler.get_last_lr()[0]
             delta = time.time() - self.train_epoch_start_time
             epoch_step = self.steps % len(self.trainer.train_dataloader)
             est_total = (
-                delta
-                / (epoch_step + 1)
-                * (len(self.trainer.train_dataloader) - epoch_step - 1)
+                delta / (epoch_step + 1) * (len(self.trainer.train_dataloader) - epoch_step - 1)
             )
 
             logger.info(
-                f"[TRAIN] [Epoch {self.trainer.current_epoch:02d}/{self.trainer.max_epochs - 1:02d} Step {self.steps + 1:06d}] "
-                + f"[Batch {epoch_step + 1:05d}/{len(self.trainer.train_dataloader):05d}] [{_format_time(delta)}/{_format_time(est_total)}, {(delta / (epoch_step + 1)):.3f}s/it]: "
-                + f"train_loss_raw={loss.item():.4f}, running_loss={self.running_loss:.4f}, LR={lr:.6f}"
+                f"[TRAIN] [Epoch {self.trainer.current_epoch:02d}/{self.trainer.max_epochs - 1:02d}"
+                f" Step {self.steps + 1:06d}] "
+                f"[Batch {epoch_step + 1:05d}/{len(self.trainer.train_dataloader):05d}] "
+                f"[{_format_time(delta)}/{_format_time(est_total)}, "
+                f"{(delta / (epoch_step + 1)):.3f}s/it]: "
+                f"train_loss_raw={loss.item():.4f}, "
+                f"running_loss={self.running_loss:.4f}, LR={lr:.6f}"
             )
 
         if (self.steps + 1) % int(
@@ -193,9 +187,7 @@ class PTModule(ptl.LightningModule):
             self.sw.add_scalar("train/loss_raw", loss.item(), self.steps + 1)
             self.sw.add_scalar("train/loss_smooth", self.running_loss, self.steps + 1)
             self.sw.add_scalar("optim/lr", lr, self.steps + 1)
-            self.sw.add_scalar(
-                "optim/epoch", self.trainer.current_epoch, self.steps + 1
-            )
+            self.sw.add_scalar("optim/epoch", self.trainer.current_epoch, self.steps + 1)
 
         self.steps += 1
 
@@ -215,7 +207,8 @@ class PTModule(ptl.LightningModule):
         """Single validation step."""
         if self.valid_epoch_start_time is None:
             logger.info(
-                f"[VALIDATION] [Epoch {self.trainer.current_epoch:02d}/{self.trainer.max_epochs - 1:02d}] Starting validation."
+                f"[VALIDATION] [Epoch {self.trainer.current_epoch:02d}/"
+                f"{self.trainer.max_epochs - 1:02d}] Starting validation."
             )
             self.valid_epoch_start_time = time.time()
 
@@ -228,9 +221,7 @@ class PTModule(ptl.LightningModule):
         peptides = peptides.to(self.device)
 
         with torch.no_grad():
-            preds = self.forward(
-                spectra, precursors, peptides, spectra_mask, peptides_mask
-            )
+            preds = self.forward(spectra, precursors, peptides, spectra_mask, peptides_mask)
         # Cut off EOS's prediction, ignore_index should take care of masking
         preds = preds[:, :-1].reshape(-1, preds.shape[-1])
         loss = self.loss_fn(preds, peptides.flatten())
@@ -248,9 +239,7 @@ class PTModule(ptl.LightningModule):
         y = [x.sequence if isinstance(x, ScoredSequence) else [] for x in p]
         targets = list(self.model.batch_idx_to_aa(peptides, reverse=True))
 
-        aa_prec, aa_recall, pep_recall, _ = self.metrics.compute_precision_recall(
-            targets, y
-        )
+        aa_prec, aa_recall, pep_recall, _ = self.metrics.compute_precision_recall(targets, y)
         aa_er = self.metrics.compute_aa_er(targets, y)
 
         self.valid_metrics["valid_loss"].append(loss.item())
@@ -266,14 +255,15 @@ class PTModule(ptl.LightningModule):
             delta = time.time() - self.valid_epoch_start_time
             epoch_step = self.valid_epoch_step % len(self.trainer.val_dataloaders)
             est_total = (
-                delta
-                / (epoch_step + 1)
-                * (len(self.trainer.val_dataloaders) - epoch_step - 1)
+                delta / (epoch_step + 1) * (len(self.trainer.val_dataloaders) - epoch_step - 1)
             )
 
             logger.info(
-                f"[VALIDATION] [Epoch {self.trainer.current_epoch:02d}/{self.trainer.max_epochs - 1:02d} Step {self.steps + 1:06d}] "
-                + f"[Batch {epoch_step:05d}/{len(self.trainer.val_dataloaders):05d}] [{_format_time(delta)}/{_format_time(est_total)}, {(delta / (epoch_step + 1)):.3f}s/it]"
+                f"[VALIDATION] [Epoch {self.trainer.current_epoch:02d}/"
+                f"{self.trainer.max_epochs - 1:02d} Step {self.steps + 1:06d}] "
+                f"[Batch {epoch_step:05d}/{len(self.trainer.val_dataloaders):05d}] "
+                f"[{_format_time(delta)}/{_format_time(est_total)}, "
+                f"{(delta / (epoch_step + 1)):.3f}s/it]"
             )
 
         self.valid_epoch_step += 1
@@ -289,7 +279,9 @@ class PTModule(ptl.LightningModule):
         epoch = self.trainer.current_epoch
         est_total = delta / (epoch + 1) * (self.trainer.max_epochs - epoch - 1)
         logger.info(
-            f"[TRAIN] [Epoch {self.trainer.current_epoch:02d}/{self.trainer.max_epochs - 1:02d}] Epoch complete, total time {_format_time(delta)}, remaining time {_format_time(est_total)}, {_format_time(delta / (epoch + 1))} per epoch"
+            f"[TRAIN] [Epoch {self.trainer.current_epoch:02d}/{self.trainer.max_epochs - 1:02d}] "
+            f"Epoch complete, total time {_format_time(delta)}, remaining time "
+            f"{_format_time(est_total)}, {_format_time(delta / (epoch + 1))} per epoch"
         )
 
         self.running_loss = None
@@ -308,15 +300,16 @@ class PTModule(ptl.LightningModule):
 
         valid_loss = np.mean(self.valid_metrics["valid_loss"])
         logger.info(
-            f"[VALIDATION] [Epoch {epoch:02d}/{self.trainer.max_epochs - 1:02d}] train_loss={self.running_loss if self.running_loss else 0:.5f}, valid_loss={valid_loss:.5f}"
+            f"[VALIDATION] [Epoch {epoch:02d}/{self.trainer.max_epochs - 1:02d}] "
+            f"train_loss={self.running_loss if self.running_loss else 0:.5f}, "
+            f"valid_loss={valid_loss:.5f}"
         )
-        logger.info(
-            f"[VALIDATION] [Epoch {epoch:02d}/{self.trainer.max_epochs - 1:02d}] Metrics:"
-        )
+        logger.info(f"[VALIDATION] [Epoch {epoch:02d}/{self.trainer.max_epochs - 1:02d}] Metrics:")
         for metric in ["aa_er", "aa_prec", "aa_recall", "pep_recall"]:
             val = np.mean(self.valid_metrics[metric])
             logger.info(
-                f"[VALIDATION] [Epoch {epoch:02d}/{self.trainer.max_epochs - 1:02d}] - {metric:11s}{val:.3f}"
+                f"[VALIDATION] [Epoch {epoch:02d}/{self.trainer.max_epochs - 1:02d}] - "
+                f"{metric:11s}{val:.3f}"
             )
 
         self.valid_epoch_start_time = None
@@ -370,17 +363,41 @@ def train(
                 "Neptune API token is found. Please set the NEPTUNE_API_TOKEN environment variable"
             )
         os.environ["NEPTUNE_PROJECT"] = "InstaDeep/denovo-sequencing"
+
+        if "AICHOR_LOGS_PATH" in os.environ:
+            # On AIchor the .git folder is not available so we cannot rely on neptune’s git
+            # integration to log the git info as an artifact. Instead, we monkeypatch the function
+            # used by neptune to retrieve the git info, and call it before creating the neptune run.
+            neptune.metadata_containers.run.to_git_info = lambda git_ref: GitInfo(
+                commit_id=os.environ["VCS_SHA"],
+                message=os.environ["VCS_COMMIT_MESSAGE"],
+                author_name=os.environ["VCS_AUTHOR_NAME"],
+                author_email=os.environ["VCS_AUTHOR_EMAIL"],
+                # not available as env variable
+                commit_date=datetime.datetime.now(),
+                dirty=False,
+                branch=os.environ["VCS_REF_NAME"],
+                remotes=None,
+            )
+
         run = neptune.init_run(
             with_id=None,
             name=config.get("run_name", "no_run_name_specified") + time_now,
             dependencies=str(Path(__file__).parent.parent.parent / "uv.lock"),
-            tags=config.get("tags", []),
+            tags=OmegaConf.to_object(config.get("tags", ListConfig([]))),
         )
         run.assign({"config": OmegaConf.to_yaml(config)})
         sw = NeptuneSummaryWriter(config["tb_summarywriter"], run)
         logger.addHandler(NeptuneHandler(run=run))
+        training_logger = L.pytorch.loggers.NeptuneLogger(
+            run=run,
+        )
     else:
         sw = SummaryWriter(config["tb_summarywriter"])
+        training_logger = L.pytorch.loggers.TensorBoardLogger(
+            name=config.get("run_name", "no_run_name_specified") + time_now,
+            save_dir=config["tb_summarywriter"],
+        )
 
     logger.info("Starting transformer training")
 
@@ -437,12 +454,8 @@ def train(
         train_unique = set(train_unique)
         valid_unique = set(valid_unique)
 
-        train_sdf.filter_rows(
-            lambda row: remove_modifications(row["sequence"]) in train_unique
-        )
-        valid_sdf.filter_rows(
-            lambda row: remove_modifications(row["sequence"]) in valid_unique
-        )
+        train_sdf.filter_rows(lambda row: remove_modifications(row["sequence"]) in train_unique)
+        valid_sdf.filter_rows(lambda row: remove_modifications(row["sequence"]) in valid_unique)
         # Save splits
         # TODO: Optionally load the data splits
         # TODO: Allow loading of data splits in `predict.py`
@@ -461,9 +474,7 @@ def train(
 
     # Check residues
     if config.get("perform_data_checks", True):
-        logger.info(
-            f"Checking for unknown residues in {len(train_sdf) + len(valid_sdf):,d} rows."
-        )
+        logger.info(f"Checking for unknown residues in {len(train_sdf) + len(valid_sdf):,d} rows.")
         supported_residues = set(residue_set.vocab)
         supported_residues.update(set(residue_set.residue_remapping.keys()))
         data_residues = set()
@@ -478,26 +489,26 @@ def train(
             original_size = (len(train_sdf), len(valid_sdf))
             train_sdf.filter_rows(
                 lambda row: all(
-                    [
-                        residue in supported_residues
-                        for residue in set(residue_set.tokenize(row[ANNOTATED_COLUMN]))
-                    ]
+                    residue in supported_residues
+                    for residue in set(residue_set.tokenize(row[ANNOTATED_COLUMN]))
                 )
             )
             valid_sdf.filter_rows(
                 lambda row: all(
-                    [
-                        residue in supported_residues
-                        for residue in set(residue_set.tokenize(row[ANNOTATED_COLUMN]))
-                    ]
+                    residue in supported_residues
+                    for residue in set(residue_set.tokenize(row[ANNOTATED_COLUMN]))
                 )
             )
             new_size = (len(train_sdf), len(valid_sdf))
             logger.warning(
-                f"{original_size[0] - new_size[0]:,d} ({(original_size[0] - new_size[0]) / original_size[0] * 100:.2f}%) training rows dropped."
+                f"{original_size[0] - new_size[0]:,d} "
+                f"({(original_size[0] - new_size[0]) / original_size[0] * 100:.2f}%) "
+                "training rows dropped."
             )
             logger.warning(
-                f"{original_size[1] - new_size[1]:,d} ({(original_size[1] - new_size[1]) / original_size[1] * 100:.2f}%) validation rows dropped."
+                f"{original_size[1] - new_size[1]:,d} "
+                f"({(original_size[1] - new_size[1]) / original_size[1] * 100:.2f}%) "
+                "validation rows dropped."
             )
 
         # Check charge values:
@@ -508,7 +519,8 @@ def train(
         )
         if len(train_sdf) < original_size[0]:
             logger.warning(
-                f"Found {original_size[0] - len(train_sdf)} rows in training set with charge > {config.get('max_charge', 10)} or <= 0. These rows will be skipped."
+                f"Found {original_size[0] - len(train_sdf)} rows in training set with charge > "
+                f"{config.get('max_charge', 10)} or <= 0. These rows will be skipped."
             )
 
         valid_sdf.filter_rows(
@@ -517,7 +529,8 @@ def train(
         )
         if len(valid_sdf) < original_size[1]:
             logger.warning(
-                f"Found {original_size[1] - len(valid_sdf)} rows in training set with charge > {config.get('max_charge', 10)}. These rows will be skipped."
+                f"Found {original_size[1] - len(valid_sdf)} rows in training set with charge > "
+                f"{config.get('max_charge', 10)}. These rows will be skipped."
             )
 
     train_sdf.sample_subset(fraction=config.get("train_subset", 1.0), seed=42)
@@ -552,14 +565,12 @@ def train(
     train_sequences = pl.Series(list(train_sdf.get_unique_sequences()))
     valid_sequences = pl.Series(list(valid_sdf.get_unique_sequences()))
     if config.get("blacklist", None):
-        logger.info(
-            "Checking if any training set overlaps with blacklisted sequences..."
-        )
+        logger.info("Checking if any training set overlaps with blacklisted sequences...")
         blacklist_df = pd.read_csv(config["blacklist"])
         leakage = any(
-            train_sequences.map_elements(
-                remove_modifications, return_dtype=pl.String
-            ).is_in(blacklist_df["sequence"])
+            train_sequences.map_elements(remove_modifications, return_dtype=pl.String).is_in(
+                blacklist_df["sequence"]
+            )
         )
         if leakage:
             raise ValueError(
@@ -572,9 +583,7 @@ def train(
         logger.info("Checking if any validation set overlaps with training set...")
         leakage = any(valid_sequences.is_in(train_sequences))
         if leakage:
-            raise ValueError(
-                "Portion of validation set sequences overlaps with training set."
-            )
+            raise ValueError("Portion of validation set sequences overlaps with training set.")
         else:
             logger.info("No data leakage!")
 
@@ -582,23 +591,22 @@ def train(
     if config.get("save_model", True):
         total_epochs = config.get("epochs", 30)
         epochs_per_save = 1 / (
-            len(train_ds)
-            / config.get("train_batch_size", 256)
-            / config.get("ckpt_interval")
+            len(train_ds) / config.get("train_batch_size", 256) / config.get("ckpt_interval")
         )
         if epochs_per_save > total_epochs:
             logger.warning(
-                f"Model checkpoint will never save. Attempting to save every {epochs_per_save:.2f} epochs but only training for {total_epochs:d} epochs. Check ckpt_interval in config."
+                f"Model checkpoint will never save. Attempting to save every {epochs_per_save:.2f} "
+                f"epochs but only training for {total_epochs:d} epochs. "
+                "Check ckpt_interval in config."
             )
         else:
             logger.info(f"Model checkpointing every {epochs_per_save:.2f} epochs.")
 
     # Check warmup
-    if config.get("warmup_iters", 100_000) > len(train_ds) / config.get(
-        "train_batch_size", 256
-    ):
+    if config.get("warmup_iters", 100_000) > len(train_ds) / config.get("train_batch_size", 256):
         logger.warning(
-            "Model warmup is greater than one epoch of the training set. Check warmup_iters in config"
+            "Model warmup is greater than one epoch of the training set. "
+            "Check warmup_iters in config"
         )
 
     train_dl = DataLoader(
@@ -653,9 +661,7 @@ def train(
         model_state = torch.load(resume_checkpoint_path, map_location="cpu")
         # check if PTL checkpoint
         if "state_dict" in model_state:
-            model_state = {
-                k.replace("model.", ""): v for k, v in model_state["state_dict"].items()
-            }
+            model_state = {k.replace("model.", ""): v for k, v in model_state["state_dict"].items()}
 
         aa_embed_size = model_state["head.weight"].shape[0]
         if aa_embed_size != len(residue_set):
@@ -663,9 +669,7 @@ def train(
             logger.warning(
                 f"Model expects vocab size of {len(residue_set)}, checkpoint has {aa_embed_size}."
             )
-            logger.warning(
-                "Assuming a change was made to the residues in the configuration file."
-            )
+            logger.warning("Assuming a change was made to the residues in the configuration file.")
             logger.warning(f"Automatically converting {state_keys} to match expected.")
 
             new_model_state = model.state_dict()
@@ -688,17 +692,14 @@ def train(
                 elif resolution == "random":
                     model_state[k] = tmp
                 elif resolution == "partial":
-                    tmp[:aa_embed_size] = model_state[k][
-                        : min(tmp.shape[0], aa_embed_size)
-                    ]
+                    tmp[:aa_embed_size] = model_state[k][: min(tmp.shape[0], aa_embed_size)]
                     model_state[k] = tmp
                 else:
-                    raise ValueError(
-                        f"Unknown residue_conflict_resolution type '{resolution}'"
-                    )
+                    raise ValueError(f"Unknown residue_conflict_resolution type '{resolution}'")
 
             logger.warning(
-                f"Model checkpoint has {len(state_keys)} weights updated with '{resolution}' conflict resolution"
+                f"Model checkpoint has {len(state_keys)} weights updated with '{resolution}' "
+                "conflict resolution"
             )
 
         k_missing: int = np.sum(
@@ -777,7 +778,7 @@ def train(
             ]
         else:
             callbacks = [
-                ptl.callbacks.ModelCheckpoint(
+                L.pytorch.callbacks.ModelCheckpoint(
                     dirpath=config["model_save_folder_path"],
                     save_top_k=-1,
                     save_weights_only=config["save_weights_only"],
@@ -785,20 +786,18 @@ def train(
                 )
             ]
 
-        logger.info(
-            f"Saving every {config['ckpt_interval']} training steps to {ckpt_path}"
-        )
+        logger.info(f"Saving every {config['ckpt_interval']} training steps to {ckpt_path}")
     else:
         logger.info("Model saving disabled")
         callbacks = None
 
-    logger.info("Initializing PL trainer.")
-    trainer = ptl.Trainer(
+    logger.info("Initializing Pytorch Lightning trainer.")
+    trainer = L.pytorch.Trainer(
         accelerator="auto",
         precision="16-mixed" if config["fp16"] else None,
         callbacks=callbacks,
         devices="auto",
-        logger=config["report_to"],
+        logger=training_logger,
         max_epochs=config["epochs"],
         num_sanity_val_steps=config["num_sanity_val_steps"],
         accumulate_grad_batches=config["grad_accumulation"],
@@ -850,9 +849,7 @@ def _set_author_neptune_api_token() -> None:
     author_email, _ = author_email.split("@")
     author_email = author_email.replace("-", "_").replace(".", "_").upper()
 
-    logger.info(
-        f"Checking for Neptune API token under {author_email}__NEPTUNE_API_TOKEN."
-    )
+    logger.info(f"Checking for Neptune API token under {author_email}__NEPTUNE_API_TOKEN.")
     try:
         author_api_token = os.environ[f"{author_email}__NEPTUNE_API_TOKEN"]
         os.environ["NEPTUNE_API_TOKEN"] = author_api_token
@@ -868,9 +865,7 @@ class NeptuneSummaryWriter(SummaryWriter):
         super().__init__(log_dir=log_dir)
         self.run = run
 
-    def add_scalar(
-        self, tag: str, scalar_value: float, global_step: int | None = None
-    ) -> None:
+    def add_scalar(self, tag: str, scalar_value: float, global_step: int | None = None) -> None:
         """Record scalar to tensorboard and Neptune."""
         super().add_scalar(
             tag=tag,

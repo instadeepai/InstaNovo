@@ -3,6 +3,7 @@ from unittest.mock import patch
 
 import pytest
 from omegaconf import DictConfig
+
 from instanovo.diffusion.train import (
     main,
 )

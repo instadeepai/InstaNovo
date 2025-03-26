@@ -1,4 +1,4 @@
-from unittest.mock import patch, mock_open
+from unittest.mock import mock_open, patch
 
 from scripts.parse_nr_gpus import parse_nr_gpus
 

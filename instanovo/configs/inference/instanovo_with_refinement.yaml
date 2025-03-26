@@ -1,0 +1,96 @@
+# Data paths and output location
+data_path: /mnt/instanovo-data-kyber/ac_pt_shards/valid_shard_*.ipc # type: .mgf, .mzml or any other filetype supported by SpectrumDataFrame
+instanovo_model: instanovo-v1.1.0 # type: model id or path to a *.ckpt file
+instanovo_plus_model: instanovo-plus-v1.1.0  # type: model id or path to a directory
+output_path: ./instanovoplus_predictions.csv  # type: .csv
+knapsack_path: # type: directory
+
+
+
+
+
+# Data type only used if data_path is a directory.
+data_type: # .csv, .mgf, .mzml, .mzxml
+
+# Inference mode
+denovo: True
+refine: True
+max_length: 40
+max_charge: 10 # Must be <= model max charge
+isotope_error_range: [0, 1]
+subset: 1 # 0.0001 # Subset of dataset to perform inference on, useful for debugging
+use_knapsack: False
+save_beams: False
+instanovo_predictions_path:
+id_col: "scan_number"
+pred_col: "predictions"
+
+# These two only work in greedy search
+# Residues whose log probability will be set to -inf
+suppressed_residues:
+  ["(+25.98)"] # legacy
+# Stop model from predicting n-terminal modifications anywhere along the sequence
+disable_terminal_residues_anywhere: True
+
+# Run config
+num_workers: 16
+batch_size: 128
+device: cuda
+fp16: True
+
+# Logging
+log_interval: 50
+use_basic_logging: True
+
+# Metrics config, does not affect saved results
+filter_precursor_ppm: 20
+filter_confidence: 1e-4
+filter_fdr_threshold: 0.05
+
+# Dataset specific configs
+residue_remapping:
+  "M(ox)": "M[UNIMOD:35]" # Oxidation or Hydroxylation
+  "M(+15.99)": "M[UNIMOD:35]"
+  "S(p)": "S[UNIMOD:21]" # Phosphorylation
+  "T(p)": "T[UNIMOD:21]"
+  "Y(p)": "Y[UNIMOD:21]"
+  "S(+79.97)": "S[UNIMOD:21]"
+  "T(+79.97)": "T[UNIMOD:21]"
+  "Y(+79.97)": "Y[UNIMOD:21]"
+  "Q(+0.98)": "Q[UNIMOD:7]" # Deamidation
+  "N(+0.98)": "N[UNIMOD:7]"
+  "Q(+.98)": "Q[UNIMOD:7]"
+  "N(+.98)": "N[UNIMOD:7]"
+  "C(+57.02)": "C[UNIMOD:4]" # Carboxyamidomethylation
+  "(+42.01)": "[UNIMOD:1]" # Acetylation
+  "(+43.01)": "[UNIMOD:5]" # Carbamylation
+  "(-17.03)": "[UNIMOD:385]" # Loss of ammonia
+
+column_map:
+  "Modified sequence": "modified_sequence"
+  "MS/MS m/z": "precursor_mz"
+  # "m/z": "precursor_mz"
+  "Mass": "precursor_mass"
+  "Charge": "precursor_charge"
+  "Mass values": "mz_array"
+  "Mass spectrum": "mz_array"
+  "Intensity": "intensity_array"
+  "Raw intensity spectrum": "intensity_array"
+  "Scan number": "scan_number"
+
+# A list of columns that (if found) will be retained in output csv
+index_columns:
+  - "id"
+  - "experiment_name"
+  - "evidence_index"
+  - "scan_number"
+  - "spectrum_id"
+  - "global_index"
+  - "spectrum_index"
+  - "file_index"
+  - "sample"
+  - "file"
+  - "index"
+  - "fileno"
+  - "precursor_mz"
+  - "precursor_charge"

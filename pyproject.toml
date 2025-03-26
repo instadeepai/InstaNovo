@@ -20,10 +20,9 @@ keywords = [
 ]
 description = "InstaNovo enables diffusion-powered de novo peptide sequencing in large scale proteomics experiments"
 requires-python = " >=3.10,<3.13"
-license = { text = "Apache-2.0" }
+license = "Apache-2.0"
 classifiers = [
     "Programming Language :: Python :: 3",
-    "License :: OSI Approved :: Apache Software License",
     "Operating System :: OS Independent",
 ]
 dynamic = ["version", "readme"]
@@ -33,6 +32,7 @@ dependencies = [
     "hydra-core>=1.3.2",
     "jaxtyping>=0.2.34",
     "jiwer>=3.0.5",
+    "lightning>=2.5.1",
     "matchms>=0.28.1",
     "neptune>=1.13.0",
     "numpy>=2.0.2",
@@ -41,7 +41,6 @@ dependencies = [
     "polars>=1.12.0",
     "pyteomics>=4.7.5",
     "python-dotenv>=1.0.1",
-    "pytorch-lightning>=2.4.0",
     "pyyaml>=6.0.2",
     "requests>=2.32.3",
     "s3fs>=2024.9.0",
@@ -100,6 +99,7 @@ cu124 = [
 
 
 [tool.uv]
+required-version = ">=0.6.5"
 conflicts = [
   [
     { extra = "cpu" },
@@ -157,19 +157,9 @@ exclude_lines = [
 [tool.coverage.html]
 directory = "coverage"
 
-[tool.flake8]
-exclude = [".git", "**/__pycache__/", "build/", "dist/", "proto/", "*.pyc", "*.egg-info/", ".cache/", ".eggs/"]
-max-line-length = 100
-import-order-style = "google"
-application-import-names = "instanovo"
-doctests = true
-docstring-convention = "google"
-per-file-ignores = ["__init__.py:F401"]
-ignore = ["D107", # Do not require docstrings for __init__
-          "W503", # line break before binary operator (not compatible with black)
-          "E731"  # do not assign a lambda expression, use a def
-        ]
-select = ["A", "B", "C", "D", "E", "F", "G", "I", "N", "T", "W"]
+[tool.codespell]
+skip = "*.js,*.html,*.css, *.svg"
+ignore-words-list = ["abck", "fOf", "te"]
 
 [tool.mypy]
 python_version = "3.10"
@@ -190,6 +180,21 @@ strict_optional = true
 strict_equality = true
 explicit_package_bases = true
 follow_imports = "skip"
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+extend-select = ["A", "B", "C", "D", "E", "F", "G", "I", "N", "T", "W"]
+ignore = ["B008", "C901", "D100", "D103", "D104", "D105", "D107", "D417", "F722", "G004", "N812"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"  # Accepts: "google", "numpy", or "pep257"
+
+[tool.ruff.lint.per-file-ignores]
+# Ignore `D104` (missing docstring) in all `__init__.py` files
+"__init__.py" = ["D104"]
+"*.ipynb" = ["T201"]  # Ignore T201 (`print` found) in Jupyter Notebooks
 
 [project.urls]
 Homepage = "https://github.com/instadeepai/InstaNovo"

@@ -9,13 +9,11 @@ import torch.nn as nn
 from omegaconf import DictConfig
 
 from instanovo.constants import MASS_SCALE
-from instanovo.transformer.dataset import collate_batch
-from instanovo.transformer.dataset import SpectrumDataset
-from instanovo.transformer.layers import MultiScalePeakEmbedding
-from instanovo.transformer.layers import PositionalEncoding
+from instanovo.transformer.dataset import SpectrumDataset, collate_batch
+from instanovo.transformer.layers import MultiScalePeakEmbedding, PositionalEncoding
 from instanovo.transformer.model import InstaNovo
-from instanovo.utils.residues import ResidueSet
 from instanovo.utils.data_handler import SpectrumDataFrame
+from instanovo.utils.residues import ResidueSet
 
 
 def test_model_init(instanovo_config: DictConfig, dir_paths: tuple[Any, Any]) -> None:
@@ -48,9 +46,9 @@ def test_model_init(instanovo_config: DictConfig, dir_paths: tuple[Any, Any]) ->
     assert isinstance(model.head, nn.Linear)
     assert isinstance(model.charge_encoder, nn.Embedding)
 
-    assert model._get_causal_mask(
-        seq_len=instanovo_config["max_length"]
-    ).shape == torch.Size([6, 6])
+    assert model._get_causal_mask(seq_len=instanovo_config["max_length"]).shape == torch.Size(
+        [6, 6]
+    )
 
     _, data_dir = dir_paths
     df = pl.read_ipc(os.path.join(data_dir, "test.ipc"))
@@ -70,6 +68,7 @@ def test_model_init(instanovo_config: DictConfig, dir_paths: tuple[Any, Any]) ->
             [sd[i][1] for i in range(3)],
             [sd[i][2] for i in range(3)],
             [sd[i][3] for i in range(3)],
+            strict=True,
         )
     )
     spectra, precursors, spectra_mask, peptides, peptides_mask = collate_batch(batch)
@@ -82,9 +81,9 @@ def test_model_init(instanovo_config: DictConfig, dir_paths: tuple[Any, Any]) ->
         assert peptides.shape == torch.Size([3, 7])
     assert peptides_mask.shape == torch.Size([3, 7])
 
-    assert model.forward(
-        x=spectra, p=precursors, y=peptides, add_bos=True
-    ).shape == torch.Size([3, 8, 8])
+    assert model.forward(x=spectra, p=precursors, y=peptides, add_bos=True).shape == torch.Size(
+        [3, 8, 8]
+    )
 
     (x, x_mask), probs = model.init(
         spectra=spectra, precursors=precursors, spectra_mask=spectra_mask

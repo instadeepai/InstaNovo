@@ -180,13 +180,9 @@ class Metrics:
         x, y = [], []
         t_idx = np.argsort(np.array(conf))
         t_idx = t_idx[~conf[t_idx].isna()]
-        t_idx = list(t_idx[(t_idx.shape[0] * np.arange(N) / N).astype(int)]) + [
-            t_idx[-1]
-        ]
+        t_idx = list(t_idx[(t_idx.shape[0] * np.arange(N) / N).astype(int)]) + [t_idx[-1]]
         for t in conf[t_idx]:  # type: ignore
-            _, _, recall, precision = self.compute_precision_recall(
-                targs, preds, conf, t
-            )
+            _, _, recall, precision = self.compute_precision_recall(targs, preds, conf, t)
             x.append(recall)
             y.append(precision)
         return x, y

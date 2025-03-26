@@ -22,7 +22,10 @@ class ScoredSequence:
 
 
 class Decodable(metaclass=ABCMeta):
-    """An interface for models that can be decoded by algorithms that conform to the search interface."""
+    """An interface for models that can be decoded.
+
+    Algorithms should conform to the search interface.
+    """
 
     @property
     @abstractmethod
@@ -105,7 +108,9 @@ class Decodable(metaclass=ABCMeta):
 
 
 class Decoder(metaclass=ABCMeta):
-    """A class that implements some search algorithm for decoding from a model that conforms to the `Decodable` interface.
+    """A class that implements some search algorithm for decoding.
+
+    Model should conform to the `Decodable` interface.
 
     Args:
         model (Decodable):

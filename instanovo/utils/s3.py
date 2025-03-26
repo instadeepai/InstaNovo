@@ -5,13 +5,10 @@ import os
 import re
 from pathlib import Path
 
-import pytorch_lightning as pl
+import lightning as L
 import s3fs
-from pytorch_lightning.strategies import DDPStrategy
-from tensorboard.compat.tensorflow_stub.io.gfile import (
-    _REGISTERED_FILESYSTEMS,
-    register_filesystem,
-)
+from lightning.pytorch.strategies import DDPStrategy
+from tensorboard.compat.tensorflow_stub.io.gfile import _REGISTERED_FILESYSTEMS, register_filesystem
 
 from instanovo.__init__ import console
 from instanovo.utils.colorlogging import ColorLog
@@ -91,7 +88,7 @@ def _clean_filepath(filepath: str) -> str:
     return clean_filepath
 
 
-class PLCheckpointWrapper(pl.callbacks.ModelCheckpoint):
+class PLCheckpointWrapper(L.pytorch.callbacks.ModelCheckpoint):
     """Wrapper for PL ModelCheckpoint callback to upload checkpoints to s3."""
 
     def __init__(
@@ -129,7 +126,7 @@ class PLCheckpointWrapper(pl.callbacks.ModelCheckpoint):
         self.s3_ckpt_path = s3_ckpt_path
         self.strategy = strategy
 
-    def _save_checkpoint(self, trainer: pl.Trainer, filepath: str) -> None:
+    def _save_checkpoint(self, trainer: L.pytorch.Trainer, filepath: str) -> None:
         super()._save_checkpoint(trainer, filepath)
         if not self.s3_ckpt_path:
             return

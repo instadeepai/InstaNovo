@@ -1,25 +1,25 @@
-import os
 import copy
+import os
 from pathlib import Path
 from typing import Any
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 import torch
+from lightning.pytorch.strategies import DDPStrategy
 from omegaconf import DictConfig
-from pytorch_lightning.strategies import DDPStrategy
 
 from instanovo.transformer.train import (
+    NeptuneSummaryWriter,
+    WarmupScheduler,
     _get_strategy,
     _set_author_neptune_api_token,
     main,
-    NeptuneSummaryWriter,
-    WarmupScheduler,
     train,
 )
 
 
-@patch("pytorch_lightning.Trainer.fit")
+@patch("lightning.pytorch.Trainer.fit")
 def test_train(
     mock_fit: Any,
     instanovo_config: DictConfig,
@@ -40,7 +40,7 @@ def test_train(
     train(temp_config)
     assert mock_fit.call_count == 2
 
-    # Check training when model_path is given
+    # Check training when instanovo_model is given
     temp_config["train_from_scratch"] = False
     temp_config["resume_checkpoint"] = os.path.join(root_dir, "model.ckpt")
     train(temp_config)
@@ -48,9 +48,7 @@ def test_train(
 
     # Check training when blacklist is given
     temp_config["train_from_scratch"] = True
-    temp_config["blacklist"] = (
-        "./tests/instanovo_test_resources/example_data/blacklist.csv"
-    )
+    temp_config["blacklist"] = "./tests/instanovo_test_resources/example_data/blacklist.csv"
     train(temp_config)
     assert mock_fit.call_count == 4
 
@@ -88,9 +86,7 @@ def test_set_neptune_token() -> None:
         assert "VCS_AUTHOR_EMAIL" not in os.environ
         assert "NEPTUNE_API_TOKEN" not in os.environ
 
-    with patch.dict(
-        os.environ, {"VCS_AUTHOR_EMAIL": "a-test.email@example.com"}, clear=True
-    ):
+    with patch.dict(os.environ, {"VCS_AUTHOR_EMAIL": "a-test.email@example.com"}, clear=True):
         _set_author_neptune_api_token()
         assert os.environ["VCS_AUTHOR_EMAIL"] == "a-test.email@example.com"
         assert "NEPTUNE_API_TOKEN" not in os.environ
