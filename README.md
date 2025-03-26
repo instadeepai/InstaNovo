@@ -19,8 +19,8 @@ iterative refinement of predicted sequences.
 
 **Links:**
 
-- bioRxiv:
-  [https://www.biorxiv.org/content/10.1101/2023.08.30.555055v3](https://www.biorxiv.org/content/10.1101/2023.08.30.555055v3)
+- Publication in Nature Machine Intelligence:
+  [InstaNovo enables diffusion-powered de novo peptide sequencing in large-scale proteomics experiments](https://www.nature.com/articles/s42256-025-01019-5)
 - documentation:
   [https://instadeepai.github.io/InstaNovo/](https://instadeepai.github.io/InstaNovo/)
 
@@ -523,14 +523,15 @@ The model checkpoints are licensed under Creative Commons Non-Commercial
 If you use InstaNovo in your research, please cite the following paper:
 
 ```bibtex
-@article{eloff_kalogeropoulos_2024_instanovo,
-	title = {De novo peptide sequencing with InstaNovo: Accurate, database-free peptide identification for large scale proteomics experiments},
-	author = {Kevin Eloff and Konstantinos Kalogeropoulos and Oliver Morell and Amandla Mabona and Jakob Berg Jespersen and Wesley Williams and Sam van Beljouw and Marcin Skwark and Andreas Hougaard Laustsen and Stan J. J. Brouns and Anne Ljungars and Erwin Marten Schoof and Jeroen Van Goey and Ulrich auf dem Keller and Karim Beguir and Nicolas Lopez Carranza and Timothy Patrick Jenkins},
-	year = {2024},
-	doi = {10.1101/2023.08.30.555055},
-	publisher = {Cold Spring Harbor Laboratory},
-	URL = {https://www.biorxiv.org/content/10.1101/2023.08.30.555055v3},
-	journal = {bioRxiv}
+@article{eloff_kalogeropoulos_2025_instanovo,
+	title = {InstaNovo enables diffusion-powered de novo peptide sequencing in large-scale proteomics experiments},
+	author = {Kevin Eloff and Konstantinos Kalogeropoulos and Amandla Mabona and Oliver Morell and Rachel Catzel and Esperanza Rivera-de-Torre and Jakob Berg Jespersen and Wesley Williams and Sam P. B. van Beljouw and Marcin J. Skwark and Andreas Hougaard Laustsen and Stan J. J. Brouns and Anne Ljungars and Erwin M. Schoof and Jeroen Van Goey and Ulrich auf dem Keller and Karim Beguir and Nicolas Lopez Carranza and Timothy P. Jenkins},
+  year={2025},
+  month={Mar},
+  day={31},
+	doi = {10.1038/s42256-025-01019-5},
+	URL = {https://www.nature.com/articles/s42256-025-01019-5},
+	journal={Nature Machine Intelligence}
 }
 ```
 
