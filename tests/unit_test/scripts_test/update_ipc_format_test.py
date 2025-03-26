@@ -6,8 +6,7 @@ import pandas as pd
 import polars as pl
 import pytest
 
-from instanovo.scripts.update_ipc_format import update_ipc
-from instanovo.scripts.update_ipc_format import main
+from instanovo.scripts.update_ipc_format import main, update_ipc
 
 
 def test_update_ipc_format(tmp_path: Path) -> None:

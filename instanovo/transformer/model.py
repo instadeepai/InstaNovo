@@ -92,9 +92,7 @@ class InstaNovo(nn.Module, Decodable):
         # Decoder
         self.aa_embed = nn.Embedding(self.vocab_size, dim_model, padding_idx=0)
 
-        self.aa_pos_embed = PositionalEncoding(
-            dim_model, dropout, max_len=MAX_SEQUENCE_LENGTH
-        )
+        self.aa_pos_embed = PositionalEncoding(dim_model, dropout, max_len=MAX_SEQUENCE_LENGTH)
 
         decoder_layer = nn.TransformerDecoderLayer(
             d_model=dim_model,
@@ -131,9 +129,7 @@ class InstaNovo(nn.Module, Decodable):
     def get_pretrained() -> list[str]:
         """Get a list of pretrained model ids."""
         # Load the models.json file
-        with resources.files("instanovo").joinpath("models.json").open(
-            "r", encoding="utf-8"
-        ) as f:
+        with resources.files("instanovo").joinpath("models.json").open("r", encoding="utf-8") as f:
             models_config = json.load(f)
 
         if MODEL_TYPE not in models_config:
@@ -154,9 +150,7 @@ class InstaNovo(nn.Module, Decodable):
 
         # check if PTL checkpoint
         if all(x.startswith("model") for x in ckpt["state_dict"].keys()):
-            ckpt["state_dict"] = {
-                k.replace("model.", ""): v for k, v in ckpt["state_dict"].items()
-            }
+            ckpt["state_dict"] = {k.replace("model.", ""): v for k, v in ckpt["state_dict"].items()}
 
         residues = dict(config["residues"])
         if update_residues_to_unimod:
@@ -190,22 +184,19 @@ class InstaNovo(nn.Module, Decodable):
         # Check if model_id is a local file path
         if "/" in model_id or "\\" in model_id or model_id.endswith(".ckpt"):
             if os.path.isfile(model_id):
-                return cls.load(
-                    model_id, update_residues_to_unimod=update_residues_to_unimod
-                )
+                return cls.load(model_id, update_residues_to_unimod=update_residues_to_unimod)
             else:
                 raise FileNotFoundError(f"No file found at path: {model_id}")
 
         # Load the models.json file
-        with resources.files("instanovo").joinpath("models.json").open(
-            "r", encoding="utf-8"
-        ) as f:
+        with resources.files("instanovo").joinpath("models.json").open("r", encoding="utf-8") as f:
             models_config = json.load(f)
 
         # Find the model in the config
         if MODEL_TYPE not in models_config or model_id not in models_config[MODEL_TYPE]:
             raise ValueError(
-                f"Model {model_id} not found in models.json, options are [{', '.join(models_config[MODEL_TYPE].keys())}]"
+                f"Model {model_id} not found in models.json, options are "
+                f"[{', '.join(models_config[MODEL_TYPE].keys())}]"
             )
 
         model_info = models_config[MODEL_TYPE][model_id]
@@ -249,9 +240,7 @@ class InstaNovo(nn.Module, Decodable):
             logger.info(f"Model {model_id} already cached at {cached_file}")
 
         # Load and return the model
-        return cls.load(
-            str(cached_file), update_residues_to_unimod=update_residues_to_unimod
-        )
+        return cls.load(str(cached_file), update_residues_to_unimod=update_residues_to_unimod)
 
     def forward(
         self,
@@ -320,16 +309,12 @@ class InstaNovo(nn.Module, Decodable):
 
         return torch.log_softmax(logits[:, -1, :], -1)
 
-    def get_residue_masses(
-        self, mass_scale: int
-    ) -> Integer[DiscretizedMass, " residue"]:
+    def get_residue_masses(self, mass_scale: int) -> Integer[DiscretizedMass, " residue"]:
         """Get the scaled masses of all residues."""
         residue_masses = torch.zeros(len(self.residue_set), dtype=torch.int64)
         for index, residue in self.residue_set.index_to_residue.items():
             if residue in self.residue_set.residue_masses:
-                residue_masses[index] = round(
-                    mass_scale * self.residue_set.get_mass(residue)
-                )
+                residue_masses[index] = round(mass_scale * self.residue_set.get_mass(residue))
         return residue_masses
 
     def get_eos_index(self) -> int:
@@ -343,7 +328,8 @@ class InstaNovo(nn.Module, Decodable):
     def decode(self, sequence: Peptide) -> list[str]:
         """Decode a single sequence of AA IDs."""
         # Note: Sequence is reversed as InstaNovo predicts right-to-left.
-        # We reverse the sequence again when decoding to ensure the decoder outputs forward sequences.
+        # We reverse the sequence again when decoding to ensure
+        # the decoder outputs forward sequences.
         return self.residue_set.decode(sequence, reverse=True)  # type: ignore
 
     def idx_to_aa(self, idx: Peptide) -> list[str]:
@@ -358,9 +344,7 @@ class InstaNovo(nn.Module, Decodable):
             t.append(i)
         return [self.i2s[x.item()] for x in t]
 
-    def batch_idx_to_aa(
-        self, idx: Integer[Peptide, " batch"], reverse: bool
-    ) -> list[list[str]]:
+    def batch_idx_to_aa(self, idx: Integer[Peptide, " batch"], reverse: bool) -> list[list[str]]:
         """Decode a batch of indices to aa lists."""
         return [self.residue_set.decode(i, reverse=reverse) for i in idx]
 
@@ -381,9 +365,7 @@ class InstaNovo(nn.Module, Decodable):
         # Self-attention on latent spectra AND peaks
         latent_spectra = self.latent_spectrum.expand(x.shape[0], -1, -1)
         x = torch.cat([latent_spectra, x], dim=1)
-        latent_mask = torch.zeros(
-            (x_mask.shape[0], 1), dtype=bool, device=x_mask.device
-        )
+        latent_mask = torch.zeros((x_mask.shape[0], 1), dtype=bool, device=x_mask.device)
         x_mask = torch.cat([latent_mask, x_mask], dim=1)
 
         x = self.encoder(x, src_key_padding_mask=x_mask)
@@ -418,9 +400,7 @@ class InstaNovo(nn.Module, Decodable):
             y = torch.cat([bos, y], dim=1)
 
             if y_mask is not None:
-                bos_mask = torch.zeros(
-                    (y_mask.shape[0], 1), dtype=bool, device=y_mask.device
-                )
+                bos_mask = torch.zeros((y_mask.shape[0], 1), dtype=bool, device=y_mask.device)
                 y_mask = torch.cat([bos_mask, y_mask], dim=1)
 
         y = self.aa_embed(y)
@@ -442,9 +422,7 @@ class InstaNovo(nn.Module, Decodable):
 
         return self.head(y_hat)
 
-    def _flash_encoder(
-        self, x: Tensor, p: Tensor, x_mask: Tensor = None
-    ) -> tuple[Tensor, Tensor]:
+    def _flash_encoder(self, x: Tensor, p: Tensor, x_mask: Tensor = None) -> tuple[Tensor, Tensor]:
         # Special mask for zero-indices
         # One is padded, zero is normal
         x_mask = (~x.sum(dim=2).bool()).float()
@@ -464,8 +442,9 @@ class InstaNovo(nn.Module, Decodable):
             from torch.nn.attention import SDPBackend, sdpa_kernel
         except ImportError:
             raise ImportError(
-                "Training InstaNovo with Flash attention enabled requires at least pytorch v2.3. Please upgrade your pytorch version"
-            )
+                "Training InstaNovo with Flash attention enabled requires at least pytorch v2.3. "
+                "Please upgrade your pytorch version"
+            ) from None
 
         with sdpa_kernel(SDPBackend.FLASH_ATTENTION):
             x = self.encoder(x)
@@ -508,8 +487,9 @@ class InstaNovo(nn.Module, Decodable):
             from torch.nn.attention import SDPBackend, sdpa_kernel
         except ImportError:
             raise ImportError(
-                "Training InstaNovo with Flash attention enabled requires at least pytorch v2.3. Please upgrade your pytorch version"
-            )
+                "Training InstaNovo with Flash attention enabled requires at least pytorch v2.3. "
+                "Please upgrade your pytorch version"
+            ) from None
 
         with sdpa_kernel(SDPBackend.FLASH_ATTENTION):
             y_hat = self.decoder(y, x, tgt_mask=c_mask)

@@ -38,18 +38,13 @@ def convert(
     target: Annotated[
         Path,
         typer.Argument(
-            exists=True,
-            file_okay=False,
-            dir_okay=True,
-            help="Target folder to save data shards",
+            exists=True, file_okay=False, dir_okay=True, help="Target folder to save data shards"
         ),
     ],
     name: Annotated[Optional[str], typer.Option(help="Name of saved dataset")],
     partition: Annotated[Partition, typer.Option(help="Partition of saved dataset")],
     max_charge: Annotated[int, typer.Option(help="Maximum charge to filter out")] = 10,
-    shard_size: Annotated[
-        int, typer.Option(help="Length of saved data shards")
-    ] = 1_000_000,
+    shard_size: Annotated[int, typer.Option(help="Length of saved data shards")] = 1_000_000,
     is_annotated: Annotated[
         bool, typer.Option("--is-annotated", help="whether dataset is annotated")
     ] = False,

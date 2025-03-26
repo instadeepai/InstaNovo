@@ -32,9 +32,7 @@ logger.setLevel(logging.INFO)
 RECORD_ID = "14961323"
 
 
-def get_zenodo(
-    zenodo_url: str, zip_path: str, progress: Progress, task_id: TaskID
-) -> None:
+def get_zenodo(zenodo_url: str, zip_path: str, progress: Progress, task_id: TaskID) -> None:
     """Fetches specified zenodo record."""
     try:
         response = requests.get(zenodo_url, stream=True)
@@ -90,7 +88,8 @@ def main(
         f"{extract_path}/instanovo_test_resources"
     ):
         typer.echo(
-            f"Skipping download and extraction. Path '{extract_path}/instanovo_test_resources' already exists and is non-empty."
+            f"Skipping download and extraction. Path '{extract_path}/instanovo_test_resources' "
+            "already exists and is non-empty."
         )
         raise typer.Exit()
 

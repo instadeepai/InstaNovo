@@ -18,7 +18,7 @@ def rename_files(directory: str, target: str, counter: int) -> None:
 
 if __name__ == "__main__":
     if len(sys.argv) != 4:
-        print("Usage: python rename_files.py <source> <target> <offset>")
+        print("Usage: python rename_files.py <source> <target> <offset>")  # noqa: T201
         sys.exit(1)
 
     rename_files(sys.argv[1], sys.argv[2], int(sys.argv[3]))

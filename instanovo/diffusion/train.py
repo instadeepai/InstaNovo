@@ -15,7 +15,8 @@ import pandas as pd
 import polars as pl
 import torch
 from neptune.integrations.python_logger import NeptuneHandler
-from omegaconf import DictConfig, OmegaConf, open_dict
+from neptune.internal.utils.git import GitInfo
+from omegaconf import DictConfig, ListConfig, OmegaConf, open_dict
 from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
@@ -65,12 +66,34 @@ def train(config: DictConfig) -> None:
         config["tb_summarywriter"] = config["tb_summarywriter"] + time_now
 
     if config.get("report_to", "") == "neptune":
+        if "NEPTUNE_API_TOKEN" not in os.environ:
+            raise ValueError(
+                "In the configuration file, 'report_to' is set to 'neptune', but no "
+                "Neptune API token is found. Please set the NEPTUNE_API_TOKEN environment variable"
+            )
         os.environ["NEPTUNE_PROJECT"] = "InstaDeep/denovo-sequencing"
+
+        if "AICHOR_LOGS_PATH" in os.environ:
+            # On AIchor the .git folder is not available so we cannot rely on neptune’s git
+            # integration to log the git info as an artifact. Instead, we monkeypatch the function
+            # used by neptune to retrieve the git info, and call it before creating the neptune run.
+            neptune.metadata_containers.run.to_git_info = lambda git_ref: GitInfo(
+                commit_id=os.environ["VCS_SHA"],
+                message=os.environ["VCS_COMMIT_MESSAGE"],
+                author_name=os.environ["VCS_AUTHOR_NAME"],
+                author_email=os.environ["VCS_AUTHOR_EMAIL"],
+                # not available as env variable
+                commit_date=datetime.datetime.now(),
+                dirty=False,
+                branch=os.environ["VCS_REF_NAME"],
+                remotes=None,
+            )
+
         run = neptune.init_run(
             with_id=None,
             name=config.get("run_name", "no_run_name_specified") + time_now,
             dependencies=str(Path(__file__).parent.parent.parent / "uv.lock"),
-            tags=config.get("tags", []),
+            tags=OmegaConf.to_object(config.get("tags", ListConfig([]))),
         )
         run.assign({"config": OmegaConf.to_yaml(config)})
         sw = NeptuneSummaryWriter(config["tb_summarywriter"], run)
@@ -114,8 +137,9 @@ def train(config: DictConfig) -> None:
         # More descriptive error message in predict mode.
         if str(e) == ANNOTATION_ERROR:
             raise ValueError(
-                "The sequence column is missing annotations, are you trying to run de novo prediction? Add the --denovo flag"
-            )
+                "The sequence column is missing annotations, "
+                "are you trying to run de novo prediction? Add the --denovo flag"
+            ) from e
         else:
             raise
 
@@ -132,12 +156,8 @@ def train(config: DictConfig) -> None:
         train_unique = set(train_unique)
         valid_unique = set(valid_unique)
 
-        train_sdf.filter_rows(
-            lambda row: remove_modifications(row["sequence"]) in train_unique
-        )
-        valid_sdf.filter_rows(
-            lambda row: remove_modifications(row["sequence"]) in valid_unique
-        )
+        train_sdf.filter_rows(lambda row: remove_modifications(row["sequence"]) in train_unique)
+        valid_sdf.filter_rows(lambda row: remove_modifications(row["sequence"]) in valid_unique)
         # Save splits
         # TODO: Optionally load the data splits
         # TODO: Allow loading of data splits in `predict.py`
@@ -156,9 +176,7 @@ def train(config: DictConfig) -> None:
 
     # Check residues
     if config.get("perform_data_checks", True):
-        logger.info(
-            f"Checking for unknown residues in {len(train_sdf) + len(valid_sdf):,d} rows."
-        )
+        logger.info(f"Checking for unknown residues in {len(train_sdf) + len(valid_sdf):,d} rows.")
         supported_residues = set(residue_set.vocab)
         supported_residues.update(set(residue_set.residue_remapping.keys()))
         data_residues = set()
@@ -173,26 +191,26 @@ def train(config: DictConfig) -> None:
             original_size = (len(train_sdf), len(valid_sdf))
             train_sdf.filter_rows(
                 lambda row: all(
-                    [
-                        residue in supported_residues
-                        for residue in set(residue_set.tokenize(row[ANNOTATED_COLUMN]))
-                    ]
+                    residue in supported_residues
+                    for residue in set(residue_set.tokenize(row[ANNOTATED_COLUMN]))
                 )
             )
             valid_sdf.filter_rows(
                 lambda row: all(
-                    [
-                        residue in supported_residues
-                        for residue in set(residue_set.tokenize(row[ANNOTATED_COLUMN]))
-                    ]
+                    residue in supported_residues
+                    for residue in set(residue_set.tokenize(row[ANNOTATED_COLUMN]))
                 )
             )
             new_size = (len(train_sdf), len(valid_sdf))
             logger.warning(
-                f"{original_size[0] - new_size[0]:,d} ({(original_size[0] - new_size[0]) / original_size[0] * 100:.2f}%) training rows dropped."
+                f"{original_size[0] - new_size[0]:,d} "
+                f"({(original_size[0] - new_size[0]) / original_size[0] * 100:.2f}%) "
+                "training rows dropped."
             )
             logger.warning(
-                f"{original_size[1] - new_size[1]:,d} ({(original_size[1] - new_size[1]) / original_size[1] * 100:.2f}%) validation rows dropped."
+                f"{original_size[1] - new_size[1]:,d} "
+                f"({(original_size[1] - new_size[1]) / original_size[1] * 100:.2f}%) "
+                "validation rows dropped."
             )
 
         # Check charge values:
@@ -203,7 +221,8 @@ def train(config: DictConfig) -> None:
         )
         if len(train_sdf) < original_size[0]:
             logger.warning(
-                f"Found {original_size[0] - len(train_sdf)} rows in training set with charge > {config.get('max_charge', 10)} or <= 0. These rows will be skipped."
+                f"Found {original_size[0] - len(train_sdf)} rows in training set with charge > "
+                f"{config.get('max_charge', 10)} or <= 0. These rows will be skipped."
             )
 
         valid_sdf.filter_rows(
@@ -212,7 +231,8 @@ def train(config: DictConfig) -> None:
         )
         if len(valid_sdf) < original_size[1]:
             logger.warning(
-                f"Found {original_size[1] - len(valid_sdf)} rows in training set with charge > {config.get('max_charge', 10)}. These rows will be skipped."
+                f"Found {original_size[1] - len(valid_sdf)} rows in training set with charge > "
+                f"{config.get('max_charge', 10)}. These rows will be skipped."
             )
 
     train_sdf.sample_subset(fraction=config.get("train_subset", 1.0), seed=42)
@@ -252,14 +272,12 @@ def train(config: DictConfig) -> None:
     train_sequences = pl.Series(list(train_sdf.get_unique_sequences()))
     valid_sequences = pl.Series(list(valid_sdf.get_unique_sequences()))
     if config.get("blacklist", None):
-        logger.info(
-            "Checking if any training set overlaps with blacklisted sequences..."
-        )
+        logger.info("Checking if any training set overlaps with blacklisted sequences...")
         blacklist_df = pd.read_csv(config["blacklist"])
         leakage = any(
-            train_sequences.map_elements(
-                remove_modifications, return_dtype=pl.String
-            ).is_in(blacklist_df["sequence"])
+            train_sequences.map_elements(remove_modifications, return_dtype=pl.String).is_in(
+                blacklist_df["sequence"]
+            )
         )
         if leakage:
             raise ValueError(
@@ -272,9 +290,7 @@ def train(config: DictConfig) -> None:
         logger.info("Checking if any validation set overlaps with training set...")
         leakage = any(valid_sequences.is_in(train_sequences))
         if leakage:
-            raise ValueError(
-                "Portion of validation set sequences overlaps with training set."
-            )
+            raise ValueError("Portion of validation set sequences overlaps with training set.")
         else:
             logger.info("No data leakage!")
 
@@ -282,23 +298,22 @@ def train(config: DictConfig) -> None:
     if config.get("save_model", True):
         total_epochs = config.get("epochs", 30)
         epochs_per_save = 1 / (
-            len(train_ds)
-            / config.get("train_batch_size", 256)
-            / config.get("ckpt_interval")
+            len(train_ds) / config.get("train_batch_size", 256) / config.get("ckpt_interval")
         )
         if epochs_per_save > total_epochs:
             logger.warning(
-                f"Model checkpoint will never save. Attempting to save every {epochs_per_save:.2f} epochs but only training for {total_epochs:d} epochs. Check ckpt_interval in config."
+                f"Model checkpoint will never save. Attempting to save every {epochs_per_save:.2f} "
+                f"epochs but only training for {total_epochs:d} epochs. "
+                "Check ckpt_interval in config."
             )
         else:
             logger.info(f"Model checkpointing every {epochs_per_save:.2f} epochs.")
 
     # Check warmup
-    if config.get("warmup_iters", 100_000) > len(train_ds) / config.get(
-        "train_batch_size", 256
-    ):
+    if config.get("warmup_iters", 100_000) > len(train_ds) / config.get("train_batch_size", 256):
         logger.warning(
-            "Model warmup is greater than one epoch of the training set. Check warmup_iters in config"
+            "Model warmup is greater than one epoch of the training set. "
+            "Check warmup_iters in config"
         )
 
     train_dl = DataLoader(
@@ -332,7 +347,8 @@ def train(config: DictConfig) -> None:
 
     if peptides_mask.any():
         raise ValueError(
-            "Peptide mask contains True values, attention should apply to the whole sequence when using diffusion."
+            "Peptide mask contains True values, attention should apply to the whole sequence when "
+            "using diffusion."
         )
 
     logger.info("Initializing model.")
@@ -366,9 +382,7 @@ def train(config: DictConfig) -> None:
             logger.warning(
                 f"Model expects vocab size of {len(residue_set)}, checkpoint has {aa_embed_size}."
             )
-            logger.warning(
-                "Assuming a change was made to the residues in the configuration file."
-            )
+            logger.warning("Assuming a change was made to the residues in the configuration file.")
             logger.warning(f"Automatically converting {state_keys} to match expected.")
 
             new_model_state = model.transition_model.state_dict()
@@ -392,30 +406,33 @@ def train(config: DictConfig) -> None:
                 elif resolution == "random":
                     model_state[k] = tmp
                 elif resolution == "partial":
-                    tmp[:aa_embed_size] = model_state[k][
-                        : min(tmp.shape[0], aa_embed_size)
-                    ]
+                    tmp[:aa_embed_size] = model_state[k][: min(tmp.shape[0], aa_embed_size)]
                     model_state[k] = tmp
                 else:
-                    raise ValueError(
-                        f"Unknown residue_conflict_resolution type '{resolution}'"
-                    )
+                    raise ValueError(f"Unknown residue_conflict_resolution type '{resolution}'")
 
             logger.warning(
-                f"Model checkpoint has {len(state_keys)} weights updated with '{resolution}' conflict resolution"
+                f"Model checkpoint has {len(state_keys)} weights updated with '{resolution}' "
+                "conflict resolution"
             )
 
         k_missing: int = np.sum(
-            [x not in list(model_state.keys()) for x in list(model.state_dict().keys())]
+            [
+                x not in list(model_state.keys())
+                for x in list(model.transition_model.state_dict().keys())
+            ]
         )
         if k_missing > 0:
             logger.warning(f"Model checkpoint is missing {k_missing} keys!")
         k_missing: int = np.sum(
-            [x not in list(model.state_dict().keys()) for x in list(model_state.keys())]
+            [
+                x not in list(model.transition_model.state_dict().keys())
+                for x in list(model_state.keys())
+            ]
         )
         if k_missing > 0:
             logger.warning(f"Model state is missing {k_missing} keys!")
-        model.load_state_dict(model_state, strict=False)
+        model.transition_model.load_state_dict(model_state, strict=False)
 
     logger.info(
         f"Model loaded with {np.sum([p.numel() for p in model.parameters()]):,d} parameters"
@@ -454,9 +471,7 @@ def train(config: DictConfig) -> None:
         weight_decay=float(config["weight_decay"]),
     )
 
-    warm_up_scheduler = WarmupScheduler(
-        optimizer=optimizer, warmup=config["warmup_iters"]
-    )
+    warm_up_scheduler = WarmupScheduler(optimizer=optimizer, warmup=config["warmup_iters"])
 
     # TODO implement forward pass check?
 
@@ -494,9 +509,7 @@ def train(config: DictConfig) -> None:
             peptides = peptides.to(device)
             peptide_mask = peptide_mask.to(device)
 
-            with torch.no_grad(), torch.amp.autocast(
-                "cuda", dtype=torch.float16, enabled=fp16
-            ):
+            with torch.no_grad(), torch.amp.autocast("cuda", dtype=torch.float16, enabled=fp16):
                 loss = loss_function(
                     peptides,
                     spectra=spectra,
@@ -527,9 +540,7 @@ def train(config: DictConfig) -> None:
         # print("predictions ", results)
         # print("log_probs ", all_log_probs)
 
-        aa_prec, aa_recall, pep_recall, _ = metrics.compute_precision_recall(
-            targets, results
-        )
+        aa_prec, aa_recall, pep_recall, _ = metrics.compute_precision_recall(targets, results)
         aa_er = metrics.compute_aa_er(targets, results)
 
         sw.add_scalar("eval/aa_prec", aa_prec, global_step)
@@ -599,8 +610,7 @@ def train(config: DictConfig) -> None:
                 )
 
             if (
-                (global_step + 1)
-                % int(config.get("console_logging_steps", 2000) * step_scale)
+                (global_step + 1) % int(config.get("console_logging_steps", 2000) * step_scale)
             ) == 0:
                 lr = warm_up_scheduler.get_last_lr()[0]
                 delta = time.time() - train_epoch_start_time
@@ -609,8 +619,11 @@ def train(config: DictConfig) -> None:
 
                 logger.info(
                     f"[TRAIN] [Epoch {epoch:02d}/{num_epochs - 1:02d} Step {global_step:06d}] "
-                    + f"[Batch {epoch_step + 1:05d}/{len(train_dl):05d}] [{_format_time(delta)}/{_format_time(est_total)}, {(delta / (epoch_step + 1)):.3f}s/it]: "
-                    + f"train_loss_raw={loss.item():.4f}, running_loss={running_loss:.4f}, LR={lr:.6f}"
+                    f"[Batch {epoch_step + 1:05d}/{len(train_dl):05d}] "
+                    f"[{_format_time(delta)}/{_format_time(est_total)}, "
+                    f"{(delta / (epoch_step + 1)):.3f}s/it]: "
+                    f"train_loss_raw={loss.item():.4f}, "
+                    f"running_loss={running_loss:.4f}, LR={lr:.6f}"
                 )
 
             if (
@@ -648,9 +661,7 @@ def train(config: DictConfig) -> None:
 
 
 # TODO remove main function
-@hydra.main(
-    config_path=str(CONFIG_PATH), version_base=None, config_name="instanovoplus"
-)
+@hydra.main(config_path=str(CONFIG_PATH), version_base=None, config_name="instanovoplus")
 def main(config: DictConfig) -> None:
     """Train the model."""
     logger.info("Initializing training.")

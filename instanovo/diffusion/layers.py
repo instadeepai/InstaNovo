@@ -1,25 +1,17 @@
 from __future__ import annotations
 
-import logging
-from typing import Optional
-from typing import Tuple
+from typing import Optional, Tuple
 
 import torch
 import torch.nn as nn
+from jaxtyping import Bool, Float
 
-from jaxtyping import Bool
-from jaxtyping import Float
+from instanovo.__init__ import console
+from instanovo.transformer.layers import ConvPeakEmbedding, MultiScalePeakEmbedding
+from instanovo.types import Spectrum, SpectrumEmbedding, SpectrumMask
+from instanovo.utils.colorlogging import ColorLog
 
-from instanovo.types import Spectrum
-from instanovo.types import SpectrumEmbedding
-from instanovo.types import SpectrumMask
-
-from instanovo.transformer.layers import ConvPeakEmbedding
-from instanovo.transformer.layers import MultiScalePeakEmbedding
-
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+logger = ColorLog(console, __name__).logger
 
 
 class TransformerEncoder(nn.Module):
@@ -100,7 +92,7 @@ class TransformerEncoder(nn.Module):
         x_mask: torch.Tensor
             Spectra padding mask, True for padded indices, bool Tensor (batch, n_peaks)
 
-        Returns
+        Returns:
         -------
         latent : torch.Tensor of shape (n_spectra, n_peaks + 1, dim_model)
             The latent representations for the spectrum and each of its
@@ -119,9 +111,7 @@ class TransformerEncoder(nn.Module):
         # Self-attention on latent spectra AND peaks
         latent_spectra = self.latent_spectrum.expand(x.shape[0], -1, -1)
         x = torch.cat([latent_spectra, x], dim=1)
-        latent_mask = torch.zeros(
-            (x_mask.shape[0], 1), dtype=bool, device=x_mask.device
-        )
+        latent_mask = torch.zeros((x_mask.shape[0], 1), dtype=bool, device=x_mask.device)
         x_mask = torch.cat([latent_mask, x_mask], dim=1)
 
         x = self.encoder(x, src_key_padding_mask=x_mask)

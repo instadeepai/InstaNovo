@@ -30,9 +30,7 @@ MODEL_TYPE = "diffusion"
 logger = ColorLog(console, __name__).logger
 
 
-def cosine_beta_schedule(
-    timesteps: int, s: float = 0.008
-) -> Float[torch.Tensor, " time"]:
+def cosine_beta_schedule(timesteps: int, s: float = 0.008) -> Float[torch.Tensor, " time"]:
     """Cosine schedule as proposed in https://arxiv.org/abs/2102.09672 .
 
     Returns alpha parameters, NOT Beta
@@ -95,12 +93,8 @@ class InstaNovoPlus(nn.Module):
         self.residues = residues
         self.transition_model = transition_model
         self.register_buffer("diffusion_schedule", torch.log(diffusion_schedule))
-        self.register_buffer(
-            "diffusion_schedule_complement", torch.log(1 - diffusion_schedule)
-        )
-        self.register_buffer(
-            "cumulative_schedule", torch.cumsum(self.diffusion_schedule, -1)
-        )
+        self.register_buffer("diffusion_schedule_complement", torch.log(1 - diffusion_schedule))
+        self.register_buffer("cumulative_schedule", torch.cumsum(self.diffusion_schedule, -1))
         self.register_buffer(
             "cumulative_schedule_complement",
             torch.log(1 - torch.exp(self.cumulative_schedule)),
@@ -179,25 +173,9 @@ class InstaNovoPlus(nn.Module):
         transition_model_path = os.path.join(save_path, "transition_model.ckpt")
         torch.save(self.transition_model.state_dict(), transition_model_path)
         save_file("transition_model.ckpt", transition_model_path)
-        device = self.config.get(
-            "device", "cuda" if torch.cuda.is_available() else "cpu"
-        )
+        device = self.config.get("device", "cuda" if torch.cuda.is_available() else "cpu")
         logger.info(f"Moving transition model to device {device}")
         self.transition_model.to(device)
-
-    @staticmethod
-    def get_pretrained() -> list[str]:
-        """Get a list of pretrained model ids."""
-        # Load the models.json file
-        with resources.files("instanovo").joinpath("models.json").open(
-            "r", encoding="utf-8"
-        ) as f:
-            models_config = json.load(f)
-
-        if MODEL_TYPE not in models_config:
-            return []
-
-        return list(models_config[MODEL_TYPE].keys())
 
     @classmethod
     def load(cls, path: str) -> Tuple[InstaNovoPlus, DictConfig]:
@@ -236,11 +214,7 @@ class InstaNovoPlus(nn.Module):
         )
         cls.checkpoint_path = os.path.join(path, "transition_model.ckpt")
         transition_model.load_state_dict(
-            torch.load(
-                cls.checkpoint_path,
-                map_location=torch.device(device),
-                weights_only=True,
-            )
+            torch.load(cls.checkpoint_path, map_location=torch.device(device), weights_only=True)
         )
 
         return cls(
@@ -250,38 +224,44 @@ class InstaNovoPlus(nn.Module):
             residues=residues,
         ), config
 
+    @staticmethod
+    def get_pretrained() -> list[str]:
+        """Get a list of pretrained model ids."""
+        # Load the models.json file
+        with resources.files("instanovo").joinpath("models.json").open("r", encoding="utf-8") as f:
+            models_config = json.load(f)
+
+        if MODEL_TYPE not in models_config:
+            return []
+
+        return list(models_config[MODEL_TYPE].keys())
+
     @classmethod
     def from_pretrained(cls, model_id: str) -> Tuple["InstaNovoPlus", "DictConfig"]:
         """Download and load by model id or model path."""
         # Check if model_id is a local dir
-        expected_files = [
-            "config.yaml",
-            "diffusion_schedule.pt",
-            "transition_model.ckpt",
-        ]
+        expected_files = ["config.yaml", "diffusion_schedule.pt", "transition_model.ckpt"]
         if os.path.isdir(model_id):
             if all(os.path.exists(os.path.join(model_id, fn)) for fn in expected_files):
                 return cls.load(model_id)
             else:
                 missing_files = [
-                    fn
-                    for fn in expected_files
-                    if not os.path.exists(os.path.join(model_id, fn))
+                    fn for fn in expected_files if not os.path.exists(os.path.join(model_id, fn))
                 ]
                 raise FileNotFoundError(
-                    f"InstaNovo+ model directory {model_id} is missing the expected file(s): {', '.join(missing_files)}."
+                    f"InstaNovo+ model directory {model_id} is missing "
+                    f"the expected file(s): {', '.join(missing_files)}."
                 )
 
         # Load the models.json file
-        with resources.files("instanovo").joinpath("models.json").open(
-            "r", encoding="utf-8"
-        ) as f:
+        with resources.files("instanovo").joinpath("models.json").open("r", encoding="utf-8") as f:
             models_config = json.load(f)
 
         # Find the model in the config
         if MODEL_TYPE not in models_config or model_id not in models_config[MODEL_TYPE]:
             raise ValueError(
-                f"Model {model_id} not found in models.json, options are [{', '.join(models_config[MODEL_TYPE].keys())}]"
+                f"Model {model_id} not found in models.json, options are "
+                f"[{', '.join(models_config[MODEL_TYPE].keys())}]"
             )
 
         # Create cache directory if it doesn't exist
@@ -334,8 +314,7 @@ class InstaNovoPlus(nn.Module):
             instanovo_plus_model = model_info["local"]
             if os.path.isdir(instanovo_plus_model):
                 if all(
-                    os.path.exists(os.path.join(instanovo_plus_model, fn))
-                    for fn in expected_files
+                    os.path.exists(os.path.join(instanovo_plus_model, fn)) for fn in expected_files
                 ):
                     logger.info(f"Loading model {model_id} (local)")
                     return cls.load(instanovo_plus_model)
@@ -346,11 +325,13 @@ class InstaNovoPlus(nn.Module):
                         if not os.path.exists(os.path.join(instanovo_plus_model, fn))
                     ]
                     raise FileNotFoundError(
-                        f"InstaNovo+ model directory {instanovo_plus_model} is missing the expected file(s): {', '.join(missing_files)}."
+                        f"InstaNovo+ model directory {instanovo_plus_model} is missing the "
+                        f"expected file(s): {', '.join(missing_files)}."
                     )
             else:
                 raise ValueError(
-                    f"Local model path '{instanovo_plus_model}' must exist, be a directory and containing the files {', '.join(expected_files)}."
+                    f"Local model path '{instanovo_plus_model}' must exist, be a directory and "
+                    f"containing the files {', '.join(expected_files)}."
                 )
         else:
             raise ValueError(
@@ -411,7 +392,7 @@ class InstaNovoPlus(nn.Module):
         log_x_0: Float[ResidueLogProbabilities, "batch token"],
         t: Integer[TimeStep, " batch"],
     ) -> Float[ResidueLogProbabilities, "batch token"]:
-        """Calculate the log-posterior of the `t-1`-th process values given the 0-th and t-th values.
+        """Calculate the log-posterior of `t-1`-th process values given the 0-th and t-th values.
 
         Args:
             log_x_t (torch.FloatTensor[batch_size, sequence_length, num_classes]):
@@ -438,9 +419,7 @@ class InstaNovoPlus(nn.Module):
         log_likelihood = self.mixture_categorical(
             log_x=log_x_t,
             log_alpha=self.diffusion_schedule[t].unsqueeze(-1).unsqueeze(-1),
-            log_alpha_complement=self.diffusion_schedule_complement[t]
-            .unsqueeze(-1)
-            .unsqueeze(-1),
+            log_alpha_complement=self.diffusion_schedule_complement[t].unsqueeze(-1).unsqueeze(-1),
         )
         t_mask = (t == 0).unsqueeze(-1).unsqueeze(-1).expand_as(log_x_0)
         prior_term = torch.where(t_mask, log_x_0, log_prior)
@@ -504,11 +483,7 @@ class DiffusionLoss(nn.Module):
             torch.FloatTensor[1]:
                 The KL-divergence averaged over all but the final dimension.
         """
-        return (
-            (torch.exp(log_probs_first) * (log_probs_first - log_probs_second))
-            .sum(-1)
-            .sum(-1)
-        )
+        return (torch.exp(log_probs_first) * (log_probs_first - log_probs_second)).sum(-1).sum(-1)
 
     def forward(
         self, x_0: Integer[Peptide, "batch token"], **kwargs: dict
@@ -536,15 +511,11 @@ class DiffusionLoss(nn.Module):
             log_alpha=self.model.cumulative_schedule[self.time_steps - 1]
             .unsqueeze(-1)
             .unsqueeze(-1),
-            log_alpha_complement=self.model.cumulative_schedule_complement[
-                self.time_steps - 1
-            ]
+            log_alpha_complement=self.model.cumulative_schedule_complement[self.time_steps - 1]
             .unsqueeze(-1)
             .unsqueeze(-1),
         )
-        uniform_log_probs = torch.log(
-            torch.ones_like(final_log_probs) / len(self.model.residues)
-        )
+        uniform_log_probs = torch.log(torch.ones_like(final_log_probs) / len(self.model.residues))
         kl_loss = self.kl_divergence(final_log_probs, uniform_log_probs).mean()
         return loss + kl_loss
 
@@ -568,11 +539,7 @@ class DiffusionLoss(nn.Module):
         # 2. Calculate loss
         log_dist = self.model.reverse_distribution(x_t=x_next, time=t, **kwargs)
 
-        nll_loss = (
-            -(one_hot(x_0, num_classes=len(self.model.residues)) * log_dist)
-            .sum(-1)
-            .sum(-1)
-        )
+        nll_loss = -(one_hot(x_0, num_classes=len(self.model.residues)) * log_dist).sum(-1).sum(-1)
 
         log_posterior = self.model(
             log_x_0=log_x_0, log_x_t=torch.log(one_hot(x_next, log_probs.size(-1))), t=t

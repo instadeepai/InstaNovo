@@ -5,10 +5,10 @@ import random
 import sys
 from typing import Any
 
+import lightning as L
 import numpy as np
 import pandas as pd
 import pytest
-import pytorch_lightning as ptl
 import torch
 from hydra import compose, initialize
 from omegaconf import DictConfig, open_dict
@@ -33,7 +33,7 @@ def reset_seed(seed: int = 42) -> None:
         torch.cuda.manual_seed_all(seed)
     np.random.seed(seed)
     random.seed(seed)
-    ptl.seed_everything(seed)
+    L.seed_everything(seed)
 
 
 @pytest.fixture()
@@ -55,7 +55,7 @@ def checkpoints_dir() -> str:
 
 @pytest.fixture(scope="session")
 def instanovo_config() -> DictConfig:
-    """A pytest fixture to read in a Hydra config for the Instanovo model unit and integration tests."""
+    """A pytest fixture to read in a Hydra config for the Instanovo model."""
     with initialize(version_base=None, config_path="../instanovo/configs"):
         cfg = compose(config_name="instanovo_unit_test")
 
@@ -72,7 +72,7 @@ def instanovo_config() -> DictConfig:
 
 @pytest.fixture(scope="session")
 def instanovo_inference_config() -> DictConfig:
-    """A pytest fixture to read in a Hydra config for inference of the Instanovo model unit and integration tests."""
+    """A pytest fixture to read in a Hydra config for inference of the Instanovo model."""
     with initialize(version_base=None, config_path="../instanovo/configs/inference"):
         cfg = compose(config_name="unit_test")
 
@@ -81,7 +81,7 @@ def instanovo_inference_config() -> DictConfig:
 
 @pytest.fixture(scope="session")
 def instanovoplus_config() -> DictConfig:
-    """A pytest fixture to read in a Hydra config for the Instanovo+ model unit and integration tests."""
+    """A pytest fixture to read in a Hydra config for the Instanovo+ model."""
     with initialize(version_base=None, config_path="../instanovo/configs"):
         cfg = compose(config_name="instanovoplus_unit_test")
 
@@ -98,7 +98,7 @@ def instanovoplus_config() -> DictConfig:
 
 @pytest.fixture(scope="session")
 def instanovoplus_inference_config() -> DictConfig:
-    """A pytest fixture to read in a Hydra config for inference of the Instanovo+ model unit and integration tests."""
+    """A pytest fixture to read in a Hydra config for inference of the Instanovo+ model."""
     with initialize(version_base=None, config_path="../instanovo/configs/inference"):
         cfg = compose(config_name="instanovoplus_unit_test")
 
@@ -107,7 +107,7 @@ def instanovoplus_inference_config() -> DictConfig:
 
 @pytest.fixture(scope="session")
 def dir_paths() -> tuple[str, str]:
-    """A pytest fixture that returns the root and data directories for the unit and integration tests."""
+    """A pytest fixture that returns the root and data directories."""
     root_dir = "./tests/instanovo_test_resources"
     data_dir = os.path.join(root_dir, "example_data")
     return root_dir, data_dir
@@ -115,14 +115,14 @@ def dir_paths() -> tuple[str, str]:
 
 @pytest.fixture(scope="session")
 def instanovo_checkpoint(dir_paths: tuple[str, str]) -> str:
-    """A pytest fixture that returns the InstaNovo model checkpoint used for unit and integration tests."""
+    """A pytest fixture that returns the InstaNovo model checkpoint used."""
     root_dir, _ = dir_paths
     return os.path.join(root_dir, "model.ckpt")
 
 
 @pytest.fixture(scope="session")
 def instanovoplus_checkpoint(dir_paths: tuple[str, str]) -> str:
-    """A pytest fixture that returns the InstaNovo+ model checkpoint used for unit and integration tests."""
+    """A pytest fixture that returns the InstaNovo+ model checkpoint used."""
     root_dir, _ = dir_paths
     return os.path.join(root_dir, "instanovoplus")
 
@@ -131,7 +131,7 @@ def instanovoplus_checkpoint(dir_paths: tuple[str, str]) -> str:
 def instanovo_model(
     instanovo_checkpoint: str,
 ) -> tuple[Any, Any]:
-    """A pytest fixture that returns the InstaNovo model and config used for unit and integration tests."""
+    """A pytest fixture that returns the InstaNovo model and config used."""
     model, config = InstaNovo.load(path=instanovo_checkpoint)
     return model, config
 
@@ -151,28 +151,28 @@ def instanovoplus_model(
 
 @pytest.fixture(scope="session")
 def residue_set(instanovo_model: tuple[Any, Any]) -> Any:
-    """A pytest fixture to return the model's residue set used for unit and integration tests."""
+    """A pytest fixture to return the model's residue set used."""
     model, _ = instanovo_model
     return model.residue_set
 
 
 @pytest.fixture(scope="session")
 def instanovo_output_path(dir_paths: tuple[str, str]) -> str:
-    """A pytest fixture to load the pre-computed InstaNovo model predictions for unit and integration tests."""
+    """A pytest fixture to load the pre-computed InstaNovo model predictions."""
     root_dir, _ = dir_paths
     return root_dir + "/predictions.csv"
 
 
 @pytest.fixture(scope="session")
 def instanovo_output(dir_paths: tuple[str, str]) -> pd.DataFrame:
-    """A pytest fixture to load the pre-computed InstaNovo model predictions for unit and integration tests."""
+    """A pytest fixture to load the pre-computed InstaNovo model predictions."""
     root_dir, _ = dir_paths
     return pd.read_csv(os.path.join(root_dir, "predictions.csv"))
 
 
 @pytest.fixture(scope="session")
 def knapsack_dir(dir_paths: tuple[str, str]) -> str:
-    """A pytest fixture to create and provide the absolute path of a 'knapsack' directory within the checkpoints directory for storing test artifacts."""
+    """A pytest fixture to create and provide the absolute path of a 'knapsack' directory."""
     root_dir, _ = dir_paths
     knapsack_dir = os.path.join(root_dir, "example_knapsack")
     return os.path.abspath(knapsack_dir)
@@ -187,15 +187,15 @@ def setup_knapsack_decoder(
 
     if os.path.exists(knapsack_dir):
         decoder = KnapsackBeamSearchDecoder.from_file(model=model, path=knapsack_dir)
-        print("Loaded knapsack decoder.")
+        print("Loaded knapsack decoder.")  # noqa: T201
 
     else:
         knapsack = _setup_knapsack(model)
 
         knapsack.save(path=knapsack_dir)
-        print("Created and saved knapsack.")
+        print("Created and saved knapsack.")  # noqa: T201
 
         decoder = KnapsackBeamSearchDecoder(model, knapsack)
-        print("Loaded knapsack decoder.")
+        print("Loaded knapsack decoder.")  # noqa: T201
 
     return decoder

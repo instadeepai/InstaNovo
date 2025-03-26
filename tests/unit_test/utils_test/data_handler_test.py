@@ -7,16 +7,14 @@ import polars as pl
 import pytest
 from numpy import array, nan
 
-from tests.conftest import reset_seed
 from instanovo.utils.data_handler import SpectrumDataFrame
+from tests.conftest import reset_seed
 
 
 def test_init() -> None:
     """Test spectrum data frame basic initialisation."""
     data = {
-        "mz_array": [
-            [7.84, 18.215, 20.8, 28.64, 66.6, 38.55, 29.81, 49.965, 51.25, 27.25]
-        ],
+        "mz_array": [[7.84, 18.215, 20.8, 28.64, 66.6, 38.55, 29.81, 49.965, 51.25, 27.25]],
         "intensity_array": [[1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]],
         "precursor_mz": [35.83],
         "precursor_charge": [2],
@@ -48,9 +46,7 @@ def test_init() -> None:
 def test_properties() -> None:
     """Test spectrum data frame properties."""
     data = {
-        "mz_array": [
-            [7.84, 18.215, 20.8, 28.64, 66.6, 38.55, 29.81, 49.965, 51.25, 27.25]
-        ],
+        "mz_array": [[7.84, 18.215, 20.8, 28.64, 66.6, 38.55, 29.81, 49.965, 51.25, 27.25]],
         "intensity_array": [[1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]],
         "precursor_mz": [35.83],
         "precursor_charge": [2],
@@ -66,15 +62,11 @@ def test_properties() -> None:
 
 def test_errors(tmp_path: Any, dir_paths: tuple[str, str]) -> None:
     """Test data handler error catching."""
-    with pytest.raises(
-        ValueError, match="Must specify either df or file_paths, both are None."
-    ):
+    with pytest.raises(ValueError, match="Must specify either df or file_paths, both are None."):
         _ = SpectrumDataFrame()
 
     data = {
-        "mz_array": [
-            [7.84, 18.215, 20.8, 28.64, 66.6, 38.55, 29.81, 49.965, 51.25, 27.25]
-        ],
+        "mz_array": [[7.84, 18.215, 20.8, 28.64, 66.6, 38.55, 29.81, 49.965, 51.25, 27.25]],
         "intensity_array": [[1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]],
         "precursor_mz": [35.83],
         "precursor_charge": [2],
@@ -82,9 +74,7 @@ def test_errors(tmp_path: Any, dir_paths: tuple[str, str]) -> None:
     }
     df = pl.DataFrame(data)
 
-    with pytest.raises(
-        ValueError, match="Must specify either df or file_paths, not both."
-    ):
+    with pytest.raises(ValueError, match="Must specify either df or file_paths, not both."):
         _ = SpectrumDataFrame(df=df, file_paths=tmp_path)
 
     _, data_dir = dir_paths
@@ -111,17 +101,13 @@ def test_lazy(dir_paths: tuple[str, str]) -> None:
     """Test spectrum data frame lazy loading."""
     _, data_dir = dir_paths
 
-    sdf = SpectrumDataFrame(
-        file_paths=data_dir + "/valid.ipc", is_annotated=True, is_lazy=True
-    )
+    sdf = SpectrumDataFrame(file_paths=data_dir + "/valid.ipc", is_annotated=True, is_lazy=True)
 
     assert sdf._is_native
     assert sdf._temp_directory is not None
     assert sdf._file_paths is not None
 
-    sdf = SpectrumDataFrame(
-        file_paths=data_dir + "/val*.ipc", is_annotated=True, is_lazy=True
-    )
+    sdf = SpectrumDataFrame(file_paths=data_dir + "/val*.ipc", is_annotated=True, is_lazy=True)
 
     assert sdf._is_native
     assert sdf._temp_directory is not None
@@ -140,9 +126,7 @@ def test_sanitise_peptides() -> None:
 def test_length() -> None:
     """Test get length."""
     data = {
-        "mz_array": [
-            [7.84, 18.215, 20.8, 28.64, 66.6, 38.55, 29.81, 49.965, 51.25, 27.25]
-        ],
+        "mz_array": [[7.84, 18.215, 20.8, 28.64, 66.6, 38.55, 29.81, 49.965, 51.25, 27.25]],
         "intensity_array": [[1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]],
         "precursor_mz": [35.83],
         "precursor_charge": [2],
@@ -223,20 +207,24 @@ def test_check_type_spec() -> None:
 
     with pytest.raises(
         ValueError,
-        match="Columns missing! Missing columns: mz_array, intensity_array, precursor_mz, precursor_charge",
+        match=(
+            "Columns missing! Missing columns: "
+            "mz_array, intensity_array, precursor_mz, precursor_charge"
+        ),
     ):
         _ = SpectrumDataFrame(df)
 
     with pytest.raises(
         ValueError,
-        match="Columns missing! Missing columns: mz_array, intensity_array, precursor_mz, precursor_charge, sequence",
+        match=(
+            "Columns missing! Missing columns: "
+            "mz_array, intensity_array, precursor_mz, precursor_charge, sequence"
+        ),
     ):
         _ = SpectrumDataFrame(df, is_annotated=True)
 
     data = {
-        "mz_array": [
-            [7.84, 18.215, 20.8, 28.64, 66.6, 38.55, 29.81, 49.965, 51.25, 27.25]
-        ],
+        "mz_array": [[7.84, 18.215, 20.8, 28.64, 66.6, 38.55, 29.81, 49.965, 51.25, 27.25]],
         "intensity_array": [[1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]],
         "precursor_mz": [35.83],
         "precursor_charge": [2],
@@ -287,7 +275,7 @@ def test_parquet_init(dir_paths: tuple[str, str], tmp_path: Any) -> None:
         }
     )
 
-    path = tmp_path / "dataset-ms-example_mgf-0000-0001.parquet"
+    path = tmp_path / "dataset-ms-example_mgf-0001-0001.parquet"
     df = pl.read_parquet(path).to_pandas()
 
     assert df.equals(expected_df)
@@ -346,7 +334,7 @@ def test_mgf_to_parquet(dir_paths: tuple[str, str], tmp_path: Any) -> None:
         }
     )
 
-    path = tmp_path / "dataset-ms-example_lazy_mgf-0000-0001.parquet"
+    path = tmp_path / "dataset-ms-example_lazy_mgf-0001-0001.parquet"
     df = pl.read_parquet(path).to_pandas()
 
     assert df.equals(expected_df)
@@ -378,9 +366,7 @@ def test_mzml_to_parquet(dir_paths: tuple[str, str], tmp_path: Any) -> None:
         }
     )
 
-    df = pl.read_parquet(
-        tmp_path / "dataset-ms-example_mzml-0000-0001.parquet"
-    ).to_pandas()
+    df = pl.read_parquet(tmp_path / "dataset-ms-example_mzml-0001-0001.parquet").to_pandas()
     assert df.equals(expected_df)
 
     sdf = SpectrumDataFrame(
@@ -391,9 +377,7 @@ def test_mzml_to_parquet(dir_paths: tuple[str, str], tmp_path: Any) -> None:
     )
     sdf.save(tmp_path, partition="example_lazy_mzml")
 
-    df = pl.read_parquet(
-        tmp_path / "dataset-ms-example_lazy_mzml-0000-0001.parquet"
-    ).to_pandas()
+    df = pl.read_parquet(tmp_path / "dataset-ms-example_lazy_mzml-0001-0001.parquet").to_pandas()
     assert df.equals(expected_df)
 
 
@@ -423,9 +407,7 @@ def test_mzxml_to_parquet(dir_paths: tuple[str, str], tmp_path: Any) -> None:
         }
     )
 
-    df = pl.read_parquet(
-        tmp_path / "dataset-ms-example_mzxml-0000-0001.parquet"
-    ).to_pandas()
+    df = pl.read_parquet(tmp_path / "dataset-ms-example_mzxml-0001-0001.parquet").to_pandas()
     assert df.equals(expected_df)
 
     sdf = SpectrumDataFrame(
@@ -436,7 +418,5 @@ def test_mzxml_to_parquet(dir_paths: tuple[str, str], tmp_path: Any) -> None:
     )
     sdf.save(tmp_path, partition="example_lazy_mzxml")
 
-    df = pl.read_parquet(
-        tmp_path / "dataset-ms-example_lazy_mzxml-0000-0001.parquet"
-    ).to_pandas()
+    df = pl.read_parquet(tmp_path / "dataset-ms-example_lazy_mzxml-0001-0001.parquet").to_pandas()
     assert df.equals(expected_df)

@@ -9,6 +9,7 @@ H2O_MASS = 18.0106
 CARBON_MASS_DELTA = 1.00335
 PROTON_MASS_AMU = 1.007276
 MASS_SCALE = 10000
+MAX_MASS = 4000.0
 
 MAX_SEQUENCE_LENGTH = 200
 
@@ -61,9 +62,7 @@ MS_TYPES: dict[MSColumns, pl.DataType] = {
     MSColumns.RETENTION_TIME: pl.Float64,
 }
 
-ANNOTATION_ERROR = (
-    "Attempting to load annotated dataset, but no sequence annotations found."
-)
+ANNOTATION_ERROR = "Attempting to load annotated dataset, but no sequence annotations found."
 
 LEGACY_PTM_TO_UNIMOD: dict[str, str] = {
     "M(ox)": "M[UNIMOD:35]",

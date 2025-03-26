@@ -9,9 +9,7 @@ from instanovo.inference.knapsack import Knapsack
 from instanovo.transformer.predict import _setup_knapsack
 
 
-def test_knapsack(
-    instanovo_model: tuple[Any, Any], knapsack_dir: str, tmp_path: Path
-) -> None:
+def test_knapsack(instanovo_model: tuple[Any, Any], knapsack_dir: str, tmp_path: Path) -> None:
     """Test knapsack creation, loading, and functionality."""
     model, _ = instanovo_model
 

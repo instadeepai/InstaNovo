@@ -33,16 +33,14 @@ def get_preds(
     """Predict peptides from spectra using the diffusion model for iterative refinement."""
     if config.get("denovo", False) and config.get("output_path", None) is None:
         raise ValueError(
-            "Must specify an output csv path in denovo mode. Please specify in config or with the cli flag --output-path `path/to/output.csv`"
+            "Must specify an output csv path in denovo mode. Please specify in config "
+            "or with the cli flag --output-path `path/to/output.csv`"
         )
 
     data_path = config["data_path"]
     output_path = config.get("output_path", None)
 
-    if (
-        config.get("refine", False)
-        and config.get("instanovo_predictions_path", None) is None
-    ):
+    if config.get("refine", False) and config.get("instanovo_predictions_path", None) is None:
         raise ValueError("The InstaNovo predictions csv path is missing.")
 
     # Some commomly used config variables
@@ -70,8 +68,9 @@ def get_preds(
         # More descriptive error message in predict mode.
         if str(e) == ANNOTATION_ERROR:
             raise ValueError(
-                "The sequence column is missing annotations, are you trying to run de novo prediction? Add the `denovo=True` flag"
-            )
+                "The sequence column is missing annotations, "
+                "are you trying to run de novo prediction? Add the `denovo=True` flag"
+            ) from e
         else:
             raise
 
@@ -81,25 +80,25 @@ def get_preds(
     model_max_charge = model_config.get("max_charge", 10)
     if max_charge > model_max_charge:
         logger.warning(
-            f"Inference has been configured with max_charge={max_charge}, but model has max_charge={model_max_charge}."
+            f"Inference has been configured with max_charge={max_charge}, "
+            f"but model has max_charge={model_max_charge}."
         )
-        logger.warning(
-            f"Overwriting max_charge config to model value: {model_max_charge}."
-        )
+        logger.warning(f"Overwriting max_charge config to model value: {model_max_charge}.")
         max_charge = model_max_charge
 
     sdf.filter_rows(
-        lambda row: (row["precursor_charge"] <= max_charge)
-        and (row["precursor_charge"] > 0)
+        lambda row: (row["precursor_charge"] <= max_charge) and (row["precursor_charge"] > 0)
     )
     if len(sdf) < original_size:
         logger.warning(
-            f"Found {original_size - len(sdf)} rows with charge > {max_charge}. These rows will be skipped."
+            f"Found {original_size - len(sdf)} rows with charge > {max_charge}. "
+            "These rows will be skipped."
         )
 
     sdf.sample_subset(fraction=config.get("subset", 1.0), seed=42)
     logger.info(
-        f"Data loaded, evaluating {config.get('subset', 1.0) * 100:.1f}%, {len(sdf):,} samples in total."
+        f"Data loaded, evaluating {config.get('subset', 1.0) * 100:.1f}%, {len(sdf):,} "
+        "samples in total."
     )
 
     if sdf.df.is_empty():
@@ -117,11 +116,13 @@ def get_preds(
         id_col = config.get("id_col", "spectrum_id")
         if id_col not in sdf.df.columns:
             raise ValueError(
-                f"The column '{id_col}' does not exist in the input data. Set an appropriate 'id_col' value in the config."
+                f"The column '{id_col}' does not exist in the input data. "
+                "Set an appropriate 'id_col' value in the config."
             )
         if id_col not in instanovo_preds_df.columns:
             raise ValueError(
-                f"The column '{id_col}' does not exist in one InstaNovo predictions data. Set an appropriate 'id_col' value in the config."
+                f"The column '{id_col}' does not exist in one InstaNovo predictions data. "
+                "Set an appropriate 'id_col' value in the config."
             )
 
         sdf.df = sdf.df.join(instanovo_preds_df, on=id_col, how="inner")
@@ -129,13 +130,15 @@ def get_preds(
 
         if sdf.df.height == 0:
             raise ValueError(
-                "All rows were dropped from the dataframe. No ID matches / predictions to refine were present."
+                "All rows were dropped from the dataframe. "
+                "No ID matches / predictions to refine were present."
             )
 
         dropped_rows = initial_rows - sdf.df.height
         if dropped_rows > 0:
             logger.warning(
-                f"{dropped_rows} rows were dropped due to unmatched IDs, or empty predictions, in the inner join."
+                f"{dropped_rows} rows were dropped due to unmatched IDs, "
+                "or empty predictions, in the inner join."
             )
 
         if not denovo:
@@ -150,6 +153,9 @@ def get_preds(
             )
         )  # replace sequence column with instanovo predictions
         sdf.df = sdf.df.drop(config.get("pred_col", "predictions"))
+
+        logger.info("Successfully merged InstaNovo predictions into input data.")
+        logger.info(f"There are {sdf.df.height} rows remaining in the input data.")
 
     else:
         if not denovo:
@@ -178,10 +184,8 @@ def get_preds(
             original_size = len(sdf)
             sdf.filter_rows(
                 lambda row: all(
-                    [
-                        residue in supported_residues
-                        for residue in set(residue_set.tokenize(row[ANNOTATED_COLUMN]))
-                    ]
+                    residue in supported_residues
+                    for residue in set(residue_set.tokenize(row[ANNOTATED_COLUMN]))
                 )
             )
             targets = sdf.df["original_peptide"].to_list()  # update targets post filter
@@ -236,9 +240,7 @@ def get_preds(
         precursors = precursors.to(device)
         spectra_mask = spectra_mask.to(device)
 
-        with torch.no_grad(), torch.amp.autocast(
-            "cuda", dtype=torch.float16, enabled=fp16
-        ):
+        with torch.no_grad(), torch.amp.autocast("cuda", dtype=torch.float16, enabled=fp16):
             predictions, log_probs = decoder.decode(
                 initial_sequence=peptides.to(device) if config["refine"] else None,
                 spectra=spectra,
@@ -256,7 +258,8 @@ def get_preds(
             delta = time.time() - start
             est_total = delta / (i + 1) * (len(dl) - i - 1)
             logger.info(
-                f"Batch {i + 1:05d}/{len(dl):05d}, [{_format_time(delta)}/{_format_time(est_total)}, {(delta / (i + 1)):.3f}s/it]"
+                f"Batch {i + 1:05d}/{len(dl):05d}, "
+                f"[{_format_time(delta)}/{_format_time(est_total)}, {(delta / (i + 1)):.3f}s/it]"
             )
 
     # print("targets ", targets)
@@ -276,16 +279,11 @@ def get_preds(
         metrics = Metrics(residue_set, config.get("isotope_error_range", [0, 1]))
 
         targets = [
-            "".join(
-                residue_set.residue_remapping.get(aa, aa)
-                for aa in residue_set.tokenize(seq)
-            )
+            "".join(residue_set.residue_remapping.get(aa, aa) for aa in residue_set.tokenize(seq))
             for seq in targets
         ]
 
-        aa_prec, aa_recall, pep_recall, _ = metrics.compute_precision_recall(
-            targets, results
-        )
+        aa_prec, aa_recall, pep_recall, _ = metrics.compute_precision_recall(targets, results)
         aa_er = metrics.compute_aa_er(targets, results)
 
         # TODO add neptune logging
@@ -312,10 +310,7 @@ def get_preds(
         pred_df["transformer_log_probabilities"] = sdf.df[
             config.get("log_probs_col", "log_probabilities")
         ]
-        if (
-            config.get("token_log_probs_col", "token_log_probabilities")
-            in sdf.df.columns
-        ):
+        if config.get("token_log_probs_col", "token_log_probabilities") in sdf.df.columns:
             pred_df["transformer_token_log_probabilities"] = sdf.df[
                 config.get("token_log_probs_col", "token_log_probabilities")
             ]

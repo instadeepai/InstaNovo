@@ -33,8 +33,8 @@ def set_credentials() -> None:
 
     Raises:
         OSError: if 'GOOGLE_APPLICATION_CREDENTIALS' is not set OR
-                 if 'GOOGLE_APPLICATION_CREDENTIALS' file does not exist and 'GS_CREDENTIALS_ENCODED'
-                 is not set
+                 if 'GOOGLE_APPLICATION_CREDENTIALS' file does not exist and
+                 'GS_CREDENTIALS_ENCODED' is not set
 
     """
     try:
@@ -61,7 +61,7 @@ def set_credentials() -> None:
     credentials = json.loads(base64.b64decode(gcp_credentials_encoded).decode())
     with open(gcp_crendentials_path, "w") as f:
         json.dump(credentials, f)
-    print(f"Created {gcp_crendentials_path}")
+    print(f"Created {gcp_crendentials_path}")  # noqa: T201
 
 
 if __name__ == "__main__":

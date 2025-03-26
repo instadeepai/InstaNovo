@@ -3,29 +3,24 @@ from __future__ import annotations
 from typing import Optional
 
 import torch
-
-from jaxtyping import Bool
-from jaxtyping import Float
-from jaxtyping import Integer
-from torch import nn
-from torch import Tensor
+from jaxtyping import Bool, Float, Integer
 from omegaconf import DictConfig
-
-from transfusion.model import Pogfuse
-from transfusion.model import timestep_embedding
-from transfusion.model import TransFusion
+from torch import Tensor, nn
+from transfusion.model import Pogfuse, TransFusion, timestep_embedding
 
 from instanovo.diffusion.layers import TransformerEncoder
-from instanovo.types import Peptide
-from instanovo.types import PeptideEmbedding
-from instanovo.types import PeptideMask
-from instanovo.types import PrecursorFeatures
-from instanovo.types import ResidueLogits
-from instanovo.types import Spectrum
-from instanovo.types import SpectrumEmbedding
-from instanovo.types import SpectrumMask
-from instanovo.types import TimeEmbedding
-from instanovo.types import TimeStep
+from instanovo.types import (
+    Peptide,
+    PeptideEmbedding,
+    PeptideMask,
+    PrecursorFeatures,
+    ResidueLogits,
+    Spectrum,
+    SpectrumEmbedding,
+    SpectrumMask,
+    TimeEmbedding,
+    TimeStep,
+)
 
 
 class MassSpectrumTransformer(Pogfuse):
@@ -44,12 +39,13 @@ class MassSpectrumTransformer(Pogfuse):
         """Compute encodings with the model.
 
         Forward with `x` (bs, seq_len, dim), summing `t_emb` (bs, dim) before the transformer layer,
-        and appending `conditioning_emb` (bs, seq_len2, dim) to the key/value pairs of the attention.
-        Also `pooled_conv_emb` (bs, 1, dim) is summed with the timestep embeddings
+        and appending `conditioning_emb` (bs, seq_len2, dim) to the key/value pairs of the
+        attention. Also `pooled_conv_emb` (bs, 1, dim) is summed with the timestep embeddings
 
-        Optionally specify key/value padding for input `x` with `x_padding_mask` (bs, seq_len), and optionally
-        specify key/value padding mask for conditional embedding with `cond_padding_mask` (bs, seq_len2).
-        By default no padding is used. Good idea to use cond padding but not x padding.
+        Optionally specify key/value padding for input `x` with `x_padding_mask` (bs, seq_len), and
+        optionally specify key/value padding mask for conditional embedding with `cond_padding_mask`
+        (bs, seq_len2). By default no padding is used. Good idea to use cond padding but not x
+        padding.
 
         `pos_bias` is positional bias for wavlm-style attention gated relative position bias.
 
@@ -105,8 +101,7 @@ class MassSpectrumTransFusion(TransFusion):
                 self.cfg.nheads,
                 add_cond_seq=add_cond_cross_attn,
                 dropout=self.cfg.dropout,
-                use_wavlm_attn=cfg.attention_type == "wavlm"
-                and not add_cond_cross_attn,
+                use_wavlm_attn=cfg.attention_type == "wavlm" and not add_cond_cross_attn,
                 wavlm_num_bucket=cfg.wavlm_num_bucket,
                 wavlm_max_dist=cfg.wavlm_max_dist,
                 has_rel_attn_bias=(cfg.attention_type == "wavlm" and i == 1),
@@ -171,16 +166,16 @@ class MassSpectrumTransFusion(TransFusion):
         t_emb = timestep_embedding(
             t, self.cfg.t_emb_dim, self.cfg.t_emb_max_period, dtype=spectra.dtype
         )  # (bs, t_dim)
-        # 2. Classifier-free guidance: with prob cfg.drop_cond_prob, zero out and drop conditional probability
+        # 2. Classifier-free guidance: with prob cfg.drop_cond_prob, zero out
+        # and drop conditional probability
         if self.training:
-            zero_cond_inds = (
-                torch.rand_like(t, dtype=spectra.dtype) < self.cfg.drop_cond_prob
-            )
+            zero_cond_inds = torch.rand_like(t, dtype=spectra.dtype) < self.cfg.drop_cond_prob
         else:
             # never randomly zero when in eval mode
             zero_cond_inds = torch.zeros_like(t, dtype=torch.bool)
             if spectra_padding_mask.all():
-                # BUT, if all cond information is padded then we are obviously doing unconditional synthesis,
+                # BUT, if all cond information is padded then we are
+                # obviously doing unconditional synthesis,
                 # so, force zero_cond_inds to be all ones
                 zero_cond_inds = ~zero_cond_inds
 
@@ -188,17 +183,13 @@ class MassSpectrumTransFusion(TransFusion):
         if self.training:
             cond_emb, cond_padding_mask = self.encoder(spectra, spectra_padding_mask)
         else:
-            if self.cache_spectra is not None and torch.equal(
-                self.cache_spectra, spectra
-            ):
+            if self.cache_spectra is not None and torch.equal(self.cache_spectra, spectra):
                 cond_emb, cond_padding_mask = (
                     self.cache_cond_emb,
                     self.cache_cond_padding_mask,
                 )
             else:
-                cond_emb, cond_padding_mask = self.encoder(
-                    spectra, spectra_padding_mask
-                )
+                cond_emb, cond_padding_mask = self.encoder(spectra, spectra_padding_mask)
                 self.cache_spectra = spectra
                 self.cache_cond_emb = cond_emb
                 self.cache_cond_padding_mask = cond_padding_mask

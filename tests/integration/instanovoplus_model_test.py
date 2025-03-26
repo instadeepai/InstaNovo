@@ -28,10 +28,7 @@ def test_model(
     diffusion_model, _ = instanovoplus_model
 
     assert diffusion_model.residues.residue_masses == instanovoplus_config["residues"]
-    assert (
-        diffusion_model.residues.residue_remapping
-        == instanovoplus_config["residue_remapping"]
-    )
+    assert diffusion_model.residues.residue_remapping == instanovoplus_config["residue_remapping"]
     assert diffusion_model.config["vocab_size"] == 8
 
     assert instanovoplus_config["n_peaks"] == diffusion_model.config["n_peaks"]
@@ -40,9 +37,7 @@ def test_model(
     assert instanovoplus_config["max_length"] == diffusion_model.config["max_length"]
 
     root_dir, data_dir = dir_paths
-    sdf = SpectrumDataFrame(
-        file_paths=[data_dir + "/test.ipc"], shuffle=False, is_lazy=False
-    )
+    sdf = SpectrumDataFrame(file_paths=[data_dir + "/test.ipc"], shuffle=False, is_lazy=False)
 
     sd = SpectrumDataset(
         df=sdf,
@@ -83,9 +78,7 @@ def test_model(
         rtol=1e-04,
     )
 
-    dl = DataLoader(
-        sd, batch_size=2, num_workers=0, shuffle=False, collate_fn=collate_batch
-    )
+    dl = DataLoader(sd, batch_size=2, num_workers=0, shuffle=False, collate_fn=collate_batch)
     batch = next(iter(dl))
     spectra, precursors, spectra_mask, peptides, _ = batch
 
@@ -134,9 +127,7 @@ def test_model(
             ]
         ),
     )
-    assert torch.allclose(
-        peptides, torch.tensor([[6, 7, 5, 5, 3, 4], [4, 3, 7, 4, 5, 7]])
-    )
+    assert torch.allclose(peptides, torch.tensor([[6, 7, 5, 5, 3, 4], [4, 3, 7, 4, 5, 7]]))
 
     get_preds(
         config=temp_inference_config,
@@ -153,10 +144,7 @@ def test_model(
     )
     assert pred_df["targets"][0] == "DDCA"
     assert pred_df["diffusion_predictions"][0] == "EADCAD"
-    assert (
-        pred_df["diffusion_predictions_tokenised"][0]
-        == "['E', 'A', 'D', 'C', 'A', 'D']"
-    )
+    assert pred_df["diffusion_predictions_tokenised"][0] == "['E', 'A', 'D', 'C', 'A', 'D']"
     assert pred_df["diffusion_log_probabilities"][0] == pytest.approx(-0.267, rel=1e-1)
 
     reset_seed()
@@ -168,7 +156,8 @@ def test_model(
 
     with pytest.raises(
         ValueError,
-        match="All rows were dropped from the dataframe. No ID matches / predictions to refine were present.",
+        match="All rows were dropped from the dataframe. "
+        "No ID matches / predictions to refine were present.",
     ):
         get_preds(
             config=temp_inference_config,
@@ -193,8 +182,5 @@ def test_model(
     assert temp_inference_config["subset"] == 1
     assert pred_df["targets"][0] == "DDCA"
     assert pred_df["diffusion_predictions"][0] == "BEAAAD"
-    assert (
-        pred_df["diffusion_predictions_tokenised"][0]
-        == "['B', 'E', 'A', 'A', 'A', 'D']"
-    )
+    assert pred_df["diffusion_predictions_tokenised"][0] == "['B', 'E', 'A', 'A', 'A', 'D']"
     assert pred_df["diffusion_log_probabilities"][0] == pytest.approx(-0.402, rel=1e-1)

@@ -138,9 +138,7 @@ def test_parquet_preds(
     sdf.save(Path(data_dir), partition="example_parquet")
 
     # Test prediction on parquet file
-    temp_config["data_path"] = (
-        data_dir + "/dataset-ms-example_parquet-0000-0001.parquet"
-    )
+    temp_config["data_path"] = data_dir + "/dataset-ms-example_parquet-0001-0001.parquet"
     get_preds(
         config=temp_config,
         model=model,

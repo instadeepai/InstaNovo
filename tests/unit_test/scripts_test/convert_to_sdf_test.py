@@ -41,12 +41,8 @@ def test_convert_command(dir_paths: tuple[str, str]) -> None:
         assert result.exit_code == 0, f"Command failed with error: {result.stdout}"
 
         # In the new version, the output file is named based on name and partition
-        expected_output_file = os.path.join(
-            target_dir, "dataset-example-train-0000-0001.parquet"
-        )
-        assert os.path.exists(
-            expected_output_file
-        ), f"Output file {expected_output_file} not found"
+        expected_output_file = os.path.join(target_dir, "dataset-example-train-0001-0001.parquet")
+        assert os.path.exists(expected_output_file), f"Output file {expected_output_file} not found"
 
         # Read the output file and verify its contents
         df = pl.read_parquet(expected_output_file).to_pandas()

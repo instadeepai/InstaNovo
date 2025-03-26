@@ -1,31 +1,23 @@
 from __future__ import annotations
 
-import logging
 import re
 from pathlib import Path
-import polars as pl
 
 import numpy as np
+import polars as pl
 import spectrum_utils.spectrum as sus
 import torch
-from jaxtyping import Bool
-from jaxtyping import Float
-from jaxtyping import Integer
-from torch import nn
-from torch import Tensor
+from jaxtyping import Bool, Float, Integer
+from torch import Tensor, nn
 from torch.utils.data import Dataset
 
-from instanovo.constants import PROTON_MASS_AMU, MSColumns, ANNOTATED_COLUMN
-from instanovo.types import Peptide
-from instanovo.types import PeptideMask
-from instanovo.types import PrecursorFeatures
-from instanovo.types import Spectrum
-from instanovo.types import SpectrumMask
-from instanovo.utils import ResidueSet
-from instanovo.utils import SpectrumDataFrame
+from instanovo.__init__ import console
+from instanovo.constants import ANNOTATED_COLUMN, PROTON_MASS_AMU, MSColumns
+from instanovo.types import Peptide, PeptideMask, PrecursorFeatures, Spectrum, SpectrumMask
+from instanovo.utils import ResidueSet, SpectrumDataFrame
+from instanovo.utils.colorlogging import ColorLog
 
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+logger = ColorLog(console, __name__).logger
 
 
 class SpectrumDataset(Dataset):
@@ -85,14 +77,10 @@ class SpectrumDataset(Dataset):
         if self.annotated:
             peptide = row[ANNOTATED_COLUMN]
 
-        spectrum = self._process_peaks(
-            mz_array, int_array, precursor_mz, precursor_charge
-        )
+        spectrum = self._process_peaks(mz_array, int_array, precursor_mz, precursor_charge)
 
         if self.bin_spectra:
-            spectrum = torch.histogram(
-                spectrum[:, 0], weight=spectrum[:, 1], bins=self.bins
-            ).hist
+            spectrum = torch.histogram(spectrum[:, 0], weight=spectrum[:, 1], bins=self.bins).hist
 
         if self.pad_spectrum_max_length and not self.bin_spectra:
             spectrum_padded = torch.zeros(
@@ -137,7 +125,7 @@ class SpectrumDataset(Dataset):
         int_array : numpy.ndarray of shape (n_peaks,)
             The spectrum peak intensity values.
 
-        Returns
+        Returns:
         -------
         torch.Tensor of shape (n_peaks, 2)
             A tensor of the spectrum with the m/z and intensity peak values.
@@ -172,9 +160,7 @@ class SpectrumDataset(Dataset):
 
         # filters
         filter_idx = (
-            (int_array < self.min_intensity)
-            & (mz_array < self.min_mz)
-            & (mz_array > self.max_mz)
+            (int_array < self.min_intensity) & (mz_array < self.min_mz) & (mz_array > self.max_mz)
         )
 
         int_array = int_array[~filter_idx]
@@ -200,14 +186,12 @@ def collate_batch(
     Bool[PeptideMask, " batch"],
 ]:
     """Collate batch of samples."""
-    spectra, precursor_mzs, precursor_charges, peptides_batch = zip(*batch)
+    spectra, precursor_mzs, precursor_charges, peptides_batch = zip(*batch, strict=True)
 
     # Pad spectra
     ll = torch.tensor([x.shape[0] for x in spectra], dtype=torch.long)
     spectra = nn.utils.rnn.pad_sequence(spectra, batch_first=True)
-    spectra_mask = (
-        torch.arange(spectra.shape[1], dtype=torch.long)[None, :] >= ll[:, None]
-    )
+    spectra_mask = torch.arange(spectra.shape[1], dtype=torch.long)[None, :] >= ll[:, None]
 
     # Pad peptide
     if not isinstance(peptides_batch[0], str):
@@ -223,9 +207,7 @@ def collate_batch(
     precursor_mzs = torch.tensor(precursor_mzs)
     precursor_charges = torch.tensor(precursor_charges)
     precursor_masses = (precursor_mzs - PROTON_MASS_AMU) * precursor_charges
-    precursors = torch.vstack(
-        [precursor_masses, precursor_charges, precursor_mzs]
-    ).T.float()
+    precursors = torch.vstack([precursor_masses, precursor_charges, precursor_mzs]).T.float()
 
     return spectra, precursors, spectra_mask, peptides, peptides_mask
 
@@ -301,15 +283,11 @@ def _clean_and_remap(df: pl.DataFrame) -> pl.DataFrame:
     df = df.rename({k: v for k, v in col_map.items() if k in df.columns})
     if df.select(pl.first("modified_sequence")).item()[0] == "_":
         df = df.with_columns(
-            pl.col("modified_sequence").map_elements(
-                lambda x: x[1:-1], return_dtype=pl.Utf8
-            )
+            pl.col("modified_sequence").map_elements(lambda x: x[1:-1], return_dtype=pl.Utf8)
         )
     if df.select(pl.first("modified_sequence")).item()[0] == ".":
         df = df.with_columns(
-            pl.col("modified_sequence").map_elements(
-                lambda x: x[1:-1], return_dtype=pl.Utf8
-            )
+            pl.col("modified_sequence").map_elements(lambda x: x[1:-1], return_dtype=pl.Utf8)
         )
 
     df = df.drop([col for col in df.columns if col not in list(col_dtypes.keys())])

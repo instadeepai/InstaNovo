@@ -1,35 +1,29 @@
 import glob
-from pathlib import Path
 import sys
+import warnings
+from pathlib import Path
 from typing import List, Optional
 
+import lightning as L
 import numpy as np
-import pytorch_lightning as ptl
 import torch
 import typer
 from hydra import compose, initialize
 from omegaconf import DictConfig, OmegaConf, open_dict
-from rich.console import Console
 from rich.table import Table
 from typing_extensions import Annotated
 
 from instanovo import __version__
-
-from instanovo.utils.colorlogging import ColorLog
+from instanovo.__init__ import console
 from instanovo.diffusion.multinomial_diffusion import InstaNovoPlus
-
+from instanovo.diffusion.predict import get_preds as diffusion_get_preds
+from instanovo.diffusion.train import train as train_diffusion
+from instanovo.scripts.convert_to_sdf import app as convert_to_sdf_app
 from instanovo.transformer.model import InstaNovo
 from instanovo.transformer.predict import get_preds as transformer_get_preds
-from instanovo.diffusion.predict import get_preds as diffusion_get_preds
-from instanovo.transformer.train import (
-    _set_author_neptune_api_token,
-    train as train_transformer,
-)
-from instanovo.diffusion.train import train as train_diffusion
-
-from instanovo.scripts.convert_to_sdf import app as convert_to_sdf_app
-
-import warnings
+from instanovo.transformer.train import _set_author_neptune_api_token
+from instanovo.transformer.train import train as train_transformer
+from instanovo.utils.colorlogging import ColorLog
 
 # Filter out a SyntaxWarning from pubchempy, see:
 # https://github.com/mcs07/PubChemPy/pull/53
@@ -40,7 +34,6 @@ warnings.filterwarnings(
     module="pubchempy",
 )
 
-console = Console()
 logger = ColorLog(console, __name__).logger
 
 DEFAULT_TRAIN_CONFIG_PATH = "configs"
@@ -65,19 +58,13 @@ def compose_config(
     """
     logger.info(f"Reading config from '{config_path}' with name '{config_name}'.")
     with initialize(config_path=config_path, version_base=None):
-        cfg = compose(
-            config_name=config_name, overrides=overrides, return_hydra_config=False
-        )
+        cfg = compose(config_name=config_name, overrides=overrides, return_hydra_config=False)
         return cfg
 
 
 combined_cli = typer.Typer(rich_markup_mode="rich")  # , pretty_exceptions_enable=False)
-instanovo_cli = typer.Typer(
-    rich_markup_mode="rich"
-)  # , pretty_exceptions_enable=False)
-instanovo_plus_cli = typer.Typer(
-    rich_markup_mode="rich"
-)  # , pretty_exceptions_enable=False)
+instanovo_cli = typer.Typer(rich_markup_mode="rich")  # , pretty_exceptions_enable=False)
+instanovo_plus_cli = typer.Typer(rich_markup_mode="rich")  # , pretty_exceptions_enable=False)
 combined_cli.add_typer(
     instanovo_cli,
     name="transformer",
@@ -140,7 +127,8 @@ def transformer_predict(
         Optional[bool],
         typer.Option(
             "--denovo/--evaluation",
-            help="Do [i]de novo[/i] predictions or evaluate an annotated file with peptide sequences?",
+            help="Do [i]de novo[/i] predictions or evaluate an annotated file "
+            "with peptide sequences?",
         ),
     ] = None,
     config_path: Annotated[
@@ -181,9 +169,7 @@ def transformer_predict(
         if "*" in data_path or "?" in data_path or "[" in data_path:
             # Glob notation: path/to/data/*.parquet
             if not glob.glob(data_path):
-                raise ValueError(
-                    f"The data_path '{data_path}' doesn't correspond to any file(s)."
-                )
+                raise ValueError(f"The data_path '{data_path}' doesn't correspond to any file(s).")
         config.data_path = str(data_path)
 
     if not config.get("data_path", None) and data_path is None:
@@ -196,9 +182,7 @@ def transformer_predict(
 
     if output_path is not None:
         if output_path.exists():
-            logger.info(
-                f"Output path '{output_path}' already exists and will be overwritten."
-            )
+            logger.info(f"Output path '{output_path}' already exists and will be overwritten.")
         output_path.parent.mkdir(parents=True, exist_ok=True)
         config.output_path = str(output_path)
     if config.get("output_path", None) is None:
@@ -221,8 +205,9 @@ def transformer_predict(
             and instanovo_model not in InstaNovo.get_pretrained()
         ):
             raise ValueError(
-                f"InstaNovo model ID '{instanovo_model}' is not supported. Currently supported "
-                f"""value(s): {", ".join(f"'{model_id}'" for model_id in InstaNovo.get_pretrained())}"""
+                f"InstaNovo model ID '{instanovo_model}' is not supported. "
+                "Currently supported value(s): "
+                f"""{", ".join(f"'{model_id}'" for model_id in InstaNovo.get_pretrained())}"""
             )
         config.instanovo_model = instanovo_model
 
@@ -235,9 +220,7 @@ def transformer_predict(
 
     logger.info(f"Loading InstaNovo model {config.instanovo_model}")
     if config.instanovo_model in InstaNovo.get_pretrained():
-        transformer_model, transformer_config = InstaNovo.from_pretrained(
-            config.instanovo_model
-        )
+        transformer_model, transformer_config = InstaNovo.from_pretrained(config.instanovo_model)
     else:
         transformer_model, transformer_config = InstaNovo.load(config.instanovo_model)
 
@@ -284,21 +267,26 @@ def diffusion_predict(
         typer.Option(
             "--instanovo-plus-model",
             "-p",
-            help=f"""Either a model ID (currently supported: {", ".join(f"'{model_id}'" for model_id in InstaNovoPlus.get_pretrained())}) or a path to an Instanovo+ checkpoint directory (containing a `transition_model.ckpt`, `config.yaml` and `diffusion_schedule.pt` file).""",
+            help="Either a model ID (currently supported: "
+            f"""{", ".join(f"'{model_id}'" for model_id in InstaNovoPlus.get_pretrained())})"""
+            " or a path to an Instanovo+ checkpoint directory (containing a "
+            "`transition_model.ckpt`, `config.yaml` and `diffusion_schedule.pt` file).",
         ),
     ] = None,
     denovo: Annotated[
         Optional[bool],
         typer.Option(
             "--denovo/--evaluation",
-            help="Do [i]de novo[/i] predictions or evaluate an annotated file with peptide sequences?",
+            help="Do [i]de novo[/i] predictions or evaluate an annotated file "
+            "with peptide sequences?",
         ),
     ] = None,
     refine: Annotated[
         Optional[bool],
         typer.Option(
             "--with-refinement/--no-refinement",
-            help="Refine the predictions of the transformer-based InstaNovo model with the diffusion-based InstaNovo+ model?",
+            help="Refine the predictions of the transformer-based InstaNovo model with the "
+            "diffusion-based InstaNovo+ model?",
         ),
     ] = None,
     config_path: Annotated[
@@ -338,9 +326,7 @@ def diffusion_predict(
         if "*" in data_path or "?" in data_path or "[" in data_path:
             # Glob notation: path/to/data/*.parquet
             if not glob.glob(data_path):
-                raise ValueError(
-                    f"The data_path '{data_path}' doesn't correspond to any file(s)."
-                )
+                raise ValueError(f"The data_path '{data_path}' doesn't correspond to any file(s).")
         config.data_path = str(data_path)
 
     if not config.get("data_path", None) and data_path is None:
@@ -356,9 +342,7 @@ def diffusion_predict(
 
     if output_path is not None:
         if output_path.exists():
-            logger.info(
-                f"Output path '{output_path}' already exists and will be overwritten."
-            )
+            logger.info(f"Output path '{output_path}' already exists and will be overwritten.")
         output_path.parent.mkdir(parents=True, exist_ok=True)
         config.output_path = str(output_path)
     if config.output_path and not Path(config.output_path).parent.exists():
@@ -377,9 +361,7 @@ def diffusion_predict(
         if Path(instanovo_plus_model).is_dir():
             required_files = ["*.ckpt", "*.yaml", "*.pt"]
             missing_files = [
-                ext
-                for ext in required_files
-                if not list(Path(instanovo_plus_model).glob(ext))
+                ext for ext in required_files if not list(Path(instanovo_plus_model).glob(ext))
             ]
             if missing_files:
                 raise ValueError(
@@ -391,8 +373,9 @@ def diffusion_predict(
             and instanovo_plus_model not in InstaNovoPlus.get_pretrained()
         ):
             raise ValueError(
-                f"InstaNovo+ model ID '{instanovo_plus_model}' is not supported. Currently supported "
-                f"""value(s): {", ".join(f"'{model_id}'" for model_id in InstaNovoPlus.get_pretrained())}"""
+                f"InstaNovo+ model ID '{instanovo_plus_model}' is not supported. Currently "
+                "supported value(s): "
+                f"""{", ".join(f"'{model_id}'" for model_id in InstaNovoPlus.get_pretrained())}"""
             )
         config.instanovo_plus_model = instanovo_plus_model
 
@@ -413,9 +396,9 @@ def diffusion_predict(
         instanovo_predictions_path.write_text(Path(config.output_path).read_text())
         config.instanovo_predictions_path = str(instanovo_predictions_path)
 
-    if config.get("refine", False) and config.get(
-        "instanovo_predictions_path", None
-    ) == config.get("output_path", None):
+    if config.get("refine", False) and config.get("instanovo_predictions_path", None) == config.get(
+        "output_path", None
+    ):
         raise ValueError(
             "The 'instanovo_predictions_path' should be different from the 'output_path' to avoid "
             "overwriting the transformer predictions."
@@ -428,15 +411,18 @@ def diffusion_predict(
             config.instanovo_plus_model
         )
     else:
-        diffusion_model, diffusion_config = InstaNovoPlus.load(
-            config.instanovo_plus_model
-        )
+        diffusion_model, diffusion_config = InstaNovoPlus.load(config.instanovo_plus_model)
 
-    # # assert diffusion_model.residues == transformer_model.residue_set, f"Residue set of the InstaNovo+ diffusion model:\n{diffusion_model.residues.index_to_residue}\ndoes not equal the residue set of the InstaNovo transformer model:\n{transformer_model.residue_set.index_to_residue}"
+    # # assert diffusion_model.residues == transformer_model.residue_set, f"Residue set of the "
+    # f"InstaNovo+ diffusion model:\n{diffusion_model.residues.index_to_residue}\ndoes not equal "
+    # "the residue set of the InstaNovo transformer model:\n"
+    # f"{transformer_model.residue_set.index_to_residue}"
     # # TODO: Align naming in diffusion model from 'residues' to 'residue_set'
     # if diffusion_model.residues != transformer_model.residue_set:
     #     logger.info(
-    #         f"Residue set of the InstaNovo+ diffusion model:\n{diffusion_model.residues.index_to_residue}\ndoes not equal the residue set of the InstaNovo transformer model:\n{transformer_model.residue_set.index_to_residue}"
+    #         "Residue set of the InstaNovo+ diffusion model:\n"
+    # f"{diffusion_model.residues.index_to_residue}\ndoes not equal the residue set of the "
+    # f"InstaNovo transformer model:\n{transformer_model.residue_set.index_to_residue}"
     #     )
     #     diffusion_model.residues = transformer_model.residue_set
 
@@ -492,8 +478,8 @@ def predict(
             help=(
                 "Either a model ID (currently supported: "
                 f"""{", ".join(f"'{model_id}'" for model_id in InstaNovoPlus.get_pretrained())}) """
-                "or a path to an Instanovo+ checkpoint directory (containing a `transition_model.ckpt`,"
-                " `config.yaml` and `diffusion_schedule.pt` file)."
+                "or a path to an Instanovo+ checkpoint directory (containing a "
+                "`transition_model.ckpt`, `config.yaml` and `diffusion_schedule.pt` file)."
             ),
         ),
     ] = None,
@@ -501,7 +487,8 @@ def predict(
         Optional[bool],
         typer.Option(
             "--denovo/--evaluation",
-            help="Do [i]de novo[/i] predictions or evaluate an annotated file with peptide sequences?",
+            help="Do [i]de novo[/i] predictions or evaluate an "
+            "annotated file with peptide sequences?",
         ),
     ] = None,
     refine: Annotated[
@@ -690,8 +677,9 @@ def version() -> None:
     table = Table("Package", "Version")
     table.add_row("InstaNovo", __version__)
     table.add_row("InstaNovo+", __version__)
+    table.add_row("NumPy", np.__version__)
     table.add_row("PyTorch", torch.__version__)
-    table.add_row("Lightning", ptl.__version__)
+    table.add_row("Lightning", L.__version__)
     console.print(table)
 
 

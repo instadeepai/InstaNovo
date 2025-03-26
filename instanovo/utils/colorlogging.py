@@ -24,4 +24,8 @@ class ColorLog:
             datefmt="[%X]",
             handlers=[rich_handler],
         )
+
+        # Suppress INFO logs from the datasets package
+        logging.getLogger("datasets").setLevel(logging.ERROR)
+
         self.logger = logging.getLogger(name)

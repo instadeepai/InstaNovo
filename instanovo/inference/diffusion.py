@@ -41,9 +41,10 @@ class DiffusionDecoder:
             precursors (torch.FloatTensor[batch_size, 3]):
                 Precursor mass, charge and m/z for a batch of spectra.
 
-            initial_sequence (None | torch.LongTensor[batch_size, output_sequence_length], optional):
-                An initial sequence for the model to refine. If no initial sequence is provided (the value
-                is None), will sample a random sequence from a uniform unigram model. Defaults to None.
+            initial_sequence (None | torch.LongTensor[batch_size, output_sequence_length],
+                optional): An initial sequence for the model to refine. If no initial sequence is
+                provided (the value is None), will sample a random sequence from a uniform unigram
+                model. Defaults to None.
 
             start_step (int):
                 The step at which to insert the initial sequence and start refinement. If
@@ -102,9 +103,7 @@ class DiffusionDecoder:
         sequences = self._extract_predictions(sample)
         return sequences, log_probs
 
-    def _extract_predictions(
-        self, sample: Integer[Peptide, " batch"]
-    ) -> list[list[str]]:
+    def _extract_predictions(self, sample: Integer[Peptide, " batch"]) -> list[list[str]]:
         output = []
         for sequence in sample:
             tokens = sequence.tolist()

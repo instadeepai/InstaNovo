@@ -23,9 +23,12 @@ epochs: 5
 num_sanity_val_steps: 10
 console_logging_steps: 2000
 report_to: neptune
-run_name: instanovo_nine_species
+run_name: instanovo_nine_species_v1
+
 tags:
-  - nine_species
+  - nine_species_v1
+  - "numpy 2.0.2"
+  - "pytorch 2.4.1"
 
 # Training data parameters
 train_subset: 0.1
