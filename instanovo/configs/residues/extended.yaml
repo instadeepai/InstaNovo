@@ -21,7 +21,7 @@ residues:
   "W": 186.079313
   # Modifications
   "M(+15.99)": 147.035400 # Oxidation
-  "C(+57.02)": 160.030649 # Cysteine alkylation
+  "C(+57.02)": 160.030649 # Carboxyamidomethylation
   "N(+.98)": 115.026943 # Deamidation
   "Q(+.98)": 129.042594 # Deamidation
   # Extended modifications

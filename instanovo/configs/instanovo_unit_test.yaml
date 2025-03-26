@@ -15,9 +15,11 @@ learning_rate: 1e-3
 train_batch_size: 32
 grad_accumulation: 1
 
+device: cpu
+fp16: False
+
 # Logging parameters
-logger:
-epochs: 5
+epochs: 1
 num_sanity_val_steps: 10
 console_logging_steps: 50
 tensorboard_logging_steps: 500
@@ -28,5 +30,5 @@ run_name: instanovo_unit_test
 valid_subset: 1.0
 
 # Checkpointing parameters
-model_save_folder_path: ./tests/instanovo_test_resources
-ckpt_interval: 2420
+model_save_folder_path: ./tests/instanovo_test_resources/train_test
+ckpt_interval: 480

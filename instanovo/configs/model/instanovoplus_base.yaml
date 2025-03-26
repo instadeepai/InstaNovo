@@ -1,0 +1,59 @@
+# general params
+vocab_size: 33 #27
+
+layers: 12
+dim: 768
+nheads: 8
+dropout: 0.1
+attention_type: 'wavlm' # either 'normal' or 'wavlm'
+
+# waveform encoder
+wav_encoder: "wavlm"  # only 'wavlm' currently supported
+
+# wavlm attention parameters
+wavlm_num_bucket: 140
+wavlm_max_dist: 280
+
+dim_feedforward: 1024
+max_charge: 10
+
+# timestep embedding params
+t_emb_dim: 768
+t_emb_max_period: 10000
+
+# conditioning params
+cond_emb_dim: 768
+drop_cond_prob: 0.1 # for classifier free guidance (same as original paper)
+
+# For 12 layers: fix([0, 3, 6, 9]) | For 24 layers: fix([0, 4, 8, 12, 16, 20])
+cond_cross_attn_layers:
+- 0
+- 3
+- 6
+- 9
+
+# relative positional encoding params
+conv_pos: 256 # typically 128, here 256
+conv_pos_groups: 32 # typically 16, here 32
+
+diffusion_type: multinomial # only 'multinomial' supported
+diffusion_s: 0.008
+
+# transformer positional encoding
+# either 'relative' or 'absolute', our models use relative
+# to allow arbitrary lengths at inference time.
+pos_encoding: relative
+
+use_flash_attention: False
+conv_peak_encoder: False
+
+# Model data parameters
+n_peaks: 200
+min_mz: 50.0
+max_mz: 2500.0
+min_intensity: 0.01
+remove_precursor_tol: 2.0
+precursor_mass_tol: 50 # ppm
+isotope_error_range: [0, 1]
+
+max_length: 40

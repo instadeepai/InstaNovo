@@ -1,0 +1,37 @@
+residues:
+  "G": 57.021464
+  "A": 71.037114
+  "S": 87.032028
+  "P": 97.052764
+  "V": 99.068414
+  "T": 101.047670
+  "C": 103.009185
+  "L": 113.084064
+  "I": 113.084064
+  "N": 114.042927
+  "D": 115.026943
+  "Q": 128.058578
+  "K": 128.094963
+  "E": 129.042593
+  "M": 131.040485
+  "H": 137.058912
+  "F": 147.068414
+  "R": 156.101111
+  "Y": 163.063329
+  "W": 186.079313
+  # Modifications
+  "M[UNIMOD:35]": 147.035400 # Oxidation
+  "C[UNIMOD:4]": 160.030649 # Carboxyamidomethylation
+  "N[UNIMOD:7]": 115.026943 # Deamidation
+  "Q[UNIMOD:7]": 129.042594 # Deamidation
+  # Extended modifications
+  # "F(+.98)": 148.052431 # Deamidation
+  # Phospho modifications
+  "S[UNIMOD:21]": 166.998028 # Phosphorylation + 79.966
+  "T[UNIMOD:21]": 181.01367 # Phosphorylation + 79.966
+  "Y[UNIMOD:21]": 243.029329 # Phosphorylation + 79.966
+  # Terminal modifications
+  "[UNIMOD:1]": 42.010565 # Acetylation
+  "[UNIMOD:5]": 43.005814 # Carbamylation
+  "[UNIMOD:385]": -17.026549 # NH3 loss
+  # "(+25.98)": 25.980265 # Carbamylation & NH3 loss

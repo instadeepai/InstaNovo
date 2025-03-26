@@ -5,9 +5,7 @@ import re
 import numpy as np
 import torch
 
-from instanovo.constants import H2O_MASS
-from instanovo.constants import PROTON_MASS_AMU
-from instanovo.constants import SpecialTokens
+from instanovo.constants import H2O_MASS, PROTON_MASS_AMU, SpecialTokens
 
 
 class ResidueSet:
@@ -39,15 +37,25 @@ class ResidueSet:
         self.vocab = self.special_tokens + list(self.residue_masses.keys())
 
         # Create mappings
-        self.residue_to_index = {
-            residue: index for index, residue in enumerate(self.vocab)
-        }
-        self.index_to_residue = {
-            index: residue for index, residue in enumerate(self.vocab)
-        }
+        self.residue_to_index = {residue: index for index, residue in enumerate(self.vocab)}
+        self.index_to_residue = dict(enumerate(self.vocab))
         # Split on amino acids allowing for modifications eg. AM(ox)Z -> [A, M(ox), Z]
-        # Groups A-Z with any suffix
-        self.tokenizer_regex = r"(\([^)]+\))|([A-Z](?:\([^)]+\))?)"
+        # Supports brackets or unimod notation
+        self.tokenizer_regex = (
+            # First capture group: matches either:
+            # - A UNIMOD annotation like [UNIMOD:123]
+            # - Any text inside parentheses like (ox) or (+.98)
+            r"(\[UNIMOD:\d+\]|\([^)]+\))|"
+            # Second capture group: starts with a valid amino acid letter
+            # (including U for selenocysteine and O for pyrrolysine)
+            r"([A-Z]"
+            # Optionally followed by a UNIMOD annotation
+            r"(?:\[UNIMOD:\d+\]|"
+            # Or optionally followed by text in parentheses
+            r"\([^)]+\))?"
+            # Close second capture group
+            r")"
+        )
 
         self.PAD_INDEX: int = self.residue_to_index[SpecialTokens.PAD_TOKEN.value]
         self.SOS_INDEX: int = self.residue_to_index[SpecialTokens.SOS_TOKEN.value]
@@ -157,9 +165,7 @@ class ResidueSet:
         encoded_list = [
             self.residue_to_index[
                 # remap the residue if possible
-                self.residue_remapping[residue]
-                if residue in self.residue_remapping
-                else residue
+                self.residue_remapping[residue] if residue in self.residue_remapping else residue
             ]
             for residue in sequence
         ]
@@ -176,9 +182,7 @@ class ResidueSet:
         else:
             return encoded_list
 
-    def decode(
-        self, sequence: torch.LongTensor | list[int], reverse: bool = False
-    ) -> list[str]:
+    def decode(self, sequence: torch.LongTensor | list[int], reverse: bool = False) -> list[str]:
         """Map a sequence of indices to the corresponding sequence of residues.
 
         Args:
@@ -209,3 +213,8 @@ class ResidueSet:
 
     def __len__(self) -> int:
         return len(self.index_to_residue)
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, ResidueSet):
+            return NotImplemented
+        return self.vocab == other.vocab

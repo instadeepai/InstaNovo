@@ -1,18 +1,13 @@
 from __future__ import annotations
 
+from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass
-
-from abc import ABCMeta
-from abc import abstractmethod
 from typing import Any
 
 import torch
-from jaxtyping import Float
-from jaxtyping import Integer
+from jaxtyping import Float, Integer
 
-from instanovo.types import Peptide
-from instanovo.types import PrecursorFeatures
-from instanovo.types import Spectrum
+from instanovo.types import Peptide, PrecursorFeatures, Spectrum
 from instanovo.utils.residues import ResidueSet
 
 
@@ -27,7 +22,10 @@ class ScoredSequence:
 
 
 class Decodable(metaclass=ABCMeta):
-    """An interface for models that can be decoded by algorithms that conform to the search interface."""
+    """An interface for models that can be decoded.
+
+    Algorithms should conform to the search interface.
+    """
 
     @property
     @abstractmethod
@@ -110,7 +108,9 @@ class Decodable(metaclass=ABCMeta):
 
 
 class Decoder(metaclass=ABCMeta):
-    """A class that implements some search algorithm for decoding from a model that conforms to the `Decodable` interface.
+    """A class that implements some search algorithm for decoding.
+
+    Model should conform to the `Decodable` interface.
 
     Args:
         model (Decodable):

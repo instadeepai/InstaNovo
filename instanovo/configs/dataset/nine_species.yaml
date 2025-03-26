@@ -1,0 +1,8 @@
+use_shards: True
+train_path: data/new_schema/train.ipc
+valid_path: data/new_schema/valid.ipc
+valid_subset_of_train:
+source_type: ipc
+
+residue_remapping:
+  "M(ox)": "M(+15.99)"

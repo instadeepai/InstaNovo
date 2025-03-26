@@ -3,15 +3,13 @@ from __future__ import annotations
 import torch
 from jaxtyping import Float
 
-from instanovo.types import PrecursorFeatures
-from instanovo.types import Spectrum
-from instanovo.constants import CARBON_MASS_DELTA
-from instanovo.constants import H2O_MASS
-from instanovo.constants import MASS_SCALE
-from instanovo.constants import PrecursorDimension
-from instanovo.inference.interfaces import Decodable
-from instanovo.inference.interfaces import Decoder
-from instanovo.inference.interfaces import ScoredSequence
+from instanovo.__init__ import console
+from instanovo.constants import CARBON_MASS_DELTA, H2O_MASS, MASS_SCALE, PrecursorDimension
+from instanovo.inference.interfaces import Decodable, Decoder, ScoredSequence
+from instanovo.types import PrecursorFeatures, Spectrum
+from instanovo.utils.colorlogging import ColorLog
+
+logger = ColorLog(console, __name__).logger
 
 
 class GreedyDecoder(Decoder):
@@ -34,17 +32,15 @@ class GreedyDecoder(Decoder):
 
         suppressed_residues = suppressed_residues or []
 
-        # NOTE: Greedy search requires `residue_set` class in the model, update all methods accordingly.
+        # NOTE: Greedy search requires `residue_set` class in the model,
+        # update all methods accordingly.
         if not hasattr(model, "residue_set"):
-            raise AttributeError(
-                "The model is missing the required attribute: residue_set"
-            )
+            raise AttributeError("The model is missing the required attribute: residue_set")
 
         # We would need to divide the scaled masses as we use floating point masses.
-        # These residue masses are per amino acid and include special tokens, special tokens have a mass of 0.
-        self.residue_masses = torch.zeros(
-            (len(self.model.residue_set),), dtype=torch.float64
-        )
+        # These residue masses are per amino acid and include special tokens,
+        # special tokens have a mass of 0.
+        self.residue_masses = torch.zeros((len(self.model.residue_set),), dtype=torch.float64)
         terminal_residues_idx: list[int] = []
         suppressed_residues_idx: list[int] = []
         for i, residue in enumerate(model.residue_set.vocab):
@@ -61,16 +57,12 @@ class GreedyDecoder(Decoder):
                 suppressed_residues.remove(residue)
 
         if len(suppressed_residues) > 0:
-            raise ValueError(
-                f"Suppressed residues not found in vocabulary: {suppressed_residues}"
+            logger.warning(
+                f"Some suppressed residues not found in vocabulary: {suppressed_residues}"
             )
 
-        self.terminal_residue_indices = torch.tensor(
-            terminal_residues_idx, dtype=torch.long
-        )
-        self.suppressed_residue_indices = torch.tensor(
-            suppressed_residues_idx, dtype=torch.long
-        )
+        self.terminal_residue_indices = torch.tensor(terminal_residues_idx, dtype=torch.long)
+        self.suppressed_residue_indices = torch.tensor(suppressed_residues_idx, dtype=torch.long)
 
         self.vocab_size = len(self.model.residue_set)
 
@@ -134,9 +126,7 @@ class GreedyDecoder(Decoder):
         device = spectra.device
 
         # Masses of all residues in vocabulary, 0 for special tokens
-        self.residue_masses = self.residue_masses.to(
-            spectra.device
-        )  # float32 (vocab_size, )
+        self.residue_masses = self.residue_masses.to(spectra.device)  # float32 (vocab_size, )
 
         # ppm equivalent of mass tolerance
         delta_ppm_tol = mass_tolerance * 10**6  # float (1, )
@@ -153,12 +143,14 @@ class GreedyDecoder(Decoder):
             (spectrum_encoding, spectrum_mask), _ = self.model.init(spectra, precursors)
 
             # 2. Initialise beams and other variables
-            # The sequences decoded so far, grows on index 1 for every decoding pass. sequence_length is variable!
+            # The sequences decoded so far, grows on index 1 for every decoding pass.
+            # sequence_length is variable!
             sequences = torch.zeros(
                 (batch_size, 0), device=device, dtype=torch.long
             )  # long (batch_size, sequence_length)
 
-            # Log probabiliies of the sequences decoded so far, token probabilities are added at each step.
+            # Log probabilities of the sequences decoded so far,
+            # token probabilities are added at each step.
             log_probabilities = torch.zeros(
                 (batch_size, 1), device=device, dtype=torch.float32
             )  # long (batch_size, 1)
@@ -168,21 +160,25 @@ class GreedyDecoder(Decoder):
                 (batch_size), device=device, dtype=bool
             )  # bool (batch_size, )
 
+            # Keeps track of which stopped early or terminated with a bad stop condition.
+            # These predictions will be deleted.
+            # bad_stop_condition =
+            #             torch.zeros((batch_size), device=device, dtype=bool) # bool (batch_size, )
             # Extract precursor mass from `precursors`
             precursor_mass = precursors[
                 :, PrecursorDimension.PRECURSOR_MASS.value
             ]  # float32 (batch_size, )
 
-            # Target mass delta, remaining mass x must be within `target > x > -target`. This target can shift with isotopes.
+            # Target mass delta, remaining mass x must be within `target > x > -target`.
+            # This target can shift with isotopes.
             # Mass targets = error_ppm * m_prec * 1e-6
             mass_target_delta = (
                 delta_ppm_tol * precursor_mass.to(torch.float64) * 1e-6
             )  # float64 (batch_size, )
 
-            # This keeps track of the remaining mass budget for the currently decoding sequence, starts at the precursor - H2O
-            remaining_mass = (
-                precursor_mass.to(torch.float64) - H2O_MASS
-            )  # float64 (batch_size, )
+            # This keeps track of the remaining mass budget for the currently decoding sequence,
+            # starts at the precursor - H2O
+            remaining_mass = precursor_mass.to(torch.float64) - H2O_MASS  # float64 (batch_size, )
 
             # Idea is if remaining < check_zone, we do the valid mass and complete checks.
             # check_zone = self.residue_masses.max().expand(batch_size) + mass_target_delta
@@ -196,7 +192,8 @@ class GreedyDecoder(Decoder):
                 if complete_beams.all():
                     break
 
-                # We only run the model on incomplete beams, note: we have to expand to the full batch size afterwards.
+                # We only run the model on incomplete beams, note: we have to expand to
+                # the full batch size afterwards.
                 minibatch = (
                     x[~complete_beams]
                     for x in (sequences, precursors, spectrum_encoding, spectrum_mask)
@@ -205,12 +202,14 @@ class GreedyDecoder(Decoder):
                 sub_batch_size = (~complete_beams).sum()
 
                 # Step 3: score the next tokens
-                # NOTE: SOS token is appended automatically in `score_candidates`. We do not have to add it.
+                # NOTE: SOS token is appended automatically in `score_candidates`.
+                # We do not have to add it.
                 next_token_probabilities = self.model.score_candidates(*minibatch)
 
                 # Step 4: Filter probabilities
                 # If remaining mass is within tolerance, we force an EOS token.
-                # All tokens that would set the remaining mass below the minimum cutoff `-mass_target_delta` including isotopes is set to -inf
+                # All tokens that would set the remaining mass below the minimum
+                # cutoff `-mass_target_delta` including isotopes is set to -inf
 
                 # Step 4.1: Check if remaining mass is within tolerance:
                 # To keep it efficient we compute some of the indexed variables first:
@@ -221,7 +220,8 @@ class GreedyDecoder(Decoder):
                     ~complete_beams
                 ]  # float64 (sub_batch_size, )
 
-                # remaining_meets_precursor = (remaining_mass[~complete_beams] < mass_target_delta[~complete_beams])
+                # remaining_meets_precursor =
+                #   (remaining_mass[~complete_beams] < mass_target_delta[~complete_beams])
                 remaining_meets_precursor = torch.zeros(
                     (sub_batch_size,), device=device, dtype=bool
                 )  # bool (sub_batch_size, )
@@ -250,14 +250,10 @@ class GreedyDecoder(Decoder):
 
                 # Step 4.2: Check which residues are valid
                 # Expand incomplete remaining mass across vocabulary size
-                remaining_mass_incomplete_expanded = remaining_mass_incomplete[
-                    :, None
-                ].expand(
+                remaining_mass_incomplete_expanded = remaining_mass_incomplete[:, None].expand(
                     sub_batch_size, self.vocab_size
                 )  # float64 (sub_batch_size, vocab_size)
-                mass_target_incomplete_expanded = mass_target_incomplete[
-                    :, None
-                ].expand(
+                mass_target_incomplete_expanded = mass_target_incomplete[:, None].expand(
                     sub_batch_size, self.vocab_size
                 )  # float64 (sub_batch_size, vocab_size)
                 residue_mass_delta_incomplete = residue_mass_delta[
@@ -272,13 +268,11 @@ class GreedyDecoder(Decoder):
                 for j in range(1, max_isotope + 1, 1):
                     isotope = CARBON_MASS_DELTA * j  # float
                     mass_lesser_isotope = (
-                        remaining_mass_incomplete_expanded
-                        - residue_mass_delta_incomplete
+                        remaining_mass_incomplete_expanded - residue_mass_delta_incomplete
                         < mass_target_incomplete_expanded + isotope
                     )  # bool (sub_batch_size, vocab_size)
                     mass_greater_isotope = (
-                        remaining_mass_incomplete_expanded
-                        - residue_mass_delta_incomplete
+                        remaining_mass_incomplete_expanded - residue_mass_delta_incomplete
                         > -mass_target_incomplete_expanded + isotope
                     )  # bool (sub_batch_size, vocab_size)
                     valid_mass = valid_mass | (
@@ -291,25 +285,26 @@ class GreedyDecoder(Decoder):
                 )  # float32 (sub_batch_size, vocab_size)
                 # If mass is invalid, set log_prob to -inf
                 next_token_probabilities_filtered[~valid_mass] = -float("inf")
-                next_token_probabilities_filtered[
-                    :, self.model.residue_set.EOS_INDEX
-                ] = -float("inf")
+                next_token_probabilities_filtered[:, self.model.residue_set.EOS_INDEX] = -float(
+                    "inf"
+                )
                 # Allow the model to predict PAD when all residues are -inf
-                next_token_probabilities_filtered[
-                    :, self.model.residue_set.SOS_INDEX
-                ] = -float("inf")
-                next_token_probabilities_filtered[
-                    :, self.suppressed_residue_indices
-                ] = -float("inf")
+                # next_token_probabilities_filtered[
+                #     :, self.model.residue_set.PAD_INDEX
+                # ] = -float("inf")
+                next_token_probabilities_filtered[:, self.model.residue_set.SOS_INDEX] = -float(
+                    "inf"
+                )
+                next_token_probabilities_filtered[:, self.suppressed_residue_indices] = -float(
+                    "inf"
+                )
                 # Set probability of n-terminal modifications to -inf when i > 0
                 if self.disable_terminal_residues_anywhere:
                     # Check if adding terminal residues would result in a complete sequence
                     # First generate remaining mass matrix with isotopes
-                    remaining_mass_incomplete_isotope = remaining_mass_incomplete[
-                        :, None
-                    ].expand(sub_batch_size, max_isotope + 1) - CARBON_MASS_DELTA * (
-                        torch.arange(max_isotope + 1, device=device)
-                    )
+                    remaining_mass_incomplete_isotope = remaining_mass_incomplete[:, None].expand(
+                        sub_batch_size, max_isotope + 1
+                    ) - CARBON_MASS_DELTA * (torch.arange(max_isotope + 1, device=device))
                     # Expand with terminal residues and subtract
                     remaining_mass_incomplete_isotope_delta = (
                         remaining_mass_incomplete_isotope[:, :, None].expand(
@@ -320,7 +315,8 @@ class GreedyDecoder(Decoder):
                         - self.residue_masses[self.terminal_residue_indices]
                     )
 
-                    # If within target delta, allow these residues to be predicted, otherwise set probability to -inf
+                    # If within target delta, allow these residues to be predicted,
+                    # otherwise set probability to -inf
                     allow_terminal = (
                         remaining_mass_incomplete_isotope_delta.abs()
                         < mass_target_incomplete[:, None, None]
@@ -330,14 +326,10 @@ class GreedyDecoder(Decoder):
                         device=spectra.device,
                         dtype=bool,
                     )
-                    allow_terminal_full[:, self.terminal_residue_indices] = (
-                        allow_terminal
-                    )
+                    allow_terminal_full[:, self.terminal_residue_indices] = allow_terminal
 
                     # Set to -inf
-                    next_token_probabilities_filtered[~allow_terminal_full] = -float(
-                        "inf"
-                    )
+                    next_token_probabilities_filtered[~allow_terminal_full] = -float("inf")
 
                 # Step 5: Select next token:
                 next_token = next_token_probabilities_filtered.argmax(-1).unsqueeze(
@@ -365,14 +357,10 @@ class GreedyDecoder(Decoder):
                     (batch_size), device=spectra.device, dtype=remaining_mass.dtype
                 )  # float64 (batch_size, )
                 next_masses_full[~complete_beams] = next_masses
-                remaining_mass = (
-                    remaining_mass - next_masses_full
-                )  # float64 (batch_size, )
+                remaining_mass = remaining_mass - next_masses_full  # float64 (batch_size, )
 
                 # Expand and update probabilities
-                next_probabilities = torch.gather(
-                    next_token_probabilities, 1, next_token
-                )
+                next_probabilities = torch.gather(next_token_probabilities, 1, next_token)
                 next_probabilities_full = torch.zeros(
                     (batch_size, 1),
                     device=spectra.device,
@@ -386,12 +374,17 @@ class GreedyDecoder(Decoder):
 
                 # Check if complete:
                 # Early stopping if beam log probability below threshold
-                beam_confidence_filter = (
-                    log_probabilities[~complete_beams, 0] < min_log_prob
-                )
+                beam_confidence_filter = log_probabilities[~complete_beams, 0] < min_log_prob
                 # Stop if beam is forced to output an EOS
                 next_token_is_eos = next_token[:, 0] == self.model.residue_set.EOS_INDEX
                 next_is_complete = next_token_is_eos | beam_confidence_filter
+
+                # Check for a bad stop
+                # bad_stop_condition = beam_confidence_filter
+                # bad_stop_condition_full = torch.zeros((batch_size,),
+                #                           device=spectra.device, dtype=bad_stop_condition.dtype)
+                # bad_stop_condition_full[~complete_beams] = bad_stop_condition
+                # bad_stop_condition = bad_stop_condition | bad_stop_condition_full
 
                 # Expand and update complete beams
                 next_is_complete_full = torch.zeros(
@@ -415,8 +408,7 @@ class GreedyDecoder(Decoder):
                     mass_error=remaining_mass[i].item(),  # float
                     sequence_log_probability=log_probabilities[i, 0].item(),  # float
                     token_log_probabilities=[
-                        x.cpu().item()
-                        for x in all_log_probabilities[i, : len(sequence)]
+                        x.cpu().item() for x in all_log_probabilities[i, : len(sequence)]
                     ][::-1],  # list[float] (sequence_length) excludes EOS
                 )
             )

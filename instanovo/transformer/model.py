@@ -1,37 +1,45 @@
 from __future__ import annotations
 
-from typing import Optional
-from typing import Tuple
-
-import torch
 import json
 import os
-import requests
-from urllib.parse import urlsplit
-from tqdm import tqdm
+from importlib import resources
 from pathlib import Path
-from jaxtyping import Bool
-from jaxtyping import Float
-from jaxtyping import Integer
-from omegaconf import DictConfig
-from torch import nn
-from torch import Tensor
+from typing import Optional, Tuple
+from urllib.parse import urlsplit
 
-from instanovo.constants import MAX_SEQUENCE_LENGTH
-from instanovo.transformer.layers import ConvPeakEmbedding
-from instanovo.transformer.layers import MultiScalePeakEmbedding
-from instanovo.transformer.layers import PositionalEncoding
+import requests
+import torch
+from jaxtyping import Bool, Float, Integer
+from omegaconf import DictConfig
+from torch import Tensor, nn
+from tqdm import tqdm
+
+from instanovo.__init__ import console
+from instanovo.constants import LEGACY_PTM_TO_UNIMOD, MAX_SEQUENCE_LENGTH
 from instanovo.inference import Decodable
-from instanovo.types import DiscretizedMass
-from instanovo.types import Peptide
-from instanovo.types import PeptideMask
-from instanovo.types import PrecursorFeatures
-from instanovo.types import ResidueLogits
-from instanovo.types import ResidueLogProbabilities
-from instanovo.types import Spectrum
-from instanovo.types import SpectrumEmbedding
-from instanovo.types import SpectrumMask
+from instanovo.transformer.layers import (
+    ConvPeakEmbedding,
+    MultiScalePeakEmbedding,
+    PositionalEncoding,
+)
+from instanovo.types import (
+    DiscretizedMass,
+    Peptide,
+    PeptideMask,
+    PrecursorFeatures,
+    ResidueLogits,
+    ResidueLogProbabilities,
+    Spectrum,
+    SpectrumEmbedding,
+    SpectrumMask,
+)
 from instanovo.utils import ResidueSet
+from instanovo.utils.colorlogging import ColorLog
+
+MODEL_TYPE = "transformer"
+
+
+logger = ColorLog(console, __name__).logger
 
 MODELS_PATH = Path(__file__).parent.parent / "models.json"
 MODEL_TYPE = "transformer"
@@ -86,9 +94,7 @@ class InstaNovo(nn.Module, Decodable):
         # Decoder
         self.aa_embed = nn.Embedding(self.vocab_size, dim_model, padding_idx=0)
 
-        self.aa_pos_embed = PositionalEncoding(
-            dim_model, dropout, max_len=MAX_SEQUENCE_LENGTH
-        )
+        self.aa_pos_embed = PositionalEncoding(dim_model, dropout, max_len=MAX_SEQUENCE_LENGTH)
 
         decoder_layer = nn.TransformerDecoderLayer(
             d_model=dim_model,
@@ -125,7 +131,7 @@ class InstaNovo(nn.Module, Decodable):
     def get_pretrained() -> list[str]:
         """Get a list of pretrained model ids."""
         # Load the models.json file
-        with open(MODELS_PATH, "r") as f:
+        with resources.files("instanovo").joinpath("models.json").open("r", encoding="utf-8") as f:
             models_config = json.load(f)
 
         if MODEL_TYPE not in models_config:
@@ -134,7 +140,9 @@ class InstaNovo(nn.Module, Decodable):
         return list(models_config[MODEL_TYPE].keys())
 
     @classmethod
-    def load(cls, path: str) -> Tuple["InstaNovo", "DictConfig"]:
+    def load(
+        cls, path: str, update_residues_to_unimod: bool = True
+    ) -> Tuple["InstaNovo", "DictConfig"]:
         """Load model from checkpoint path."""
         # Add  to allow list
         _whitelist_torch_omegaconf()
@@ -143,12 +151,17 @@ class InstaNovo(nn.Module, Decodable):
         config = ckpt["config"]
 
         # check if PTL checkpoint
-        if all([x.startswith("model") for x in ckpt["state_dict"].keys()]):
-            ckpt["state_dict"] = {
-                k.replace("model.", ""): v for k, v in ckpt["state_dict"].items()
+        if all(x.startswith("model") for x in ckpt["state_dict"].keys()):
+            ckpt["state_dict"] = {k.replace("model.", ""): v for k, v in ckpt["state_dict"].items()}
+
+        residues = dict(config["residues"])
+        if update_residues_to_unimod:
+            residues = {
+                LEGACY_PTM_TO_UNIMOD[k] if k in LEGACY_PTM_TO_UNIMOD else k: v
+                for k, v in residues.items()
             }
 
-        residue_set = ResidueSet(config["residues"])
+        residue_set = ResidueSet(residues)
 
         model = cls(
             residue_set=residue_set,
@@ -166,27 +179,30 @@ class InstaNovo(nn.Module, Decodable):
         return model, config
 
     @classmethod
-    def from_pretrained(cls, model_id: str) -> Tuple["InstaNovo", "DictConfig"]:
+    def from_pretrained(
+        cls, model_id: str, update_residues_to_unimod: bool = True
+    ) -> Tuple["InstaNovo", "DictConfig"]:
         """Download and load by model id or model path."""
         # Check if model_id is a local file path
-        if "/" in model_id or "\\" in model_id or "." in model_id:
+        if "/" in model_id or "\\" in model_id or model_id.endswith(".ckpt"):
             if os.path.isfile(model_id):
-                return cls.load(model_id)
+                return cls.load(model_id, update_residues_to_unimod=update_residues_to_unimod)
             else:
                 raise FileNotFoundError(f"No file found at path: {model_id}")
 
         # Load the models.json file
-        with open(MODELS_PATH, "r") as f:
+        with resources.files("instanovo").joinpath("models.json").open("r", encoding="utf-8") as f:
             models_config = json.load(f)
 
         # Find the model in the config
         if MODEL_TYPE not in models_config or model_id not in models_config[MODEL_TYPE]:
             raise ValueError(
-                f"Model {model_id} not found in models.json, options are [{', '.join(models_config[MODEL_TYPE].keys())}]"
+                f"Model {model_id} not found in models.json, options are "
+                f"[{', '.join(models_config[MODEL_TYPE].keys())}]"
             )
 
         model_info = models_config[MODEL_TYPE][model_id]
-        url = model_info["url"]
+        url = model_info["remote"]
 
         # Create cache directory if it doesn't exist
         cache_dir = Path.home() / ".cache" / "instanovo"
@@ -201,20 +217,32 @@ class InstaNovo(nn.Module, Decodable):
             # If not cached, download the file with a progress bar
             response = requests.get(url, stream=True)
             total_size = int(response.headers.get("content-length", 0))
+            logger.info(f"Downloading model {model_id} from {url}")
 
-            with open(cached_file, "wb") as file, tqdm(
-                desc=file_name,
-                total=total_size,
-                unit="iB",
-                unit_scale=True,
-                unit_divisor=1024,
-            ) as progress_bar:
+            with (
+                open(cached_file, "wb") as file,
+                tqdm(
+                    desc=file_name,
+                    total=total_size,
+                    unit="iB",
+                    unit_scale=True,
+                    unit_divisor=1024,
+                ) as progress_bar,
+            ):
                 for data in response.iter_content(chunk_size=1024):
                     size = file.write(data)
                     progress_bar.update(size)
+            if not os.path.getsize(cached_file) == total_size:
+                raise ValueError(
+                    f"Downloaded file is incomplete. Expected size of {total_size} "
+                    "bytes does not match downloaded size of "
+                    f"{os.path.getsize(cached_file)} bytes."
+                )
+        else:
+            logger.info(f"Model {model_id} already cached at {cached_file}")
 
         # Load and return the model
-        return cls.load(str(cached_file))
+        return cls.load(str(cached_file), update_residues_to_unimod=update_residues_to_unimod)
 
     def forward(
         self,
@@ -283,16 +311,12 @@ class InstaNovo(nn.Module, Decodable):
 
         return torch.log_softmax(logits[:, -1, :], -1)
 
-    def get_residue_masses(
-        self, mass_scale: int
-    ) -> Integer[DiscretizedMass, " residue"]:
+    def get_residue_masses(self, mass_scale: int) -> Integer[DiscretizedMass, " residue"]:
         """Get the scaled masses of all residues."""
         residue_masses = torch.zeros(len(self.residue_set), dtype=torch.int64)
         for index, residue in self.residue_set.index_to_residue.items():
             if residue in self.residue_set.residue_masses:
-                residue_masses[index] = round(
-                    mass_scale * self.residue_set.get_mass(residue)
-                )
+                residue_masses[index] = round(mass_scale * self.residue_set.get_mass(residue))
         return residue_masses
 
     def get_eos_index(self) -> int:
@@ -306,7 +330,8 @@ class InstaNovo(nn.Module, Decodable):
     def decode(self, sequence: Peptide) -> list[str]:
         """Decode a single sequence of AA IDs."""
         # Note: Sequence is reversed as InstaNovo predicts right-to-left.
-        # We reverse the sequence again when decoding to ensure the decoder outputs forward sequences.
+        # We reverse the sequence again when decoding to ensure
+        # the decoder outputs forward sequences.
         return self.residue_set.decode(sequence, reverse=True)  # type: ignore
 
     def idx_to_aa(self, idx: Peptide) -> list[str]:
@@ -321,9 +346,7 @@ class InstaNovo(nn.Module, Decodable):
             t.append(i)
         return [self.i2s[x.item()] for x in t]
 
-    def batch_idx_to_aa(
-        self, idx: Integer[Peptide, " batch"], reverse: bool
-    ) -> list[list[str]]:
+    def batch_idx_to_aa(self, idx: Integer[Peptide, " batch"], reverse: bool) -> list[list[str]]:
         """Decode a batch of indices to aa lists."""
         return [self.residue_set.decode(i, reverse=reverse) for i in idx]
 
@@ -344,9 +367,7 @@ class InstaNovo(nn.Module, Decodable):
         # Self-attention on latent spectra AND peaks
         latent_spectra = self.latent_spectrum.expand(x.shape[0], -1, -1)
         x = torch.cat([latent_spectra, x], dim=1)
-        latent_mask = torch.zeros(
-            (x_mask.shape[0], 1), dtype=bool, device=x_mask.device
-        )
+        latent_mask = torch.zeros((x_mask.shape[0], 1), dtype=bool, device=x_mask.device)
         x_mask = torch.cat([latent_mask, x_mask], dim=1)
 
         x = self.encoder(x, src_key_padding_mask=x_mask)
@@ -381,9 +402,7 @@ class InstaNovo(nn.Module, Decodable):
             y = torch.cat([bos, y], dim=1)
 
             if y_mask is not None:
-                bos_mask = torch.zeros(
-                    (y_mask.shape[0], 1), dtype=bool, device=y_mask.device
-                )
+                bos_mask = torch.zeros((y_mask.shape[0], 1), dtype=bool, device=y_mask.device)
                 y_mask = torch.cat([bos_mask, y_mask], dim=1)
 
         y = self.aa_embed(y)
@@ -405,9 +424,7 @@ class InstaNovo(nn.Module, Decodable):
 
         return self.head(y_hat)
 
-    def _flash_encoder(
-        self, x: Tensor, p: Tensor, x_mask: Tensor = None
-    ) -> tuple[Tensor, Tensor]:
+    def _flash_encoder(self, x: Tensor, p: Tensor, x_mask: Tensor = None) -> tuple[Tensor, Tensor]:
         # Special mask for zero-indices
         # One is padded, zero is normal
         x_mask = (~x.sum(dim=2).bool()).float()
@@ -423,12 +440,12 @@ class InstaNovo(nn.Module, Decodable):
         x = torch.cat([latent_spectra, x], dim=1).contiguous()
 
         try:
-            from torch.nn.attention import sdpa_kernel
-            from torch.nn.attention import SDPBackend
+            from torch.nn.attention import SDPBackend, sdpa_kernel
         except ImportError:
             raise ImportError(
-                "Training InstaNovo with Flash attention enabled requires at least pytorch v2.3. Please upgrade your pytorch version"
-            )
+                "Training InstaNovo with Flash attention enabled requires at least pytorch v2.3. "
+                "Please upgrade your pytorch version"
+            ) from None
 
         with sdpa_kernel(SDPBackend.FLASH_ATTENTION):
             x = self.encoder(x)
@@ -468,12 +485,12 @@ class InstaNovo(nn.Module, Decodable):
         c_mask = self._get_causal_mask(y.shape[1]).to(y.device)
 
         try:
-            from torch.nn.attention import sdpa_kernel
-            from torch.nn.attention import SDPBackend
+            from torch.nn.attention import SDPBackend, sdpa_kernel
         except ImportError:
             raise ImportError(
-                "Training InstaNovo with Flash attention enabled requires at least pytorch v2.3. Please upgrade your pytorch version"
-            )
+                "Training InstaNovo with Flash attention enabled requires at least pytorch v2.3. "
+                "Please upgrade your pytorch version"
+            ) from None
 
         with sdpa_kernel(SDPBackend.FLASH_ATTENTION):
             y_hat = self.decoder(y, x, tgt_mask=c_mask)
@@ -484,11 +501,12 @@ class InstaNovo(nn.Module, Decodable):
 def _whitelist_torch_omegaconf() -> None:
     """Whitelist specific modules for loading configs from checkpoints."""
     # This is done to safeguard against arbitrary code execution from checkpoints.
+    from collections import defaultdict
+    from typing import Any
+
     from omegaconf.base import ContainerMetadata, Metadata
     from omegaconf.listconfig import ListConfig
     from omegaconf.nodes import AnyNode
-    from typing import Any
-    from collections import defaultdict
 
     torch.serialization.add_safe_globals(
         [

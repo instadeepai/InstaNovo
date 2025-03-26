@@ -1,44 +1,38 @@
 from __future__ import annotations
 
 import os
-import logging
+import sys
 import time
-from typing import cast
+from pathlib import Path
+from typing import Any, cast
 
-import hydra
 import numpy as np
 import pandas as pd
 import torch
 from omegaconf import DictConfig
-from omegaconf import open_dict
 from torch.utils.data import DataLoader
 from tqdm import tqdm
-from pathlib import Path
 
-from instanovo.inference import BeamSearchDecoder
-from instanovo.inference import GreedyDecoder
-from instanovo.inference import KnapsackBeamSearchDecoder
-from instanovo.inference import Decoder
-from instanovo.inference import ScoredSequence
-from instanovo.inference import Knapsack
-
-from instanovo.transformer.dataset import collate_batch
-from instanovo.transformer.dataset import SpectrumDataset
+from instanovo.__init__ import console
+from instanovo.constants import ANNOTATED_COLUMN, ANNOTATION_ERROR, MASS_SCALE, MAX_MASS
+from instanovo.inference import (
+    BeamSearchDecoder,
+    Decoder,
+    GreedyDecoder,
+    Knapsack,
+    KnapsackBeamSearchDecoder,
+    ScoredSequence,
+)
+from instanovo.transformer.dataset import SpectrumDataset, collate_batch
 from instanovo.transformer.model import InstaNovo
-from instanovo.transformer.train import _set_author_neptune_api_token
-from instanovo.utils import s3
-from instanovo.utils import Metrics
-from instanovo.utils import SpectrumDataFrame
-from instanovo.constants import MASS_SCALE, ANNOTATION_ERROR, ANNOTATED_COLUMN
+from instanovo.utils import Metrics, SpectrumDataFrame, s3
+from instanovo.utils.colorlogging import ColorLog
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+logger = ColorLog(console, __name__).logger
 
 CONFIG_PATH = Path(__file__).parent.parent / "configs" / "inference"
 
 
-# flake8: noqa: CCR001
 def get_preds(
     config: DictConfig,
     model: InstaNovo,
@@ -47,7 +41,8 @@ def get_preds(
     """Get predictions from a trained model."""
     if config.get("denovo", False) and config.get("output_path", None) is None:
         raise ValueError(
-            "Must specify an output csv path in denovo mode. Please specify in config or with the cli flag output_path=`path/to/output.csv`"
+            "Must specify an output csv path in denovo mode. Please specify in config "
+            "or with the cli flag --output-path `path/to/output.csv`"
         )
 
     data_path = config["data_path"]
@@ -58,7 +53,8 @@ def get_preds(
     num_beams = config.get("num_beams", 1)
     use_basic_logging = config.get("use_basic_logging", True)
     save_beams = config.get("save_beams", False)
-    device = config.get("device", "cuda")
+    device = config.get("device", "cuda" if torch.cuda.is_available() else "cpu")
+    logger.info(f"Using device: {device} for InstaNovo predictions")
     fp16 = config.get("fp16", True)
 
     if fp16 and device.lower() == "cpu":
@@ -79,8 +75,9 @@ def get_preds(
         # More descriptive error message in predict mode.
         if str(e) == ANNOTATION_ERROR:
             raise ValueError(
-                "The sequence column is missing annotations, are you trying to run de novo prediction? Add the `denovo=True` flag"
-            )
+                "The sequence column is missing annotations, "
+                "are you trying to run de novo prediction? Add the `denovo=True` flag"
+            ) from e
         else:
             raise
 
@@ -90,26 +87,30 @@ def get_preds(
     model_max_charge = model_config.get("max_charge", 10)
     if max_charge > model_max_charge:
         logger.warning(
-            f"Inference has been configured with max_charge={max_charge}, but model has max_charge={model_max_charge}."
+            f"Inference has been configured with max_charge={max_charge}, "
+            f"but model has max_charge={model_max_charge}."
         )
-        logger.warning(
-            f"Overwriting max_charge config to model value: {model_max_charge}."
-        )
+        logger.warning(f"Overwriting max_charge config to model value: {model_max_charge}.")
         max_charge = model_max_charge
 
     sdf.filter_rows(
-        lambda row: (row["precursor_charge"] <= max_charge)
-        and (row["precursor_charge"] > 0)
+        lambda row: (row["precursor_charge"] <= max_charge) and (row["precursor_charge"] > 0)
     )
     if len(sdf) < original_size:
         logger.warning(
-            f"Found {original_size - len(sdf)} rows with charge > {max_charge}. These rows will be skipped."
+            f"Found {original_size - len(sdf)} rows with charge > {max_charge}. "
+            "These rows will be skipped."
         )
 
     sdf.sample_subset(fraction=config.get("subset", 1.0), seed=42)
     logger.info(
-        f"Data loaded, evaluating {config.get('subset', 1.0)*100:.1f}%, {len(sdf):,} samples in total."
+        f"Data loaded, evaluating {config.get('subset', 1.0) * 100:.1f}%, {len(sdf):,} "
+        "samples in total."
     )
+
+    if sdf.df.is_empty():
+        logger.warning("No data found, exiting.")
+        sys.exit()
 
     residue_set = model.residue_set
     logger.info(f"Vocab: {residue_set.index_to_residue}")
@@ -124,20 +125,18 @@ def get_preds(
             logger.warning(
                 "Unsupported residues found in evaluation set! These rows will be dropped."
             )
-            logger.warning(f"Residues found: \n{data_residues-supported_residues}")
+            logger.warning(f"Residues found: \n{data_residues - supported_residues}")
             logger.warning(
                 "Please check residue remapping if a different convention has been used."
             )
             original_size = len(sdf)
             sdf.filter_rows(
                 lambda row: all(
-                    [
-                        residue in supported_residues
-                        for residue in set(residue_set.tokenize(row[ANNOTATED_COLUMN]))
-                    ]
+                    residue in supported_residues
+                    for residue in set(residue_set.tokenize(row[ANNOTATED_COLUMN]))
                 )
             )
-            logger.warning(f"{original_size-len(sdf):,d} rows have been dropped.")
+            logger.warning(f"{original_size - len(sdf):,d} rows have been dropped.")
             logger.warning("Peptide recall should recalculated accordingly.")
 
     ds = SpectrumDataset(
@@ -162,6 +161,7 @@ def get_preds(
     # Setup decoder
 
     if config.get("use_knapsack", False):
+        logger.info(f"Using Knapsack Beam Search with {num_beams} beam(s)")
         knapsack_path = config.get("knapsack_path", None)
         if knapsack_path is None or not os.path.exists(knapsack_path):
             logger.info("Knapsack path missing or not specified, generating...")
@@ -172,12 +172,12 @@ def get_preds(
                 knapsack.save(knapsack_path)
         else:
             logger.info("Knapsack path found. Loading...")
-            decoder = KnapsackBeamSearchDecoder.from_file(
-                model=model, path=knapsack_path
-            )
+            decoder = KnapsackBeamSearchDecoder.from_file(model=model, path=knapsack_path)
     elif num_beams > 1:
+        logger.info(f"Using Beam Search with {num_beams} beam(s)")
         decoder = BeamSearchDecoder(model=model)
     else:
+        logger.info(f"Using Greedy Search with  {num_beams} beam(s)")
         decoder = GreedyDecoder(
             model=model,
             suppressed_residues=config.get("suppressed_residues", None),
@@ -198,7 +198,7 @@ def get_preds(
 
     start = time.time()
 
-    iter_dl = enumerate(dl)
+    iter_dl: enumerate[Any] | tqdm[tuple[int, Any]] = enumerate(dl)
     if not use_basic_logging:
         iter_dl = tqdm(enumerate(dl), total=len(dl))
 
@@ -210,8 +210,9 @@ def get_preds(
         precursors = precursors.to(device)
         spectra_mask = spectra_mask.to(device)
 
-        with torch.no_grad(), torch.amp.autocast(
-            "cuda", dtype=torch.float16, enabled=fp16
+        with (
+            torch.no_grad(),
+            torch.amp.autocast("cuda", dtype=torch.float16, enabled=fp16),
         ):
             batch_predictions = decoder.decode(
                 spectra=spectra,
@@ -231,12 +232,8 @@ def get_preds(
                         token_log_probs[j].append([])
                     else:
                         preds[j].append(predictions[j].sequence)
-                        sequence_log_probs[j].append(
-                            predictions[j].sequence_log_probability
-                        )
-                        token_log_probs[j].append(
-                            predictions[j].token_log_probabilities
-                        )
+                        sequence_log_probs[j].append(predictions[j].sequence_log_probability)
+                        token_log_probs[j].append(predictions[j].token_log_probabilities)
         else:
             batch_predictions = cast(list[ScoredSequence], batch_predictions)
             for prediction in batch_predictions:
@@ -256,22 +253,24 @@ def get_preds(
             delta = time.time() - start
             est_total = delta / (i + 1) * (len(dl) - i - 1)
             logger.info(
-                f"Batch {i+1:05d}/{len(dl):05d}, [{_format_time(delta)}/{_format_time(est_total)}, {(delta / (i + 1)):.3f}s/it]"
+                f"Batch {i + 1:05d}/{len(dl):05d}, [{_format_time(delta)}/"
+                f"{_format_time(est_total)}, {(delta / (i + 1)):.3f}s/it]"
             )
 
     delta = time.time() - start
 
     logger.info(f"Time taken for {data_path} is {delta:.1f} seconds")
-    logger.info(
-        f"Average time per batch (bs={config['batch_size']}): {delta/len(dl):.1f} seconds"
-    )
+    if len(dl) > 0:
+        logger.info(
+            f"Average time per batch (bs={config['batch_size']}): {delta / len(dl):.1f} seconds"
+        )
 
     if not denovo:
         pred_df["targets"] = targs
-    pred_df["preds"] = ["".join(x) for x in preds[0]]
-    pred_df["preds_tokenised"] = [", ".join(x) for x in preds[0]]
-    pred_df["log_probs"] = sequence_log_probs[0]
-    pred_df["token_log_probs"] = token_log_probs[0]
+    pred_df[config.get("pred_col", "predictions")] = ["".join(x) for x in preds[0]]
+    pred_df[config.get("pred_tok_col", "predictions_tokenised")] = [", ".join(x) for x in preds[0]]
+    pred_df[config.get("log_probs_col", "log_probabilities")] = sequence_log_probs[0]
+    pred_df[config.get("token_log_probs_col", "token_log_probabilities")] = token_log_probs[0]
 
     if save_beams:
         for i in range(num_beams):
@@ -279,10 +278,23 @@ def get_preds(
             pred_df[f"log_probs_beam_{i}"] = sequence_log_probs[i]
             pred_df[f"token_log_probs_{i}"] = token_log_probs[i]
 
+    # Always calculate delta_mass_ppm, even in de novo mode
+    metrics = Metrics(residue_set, config.get("isotope_error_range", [0, 1]))
+
+    # Calculate some additional information for filtering:
+    pred_df["delta_mass_ppm"] = pred_df.apply(
+        lambda row: np.min(
+            np.abs(
+                metrics.matches_precursor(
+                    preds[0][row.name], row["precursor_mz"], row["precursor_charge"]
+                )[1]
+            )
+        ),
+        axis=1,
+    )
+
     # Calculate metrics
     if not denovo:
-        metrics = Metrics(residue_set, config.get("isotope_error_range", [0, 1]))
-
         # Make sure we pass preds[0] without joining on ""
         # This is to handle cases where n-terminus modifications could be accidentally joined
         aa_prec, aa_recall, pep_recall, pep_prec = metrics.compute_precision_recall(
@@ -290,7 +302,9 @@ def get_preds(
         )
         aa_er = metrics.compute_aa_er(pred_df["targets"], preds[0])
         auc = metrics.calc_auc(
-            pred_df["targets"], preds[0], np.exp(pred_df["log_probs"])
+            pred_df["targets"],
+            preds[0],
+            np.exp(pred_df[config.get("log_probs_col", "log_probabilities")]),
         )
 
         logger.info(f"Performance on {data_path}:")
@@ -304,70 +318,78 @@ def get_preds(
         fdr = config.get("filter_fdr_threshold", None)
         if fdr:
             _, threshold = metrics.find_recall_at_fdr(
-                pred_df["targets"], preds[0], np.exp(pred_df["log_probs"]), fdr=fdr
+                pred_df["targets"],
+                preds[0],
+                np.exp(pred_df[config.get("log_probs_col", "log_probabilities")]),
+                fdr=fdr,
             )
             aa_prec, aa_recall, pep_recall, pep_prec = metrics.compute_precision_recall(
                 pred_df["targets"],
                 preds[0],
-                np.exp(pred_df["log_probs"]),
+                np.exp(pred_df[config.get("log_probs_col", "log_probabilities")]),
                 threshold=threshold,
             )
-            logger.info(f"Performance at {fdr*100:.1f}% FDR:")
+            logger.info(f"Performance at {fdr * 100:.1f}% FDR:")
             logger.info(f"  aa_prec     {aa_prec:.5f}")
             logger.info(f"  aa_recall   {aa_recall:.5f}")
             logger.info(f"  pep_prec    {pep_prec:.5f}")
             logger.info(f"  pep_recall  {pep_recall:.5f}")
             logger.info(f"  confidence  {threshold:.5f}")
 
-        # Calculate some additional information for filtering:
-        pred_df["delta_mass_ppm"] = pred_df.apply(
-            lambda row: np.min(
-                np.abs(
-                    metrics.matches_precursor(
-                        preds[0][row.name], row["precursor_mz"], row["precursor_charge"]
-                    )[1]
-                )
-            ),
-            axis=1,
-        )
-
         filter_precursor_ppm = config.get("filter_precursor_ppm", None)
         if filter_precursor_ppm:
             idx = pred_df["delta_mass_ppm"] < filter_precursor_ppm
-            filtered_preds = pd.Series(preds[0])
-            filtered_preds[~idx] = ""
-            aa_prec, aa_recall, pep_recall, pep_prec = metrics.compute_precision_recall(
-                pred_df["targets"], filtered_preds
-            )
-            logger.info(
-                f"Performance with filtering at {filter_precursor_ppm} ppm delta mass:"
-            )
-            logger.info(f"  aa_prec     {aa_prec:.5f}")
-            logger.info(f"  aa_recall   {aa_recall:.5f}")
-            logger.info(f"  pep_prec    {pep_prec:.5f}")
-            logger.info(f"  pep_recall  {pep_recall:.5f}")
-            logger.info(
-                f"Rows filtered: {len(sdf)-np.sum(idx)} ({(len(sdf)-np.sum(idx))/len(sdf)*100:.2f}%)"
-            )
+            logger.info(f"Performance with filtering at {filter_precursor_ppm} ppm delta mass:")
+            if np.sum(idx) > 0:
+                filtered_preds = pd.Series(preds[0])
+                filtered_preds[~idx] = ""
+                aa_prec, aa_recall, pep_recall, pep_prec = metrics.compute_precision_recall(
+                    pred_df["targets"], filtered_preds
+                )
+                logger.info(f"  aa_prec     {aa_prec:.5f}")
+                logger.info(f"  aa_recall   {aa_recall:.5f}")
+                logger.info(f"  pep_prec    {pep_prec:.5f}")
+                logger.info(f"  pep_recall  {pep_recall:.5f}")
+                logger.info(
+                    f"Rows filtered: {len(sdf) - np.sum(idx)} "
+                    f"({(len(sdf) - np.sum(idx)) / len(sdf) * 100:.2f}%)"
+                )
+                if np.sum(idx) < 1000:
+                    logger.info(
+                        f"Metrics calculated on a small number of samples ({np.sum(idx)}), "
+                        "interpret with care!"
+                    )
+            else:
+                logger.info("No predictions met criteria, skipping metrics.")
 
         model_confidence_no_pred = config.get("filter_confidence", None)
         if model_confidence_no_pred:
-            idx = np.exp(pred_df["log_probs"]) > model_confidence_no_pred
-            filtered_preds = pd.Series(preds[0])
-            filtered_preds[~idx] = ""
-            aa_prec, aa_recall, pep_recall, pep_prec = metrics.compute_precision_recall(
-                pred_df["targets"], filtered_preds
+            idx = (
+                np.exp(pred_df[config.get("log_probs_col", "log_probabilities")])
+                > model_confidence_no_pred
             )
-            logger.info(
-                f"Performance with filtering confidence < {model_confidence_no_pred}"
-            )
-            logger.info(f"  aa_prec     {aa_prec:.5f}")
-            logger.info(f"  aa_recall   {aa_recall:.5f}")
-            logger.info(f"  pep_prec    {pep_prec:.5f}")
-            logger.info(f"  pep_recall  {pep_recall:.5f}")
-            logger.info(
-                f"Rows filtered: {len(sdf)-np.sum(idx)} ({(len(sdf)-np.sum(idx))/len(sdf)*100:.2f}%)"
-            )
+            logger.info(f"Performance with filtering confidence < {model_confidence_no_pred}")
+            if np.sum(idx) > 0:
+                filtered_preds = pd.Series(preds[0])
+                filtered_preds[~idx] = ""
+                aa_prec, aa_recall, pep_recall, pep_prec = metrics.compute_precision_recall(
+                    pred_df["targets"], filtered_preds
+                )
+                logger.info(f"  aa_prec     {aa_prec:.5f}")
+                logger.info(f"  aa_recall   {aa_recall:.5f}")
+                logger.info(f"  pep_prec    {pep_prec:.5f}")
+                logger.info(f"  pep_recall  {pep_recall:.5f}")
+                logger.info(
+                    f"Rows filtered: {len(sdf) - np.sum(idx)} "
+                    f"({(len(sdf) - np.sum(idx)) / len(sdf) * 100:.2f}%)"
+                )
+                if np.sum(idx) < 1000:
+                    logger.info(
+                        f"Metrics calculated on a small number of samples ({np.sum(idx)}), "
+                        "interpret with care!"
+                    )
+            else:
+                logger.info("No predictions met criteria, skipping metrics.")
 
     # Save output
     if output_path is not None:
@@ -379,61 +401,27 @@ def get_preds(
             s3.upload(output_path, s3.convert_to_s3_output(output_path))
 
 
-@hydra.main(config_path=str(CONFIG_PATH), version_base=None, config_name="default")
-def main(config: DictConfig) -> None:
-    """Predict with the model."""
-    logger.info("Initializing inference.")
-    _set_author_neptune_api_token()
-
-    # Check config inputs
-    if not config.get("data_path", None):
-        raise ValueError(
-            "Expected data_path but found None. Please specify in predict config or with the cli flag `data_path=path/to/data.ipc`"
-        )
-
-    model_path = config.get("model_path", None)
-    if not model_path:
-        raise ValueError(
-            "Expected model_path but found None. Please specify in predict config or with the cli flag `model_path=path/to/model.ckpt`"
-        )
-
-    logger.info(f"Loading model from {model_path}")
-    model, model_config = InstaNovo.from_pretrained(model_path)
-    logger.info(f"Config:\n{config}")
-    logger.info(f"Model params: {np.sum([p.numel() for p in model.parameters()]):,d}")
-
-    if config.get("save_beams", False) and config.get("num_beams", 1) == 1:
-        logger.warning(
-            "num_beams is 1 and will override save_beams. Only use save_beams in beam search."
-        )
-        with open_dict(config):
-            config["save_beams"] = False
-
-    logger.info(f"Performing search with {config.get('num_beams', 1)} beams")
-    get_preds(config, model, model_config)
-
-
 def _setup_knapsack(model: InstaNovo) -> Knapsack:
     residue_masses = dict(model.residue_set.residue_masses.copy())
-    if any([x < 0 for x in residue_masses.values()]):
-        raise NotImplementedError(
-            "Negative mass found in residues, this will break the knapsack graph. Either disable knapsack or use strictly positive masses"
+    negative_residues = [k for k, v in residue_masses.items() if v < 0]
+    if len(negative_residues) > 0:
+        logger.warning(f"Negative mass found in residues: {negative_residues}.")
+        logger.warning(
+            "These residues will be disabled when using knapsack decoding. "
+            "A future release is planned to support negative masses."
         )
+        residue_masses.update(dict.fromkeys(negative_residues, MAX_MASS))
     for special_residue in list(model.residue_set.residue_to_index.keys())[:3]:
         residue_masses[special_residue] = 0
     residue_indices = model.residue_set.residue_to_index
     return Knapsack.construct_knapsack(
         residue_masses=residue_masses,
         residue_indices=residue_indices,
-        max_mass=4000.00,
+        max_mass=MAX_MASS,
         mass_scale=MASS_SCALE,
     )
 
 
 def _format_time(seconds: float) -> str:
     seconds = int(seconds)
-    return f"{seconds//3600:02d}:{(seconds%3600)//60:02d}:{seconds%60:02d}"
-
-
-if __name__ == "__main__":
-    main()
+    return f"{seconds // 3600:02d}:{(seconds % 3600) // 60:02d}:{seconds % 60:02d}"

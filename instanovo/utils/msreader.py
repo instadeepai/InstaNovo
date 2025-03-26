@@ -1,5 +1,7 @@
 from typing import Any
+
 from pyteomics import mgf, mzml, mzxml
+from pyteomics.auxiliary import cvquery
 
 
 # Unused
@@ -11,43 +13,50 @@ def read_mgf(file_path: str) -> dict[str, list[Any]]:
         for spectrum in reader:
             data["scan_number"].append(spectrum.get("params", {}).get("title", ""))
             data["sequence"].append(spectrum.get("params", {}).get("seq", ""))
-            data["precursor_mz"].append(
-                spectrum.get("params", {}).get("pepmass", [None])[0]
-            )
-            data["precursor_charge"].append(
-                spectrum.get("params", {}).get("charge", [None])[0]
-            )
-            data["retention_time"].append(
-                spectrum.get("params", {}).get("rtinseconds", 0)
-            )
+            data["precursor_mz"].append(spectrum.get("params", {}).get("pepmass", [None])[0])
+            data["precursor_charge"].append(spectrum.get("params", {}).get("charge", [None])[0])
+            data["retention_time"].append(spectrum.get("params", {}).get("rtinseconds", 0))
             data["mz_array"].append(spectrum.get("m/z array", []))
             data["intensity_array"].append(spectrum.get("intensity array", []))
 
     return data
 
 
-def read_mzml(file_path: str) -> dict[str, list[Any]]:
+def read_mzml(
+    file_path: str,
+) -> dict[str, list[Any]]:
     """Read an mzml file and return a data dict."""
     data = _initialize_data_dict()
 
+    ms_vocab = {
+        "ms_level": "MS:1000511",
+        "sequence": "MS:1000889",
+        "precursor_mz": ["MS:1000040", "MS:1000827", "MS:1000744"],
+        "precursor_charge": "MS:1000041",
+        "retention_time": "MS:1000016",
+        "mz_array": "MS:1000514",
+        "intensity_array": "MS:1000515",
+    }
+
     with mzml.read(file_path) as reader:
         for spectrum in reader:
-            if spectrum.get("ms level", 0) == 2:  # Ensure it's an MS2 spectrum
+            spectrum_dict = cvquery(spectrum)
+            if spectrum_dict.get(ms_vocab["ms_level"]) == 2:  # Ensure it's an MS2 spectrum
                 data["scan_number"].append(spectrum.get("id", ""))
-                data["sequence"].append(spectrum.get("peptide", ""))
-                precursor = spectrum.get("precursorList", {}).get("precursor", [{}])[0]
-                selected_ion = precursor.get("selectedIonList", {}).get(
-                    "selectedIon", [{}]
-                )[0]
-                data["precursor_mz"].append(selected_ion.get("selected ion m/z"))
-                data["precursor_charge"].append(selected_ion.get("charge state"))
-                data["retention_time"].append(
-                    spectrum.get("scanList", {})
-                    .get("scan", [{}])[0]
-                    .get("scan start time")
+
+                data["sequence"].append(spectrum_dict.get(ms_vocab["sequence"], ""))
+
+                # Find the first matching precursor mz term
+                pre_mz_key = next(
+                    (key for key in ms_vocab["precursor_mz"] if key in spectrum_dict),
+                    "",
                 )
-                data["mz_array"].append(list(spectrum.get("m/z array")))
-                data["intensity_array"].append(list(spectrum.get("intensity array")))
+                data["precursor_mz"].append(spectrum_dict.get(pre_mz_key, ""))
+
+                data["precursor_charge"].append(spectrum_dict.get(ms_vocab["precursor_charge"], ""))
+                data["retention_time"].append(spectrum_dict.get(ms_vocab["retention_time"]))
+                data["mz_array"].append(list(spectrum_dict.get(ms_vocab["mz_array"])))
+                data["intensity_array"].append(list(spectrum_dict.get(ms_vocab["intensity_array"])))
 
     return data
 

@@ -70,10 +70,10 @@ class Metrics:
         """Calculate precision and recall at peptide- and AA-level.
 
         Args:
-            targets (list[str] | list[list[str]]): Target peptides.
-            predictions (list[str] | list[list[str]]): Model predicted peptides.
-            confidence (list[float] | None): Optional model confidence.
-            threshold (float | None): Optional confidence threshold.
+            targets: Target peptides.
+            predictions: Model predicted peptides.
+            confidence: Optional model confidence.
+            threshold: Optional confidence threshold.
         """
         targets = self._split_sequences(targets)
         predictions = self._split_sequences(predictions)
@@ -83,7 +83,7 @@ class Metrics:
 
         if confidence is None or threshold is None:
             threshold = 0
-            confidence = np.ones(len(predictions))
+            confidence = np.ones(len(predictions))  # type: ignore
 
         for i in range(len(targets)):
             targ = self._split_peptide(targets[i])
@@ -172,19 +172,15 @@ class Metrics:
         self,
         targs: list[str] | list[list[str]],
         preds: list[str] | list[list[str]],
-        conf: np.ndarray,
+        conf: list[float],
         N: int = 20,  # noqa: N803
     ) -> tuple[list[float], list[float]]:
         x, y = [], []
         t_idx = np.argsort(np.array(conf))
         t_idx = t_idx[~conf[t_idx].isna()]
-        t_idx = list(t_idx[(t_idx.shape[0] * np.arange(N) / N).astype(int)]) + [
-            t_idx[-1]
-        ]
-        for t in conf[t_idx]:
-            _, _, recall, precision = self.compute_precision_recall(
-                targs, preds, conf, t
-            )
+        t_idx = list(t_idx[(t_idx.shape[0] * np.arange(N) / N).astype(int)]) + [t_idx[-1]]
+        for t in conf[t_idx]:  # type: ignore
+            _, _, recall, precision = self.compute_precision_recall(targs, preds, conf, t)
             x.append(recall)
             y.append(precision)
         return x, y
