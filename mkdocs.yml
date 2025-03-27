@@ -57,9 +57,6 @@ plugins:
   - autorefs
   # - git-revision-date
   - include-markdown
-  - gen-files:
-      scripts:
-        - docs/gen_ref_nav.py
   - mkdocstrings:
       default_handler: python
       handlers:
@@ -82,4 +79,3 @@ plugins:
 nav:
   - Home: index.md
   - License: LICENSE.md
-  - Code reference: reference/SUMMARY.md

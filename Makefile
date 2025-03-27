@@ -173,7 +173,6 @@ docs:
 	uv sync --extra cu124 --group docs
 	git config --global --add safe.directory "$(dirname "$(pwd)")"
 	rm -rf docs/reference
-	python ./docs/gen_ref_nav.py
 	mkdocs build --verbose --site-dir docs_public
 	mkdocs serve
 
