@@ -50,7 +50,7 @@ To get help and see the available commands:
 instanovo --help
 ```
 
-![`instanovo --help`](docs/assets/instanovo_help.svg)
+![`instanovo --help`](https://raw.githubusercontent.com/instadeepai/InstaNovo/main/docs/assets/instanovo_help.svg)
 
 To see the version of InstaNovo, InstaNovo+ and some of the dependencies:
 
@@ -58,7 +58,7 @@ To see the version of InstaNovo, InstaNovo+ and some of the dependencies:
 instanovo version
 ```
 
-![`instanovo version`](docs/assets/instanovo_version.svg)
+![`instanovo version`](https://raw.githubusercontent.com/instadeepai/InstaNovo/main/docs/assets/instanovo_version.svg)
 
 ### Predicting
 
@@ -68,7 +68,7 @@ To get help about the prediction command line options:
 instanovo predict --help
 ```
 
-![`instanovo predict --help`](docs/assets/instanovo_predict_help.svg)
+![`instanovo predict --help`](https://raw.githubusercontent.com/instadeepai/InstaNovo/main/docs/assets/instanovo_predict_help.svg)
 
 ### Running predictions with both InstaNovo and InstaNovo+
 
@@ -213,7 +213,7 @@ command:
 instanovo transformer train --help
 ```
 
-![`instanovo transformer train --help`](docs/assets/instanovo_transformer_train_help.svg)
+![`instanovo transformer train --help`](https://raw.githubusercontent.com/instadeepai/InstaNovo/main/docs/assets/instanovo_transformer_train_help.svg)
 
 To update the InstaNovo model config, modify the config file under
 [instanovo/configs/model/instanovo_base.yaml](instanovo/configs/model/instanovo_base.yaml)
@@ -228,7 +228,7 @@ following command:
 instanovo diffusion train --help
 ```
 
-![`instanovo diffusion train --help`](docs/assets/instanovo_diffusion_train_help.svg)
+![`instanovo diffusion train --help`](https://raw.githubusercontent.com/instadeepai/InstaNovo/main/docs/assets/instanovo_diffusion_train_help.svg)
 
 To update the InstaNovo+ model config, modify the config file under
 [instanovo/configs/model/instanovoplus_base.yaml](instanovo/configs/model/instanovoplus_base.yaml)
@@ -243,7 +243,7 @@ If you want to run predictions with only InstaNovo, you can use the following co
 instanovo transformer predict --help
 ```
 
-![`instanovo transformer predict --help`](docs/assets/instanovo_transformer_predict_help.svg)
+![`instanovo transformer predict --help`](https://raw.githubusercontent.com/instadeepai/InstaNovo/main/docs/assets/instanovo_transformer_predict_help.svg)
 
 ### Run predictions with only InstaNovo+
 
@@ -253,7 +253,7 @@ If you want to run predictions with only InstaNovo+, you can use the following c
 instanovo diffusion predict --help
 ```
 
-![`instanovo diffusion predict --help`](docs/assets/instanovo_diffusion_predict_help.svg)
+![`instanovo diffusion predict --help`](https://raw.githubusercontent.com/instadeepai/InstaNovo/main/docs/assets/instanovo_diffusion_predict_help.svg)
 
 ### Run predictions with InstaNovo and InstaNovo+ in separate steps
 
@@ -441,7 +441,7 @@ We also provide a conversion script for converting to native SpectrumDataFrame (
 instanovo convert --help
 ```
 
-![`instanovo convert --help`](docs/assets/instanovo_convert_help.svg)
+![`instanovo convert --help`](https://raw.githubusercontent.com/instadeepai/InstaNovo/main/docs/assets/instanovo_convert_help.svg)
 
 ## Development
 
