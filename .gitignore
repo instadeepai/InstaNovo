@@ -163,6 +163,10 @@ ext-dtu-denovo-sequencing-gcp*.json
 # Allure test results
 allure_results/
 
+# sample test data
+tests/instanovo_test_resources.zip
+tests/instanovo_test_resources/
+
 # mkdocs stuff
 public/
 docs/reference
@@ -171,6 +175,7 @@ docs/reference
 coverage/
 checkpoints/
 data/
+docs/
 docs_public/
 logs/
 mlruns/

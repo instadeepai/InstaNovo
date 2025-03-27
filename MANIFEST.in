@@ -1,1 +1,2 @@
 recursive-include instanovo/configs *.yaml
+include instanovo/models.json

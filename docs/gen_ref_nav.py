@@ -1,3 +1,17 @@
+# /// script
+# requires-python = ">=3.10"
+# dependencies = [
+#     "mkdocs-autorefs",
+#     "mkdocs-gen-files",
+#     "mkdocs-git-revision-date-plugin",
+#     "mkdocs-include-markdown-plugin",
+#     "mkdocs-material",
+#     "mkdocs-pymdownx-material-extras",
+#     "mkdocstrings",
+#     "mkdocstrings-python",
+#     "pymdown-extensions",
+# ]
+# ///
 """Generate the code reference pages and navigation."""
 
 # This script is used by the mkdocs-gen-files plugin (https://oprypin.github.io/mkdocs-gen-files/)
@@ -12,7 +26,7 @@ from pathlib import Path
 import mkdocs_gen_files
 
 # Folders for which we don't want to create code documentation but which can contain *.py files
-IGNORE_DIRS = ("build", "docs_public", "docs", "tests", "scripts", "utils", ".venv")
+IGNORE_DIRS = ("build", "data", "docs_public", "docs", "tests", "scripts", "utils", ".venv")
 
 
 def is_ignored_directory(module_path: Path) -> bool:
@@ -39,9 +53,7 @@ def process_python_files(source_directory: str, module_name: str) -> None:
         if not is_ignored_directory(relative_module_path) and not is_ignored_file(
             relative_module_path
         ):
-            doc_path = python_file.relative_to(
-                source_directory, module_name
-            ).with_suffix(".md")
+            doc_path = python_file.relative_to(source_directory, module_name).with_suffix(".md")
             full_doc_path = Path("reference", doc_path)
 
             parts = tuple(relative_module_path.parts)

@@ -1,0 +1,53 @@
+defaults:
+  - _self_
+  - model: instanovoplus_base
+  - dataset: acpt
+  - residues: default
+
+# Overwritten when using Aichor
+tb_summarywriter: "./logs/instanovo/instanovplus-base"
+
+# Training parameters
+seed: 101
+warmup_iters: 10000
+learning_rate: 5e-5
+weight_decay: 0
+train_batch_size: 128
+n_gpu: 1
+gradient_clip_val: 5 #10.0
+predict_batch_size: 128
+fp16: True
+compile_model: True
+
+# Logging parameters
+epochs: 30 #10
+num_sanity_val_steps: 10
+console_logging_steps: 2000
+tensorboard_logging_steps: 500
+report_to: neptune
+run_name: instanovoplus_acpt_base
+tags:
+  - acpt
+
+# Training data parameters
+train_subset: 1
+valid_subset: 0.01
+val_check_interval: 0.2
+lazy_loading: True # Use lazy loading mode
+max_shard_size: 1_000_000 # Max data shard size for lazy loading, may influence shuffling mechanics
+preshuffle_shards: False #True # Perform a preshuffle across shards to ensure shards are homogeneous in lazy mode
+perform_data_checks: True # Check residues, check precursor masses, etc.
+validate_precursor_mass: False # Slow for large datasets
+verbose_loading: True # Verbose SDF logs when loading the dataset
+
+# Checkpointing parameters
+save_model: True
+model_save_folder_path: "checkpoints/instanovoplus-base"
+ckpt_interval: 50000
+train_from_scratch: True
+resume_checkpoint:
+
+blacklist:
+
+device: cuda
+time_steps: 200

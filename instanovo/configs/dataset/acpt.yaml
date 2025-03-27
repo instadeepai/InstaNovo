@@ -1,6 +1,6 @@
 use_shards: True
-train_path: data/ac_pt_shards
-valid_path: data/ac_pt_shards
+train_path: /mnt/instanovo-data-kyber/ac_pt_shards/train_shard_*.ipc
+valid_path: /mnt/instanovo-data-kyber/ac_pt_shards/valid_shard_*.ipc
 valid_subset_of_train:
 
 residue_remapping:

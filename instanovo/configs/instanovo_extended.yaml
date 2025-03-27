@@ -2,9 +2,10 @@ defaults:
   - instanovo
   - _self_
   - override dataset: extended
-  - override residues: extended
+  - override residues: extended_unimod
 
 learning_rate: 5e-5 #5e-4 5e-5
 train_batch_size: 128
+preshuffle_shards: True
 
 model_save_folder_path: "checkpoints/instanovo-extended"
