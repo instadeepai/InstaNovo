@@ -1,3 +1,5 @@
+![InstaNovo Logo](https://raw.githubusercontent.com/instadeepai/InstaNovo/main/docs/assetsinstanovo.svg)
+
 # _De novo_ peptide sequencing with InstaNovo
 
 [![PyPI version](https://badge.fury.io/py/instanovo.svg)](https://badge.fury.io/py/instanovo)
