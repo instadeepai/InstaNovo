@@ -1,7 +1,12 @@
 {
   "transformer": {
-    "instanovo-extended": {
-      "url": "https://github.com/instadeepai/InstaNovo/releases/download/1.0.0/instanovo_extended.ckpt"
+    "instanovo-v1.1.0": {
+      "remote": "https://github.com/instadeepai/InstaNovo/releases/download/1.1.0/instanovo-v1.1.0.ckpt",
+      "size": 1136429659
+    },
+    "instanovo-v1.0.0": {
+      "remote": "https://github.com/instadeepai/InstaNovo/releases/download/1.0.0/instanovo_extended.ckpt",
+      "size": 1136429659
     }
   },
   "diffusion": {}

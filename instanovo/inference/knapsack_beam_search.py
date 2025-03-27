@@ -2,19 +2,17 @@ from __future__ import annotations
 
 import numpy
 import torch
-from jaxtyping import Float
-from jaxtyping import Integer
+from jaxtyping import Float, Integer
 
 from instanovo.constants import CARBON_MASS_DELTA
 from instanovo.inference.beam_search import BeamSearchDecoder
 from instanovo.inference.interfaces import Decodable
 from instanovo.inference.knapsack import Knapsack
-from instanovo.types import DiscretizedMass
-from instanovo.types import ResidueLogProbabilities
+from instanovo.types import DiscretizedMass, ResidueLogProbabilities
 
 
 class KnapsackBeamSearchDecoder(BeamSearchDecoder):
-    """A class for decoding from de novo sequencing models using beam search with knapsack filtering."""
+    """Class for decoding from de novo sequencing models using beam search & knapsack filtering."""
 
     def __init__(
         self,
@@ -40,7 +38,6 @@ class KnapsackBeamSearchDecoder(BeamSearchDecoder):
         knapsack = Knapsack.from_file(path=path)
         return cls(model=model, knapsack=knapsack)
 
-    # flake8: noqa: CR001
     def prefilter_items(
         self,
         log_probabilities: Float[ResidueLogProbabilities, "batch beam residue"],
@@ -88,11 +85,8 @@ class KnapsackBeamSearchDecoder(BeamSearchDecoder):
                         if max_isotope > 0:
                             for num_nucleons in range(1, max_isotope + 1):
                                 local_valid_residue = self.chart[
-                                    beam_lower_bound
-                                    - num_nucleons * scaled_nucleon_mass : (
-                                        beam_upper_bound
-                                        - num_nucleons * scaled_nucleon_mass
-                                        + 1
+                                    beam_lower_bound - num_nucleons * scaled_nucleon_mass : (
+                                        beam_upper_bound - num_nucleons * scaled_nucleon_mass + 1
                                     ),
                                     residue,
                                 ].any()
@@ -125,7 +119,7 @@ class KnapsackBeamSearchDecoder(BeamSearchDecoder):
         mass_lower_bound = torch.clamp(precursor_masses - mass_buffer, min=0)
         mass_upper_bound = precursor_masses + mass_buffer
         for batch, (lower_bound, upper_bound) in enumerate(
-            zip(mass_lower_bound, mass_upper_bound)
+            zip(mass_lower_bound, mass_upper_bound, strict=True)
         ):
             valid_residues = self.chart[lower_bound:upper_bound].any(0)
             log_probabilities[batch, ~valid_residues] = -float("inf")

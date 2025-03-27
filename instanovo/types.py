@@ -2,9 +2,7 @@ from __future__ import annotations
 
 import numpy as np
 import torch
-from jaxtyping import Bool
-from jaxtyping import Float
-from jaxtyping import Integer
+from jaxtyping import Bool, Float, Integer
 
 SequenceLogProbabilities = Float[torch.Tensor, ""]
 TokenLogProbabilities = Float[torch.Tensor, "token"]

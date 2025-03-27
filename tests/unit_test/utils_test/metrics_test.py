@@ -40,14 +40,10 @@ def test_precursor_match(
     assert status is True
     assert np.allclose(delta_mass_ppm, [0.0, 8941.88568367516], rtol=1e-2)
 
-    status, delta_mass_ppm = metric.matches_precursor(
-        seq="A", prec_mz=5500.0, prec_charge=1
-    )
+    status, delta_mass_ppm = metric.matches_precursor(seq="A", prec_mz=5500.0, prec_charge=1)
 
     assert status is False
-    assert np.allclose(
-        delta_mass_ppm, [-994633.1134545455, -994450.6861818183], rtol=1e-2
-    )
+    assert np.allclose(delta_mass_ppm, [-994633.1134545455, -994450.6861818183], rtol=1e-2)
 
 
 def test_compute_aa_er(
@@ -231,9 +227,7 @@ def test_calc_mass_error(residue_set: Any, instanovo_config: DictConfig) -> None
     """Tests mass error calculation."""
     metric = Metrics(residue_set, instanovo_config["isotope_error_range"])
 
-    mass_error = metric._calc_mass_error(
-        mz_theoretical=120.0, mz_measured=109.0, charge=3
-    )
+    mass_error = metric._calc_mass_error(mz_theoretical=120.0, mz_measured=109.0, charge=3)
     assert mass_error == pytest.approx(100917.43119266056, rel=1e-1)
 
 

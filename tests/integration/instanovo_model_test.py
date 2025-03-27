@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import os
 from typing import Any
 
@@ -9,10 +10,12 @@ import torch
 from omegaconf import DictConfig
 from torch.utils.data import DataLoader
 
-from instanovo.transformer.dataset import collate_batch
-from instanovo.transformer.dataset import SpectrumDataset
+from instanovo.transformer.dataset import SpectrumDataset, collate_batch
 from instanovo.transformer.predict import get_preds
 from instanovo.utils.data_handler import SpectrumDataFrame
+
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
 
 
 def test_model(
@@ -124,9 +127,7 @@ def test_model(
             ]
         ),
     )
-    assert torch.allclose(
-        peptides, torch.tensor([[6, 7, 5, 5, 3, 4, 2], [4, 3, 7, 4, 5, 7, 2]])
-    )
+    assert torch.allclose(peptides, torch.tensor([[6, 7, 5, 5, 3, 4, 2], [4, 3, 7, 4, 5, 7, 2]]))
 
     instanovo_inference_config["device"] = device
 

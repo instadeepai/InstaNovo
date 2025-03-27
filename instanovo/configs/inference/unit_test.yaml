@@ -4,19 +4,24 @@ defaults:
 
 # Data paths and output location
 data_path: ./tests/instanovo_test_resources/example_data/test_sample.mgf # type: .ipc
-model_path: ./tests/instanovo_test_resources/model.ckpt # type: .ckpt
+instanovo_model: ./tests/instanovo_test_resources/model.ckpt # type: .ckpt
 output_path: ./tests/instanovo_test_resources/test_sample_preds.csv # type: .csv
 knapsack_path: ./tests/instanovo_test_resources/example_knapsack # type: directory
 use_knapsack: False
 
 num_beams: 5
-max_length: 30
+max_length: 40
 max_charge: 3
+denovo: False
 
 subset: 1
 
 batch_size: 32
-device: cuda
+device: cpu
 fp16: False
 
 residue_remapping: ""
+pred_col: preds
+pred_tok_col: preds_tokenised
+log_probs_col: log_probs
+token_log_probs_col: token_log_probs

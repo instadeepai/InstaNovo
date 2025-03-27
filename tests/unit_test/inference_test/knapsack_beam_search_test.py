@@ -14,9 +14,7 @@ def test_init(instanovo_model: tuple[Any, Any]) -> None:
 
     assert knapsack_decoder.model == model
     assert knapsack_decoder.knapsack is not None
-    assert torch.equal(
-        knapsack_decoder.chart, torch.tensor(knapsack_decoder.knapsack.chart)
-    )
+    assert torch.equal(knapsack_decoder.chart, torch.tensor(knapsack_decoder.knapsack.chart))
 
 
 def test_from_file(
@@ -29,9 +27,7 @@ def test_from_file(
 
     assert knapsack_decoder.model == model
     assert knapsack_decoder.knapsack is not None
-    assert torch.equal(
-        knapsack_decoder.chart, torch.tensor(knapsack_decoder.knapsack.chart)
-    )
+    assert torch.equal(knapsack_decoder.chart, torch.tensor(knapsack_decoder.knapsack.chart))
 
 
 def test_prefilter_items(
@@ -211,9 +207,7 @@ def test_init_prefilter(setup_knapsack_decoder: KnapsackBeamSearchDecoder) -> No
         [55, 55],
     )
 
-    result = knapsack_decoder._init_prefilter(
-        precursor_masses, log_probabilities, mass_buffer
-    )
+    result = knapsack_decoder._init_prefilter(precursor_masses, log_probabilities, mass_buffer)
 
     expected_tensor = torch.tensor(
         [

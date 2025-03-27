@@ -5,7 +5,6 @@ PACKAGE_NAME = instanovo
 
 # Train variables
 NUM_NODES = 1
-BATCH_SIZE = 12
 NUM_GPUS:= 1
 
 
@@ -46,8 +45,8 @@ DOCKER_RUN_FLAGS_VOLUME_MOUNT_HOME = $(DOCKER_RUN_FLAGS) --volume $(PWD):$(DOCKE
 DOCKER_RUN_FLAGS_VOLUME_MOUNT_RUNS = $(DOCKER_RUN_FLAGS) --volume $(PWD)/runs:$(DOCKER_RUNS_DIRECTORY)
 DOCKER_RUN = docker run $(DOCKER_RUN_FLAGS) $(IMAGE_NAME)
 
-PYTEST = pytest --alluredir=allure_results --cov-report=html --cov --cov-config=.coveragerc --random-order --verbose .
-COVERAGE = coverage report -m
+PYTEST = python -m pytest --alluredir=allure_results --cov-report=html --cov --random-order --verbose .
+COVERAGE = python -m coverage report -m
 
 #################################################################################
 ## Docker build commands																#
@@ -122,50 +121,31 @@ push-ci-dev:
 ## Install packages commands																 	#
 #################################################################################
 
-.PHONY: compile install install-dev install-all
-
-## Compile all the pinned requirements*.txt files from the unpinned requirements*.in files
-compile:
-	pip install --upgrade uv
-	rm -f requirements/*.txt
-	uv pip compile requirements/requirements.in --emit-index-url  --output-file=requirements/requirements.txt
-	uv pip compile requirements/requirements-dev.in --output-file=requirements/requirements-dev.txt
-	uv pip compile requirements/requirements-docs.in --output-file=requirements/requirements-docs.txt
-
-## Install required packages
-install:
-	pip install --upgrade uv
-	uv pip install -r requirements/requirements.txt
+PHONY: install install-all upgrade
 
 ## Install required and development packages
-install-dev:
-	pip install --upgrade uv
-	uv pip install -r requirements/requirements.txt \
-	               -r requirements/requirements-dev.txt
+install:
+	uv sync --extra cu124
+	uv run pre-commit install
 
 ## Install required, development and documentation packages
 install-all:
-	pip install --upgrade uv
-	uv pip install -r requirements/requirements.txt \
-	               -r requirements/requirements-dev.txt \
-				   -r requirements/requirements-docs.txt \
+	uv sync --extra cu124 --group docs
 
-
-##  Sync pinned dependencies with your virtual environment
-sync:
-	pip install --upgrade uv
-	uv pip sync requirements/requirements.txt
-
+# Upgrade all packages
+upgrade:
+	uv lock --upgrade
+	uv sync --extra cu124
 
 #################################################################################
-## Development commands																 	#
+## Development commands															#
 #################################################################################
 
-.PHONY: tests coverage test-docker coverage-docker bash bash-dev docs set-gcp-credentials
+.PHONY: tests coverage test-docker coverage-docker bash bash-dev docs set-gcp-credentials add-kyber-pvc-data
 
 ## Run all tests
 tests:
-	python -m instanovo.scripts.get_zenodo_record
+	uv run instanovo/scripts/get_zenodo_record.py
 	$(PYTEST)
 
 ## Calculate the code coverage
@@ -190,8 +170,7 @@ bash-dev:
 
 ## Serve the documentation site locally
 docs:
-	pip install --upgrade uv
-	uv pip install -r requirements/requirements-docs.txt
+	uv sync --extra cu124 --group docs
 	git config --global --add safe.directory "$(dirname "$(pwd)")"
 	rm -rf docs/reference
 	python ./docs/gen_ref_nav.py
