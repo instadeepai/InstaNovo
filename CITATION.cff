@@ -7,16 +7,16 @@ authors:
   - family-names: "Mabona"
     given-names: "Amandla"
     orcid: "https://orcid.org/0009-0009-7514-677X"
-  - family-names: "Williams"
-    given-names: "Wesley"
-    orcid: "https://orcid.org/0000-0002-8712-7498"
+  - family-names: "Catzel"
+    given-names: "Rachel"
+    orcid: "https://orcid.org/0000-0002-2983-9833"
   - family-names: "Van Goey"
     given-names: "Jeroen"
     orcid: "https://orcid.org/0000-0003-4480-5567"
 title: "InstaNovo"
-version: 0.1.7
-doi: 10.1101/2023.08.30.555055
-date-released: 2023-09-01
+version: 1.1.0
+doi: 10.1038/s42256-025-01019-5
+date-released: 2025-03-26
 url: "https://github.com/instadeepai/instanovo"
 preferred-citation:
   type: article
@@ -27,12 +27,18 @@ preferred-citation:
     - family-names: "Kalogeropoulos"
       given-names: "Konstantinos"
       orcid: "https://orcid.org/0000-0003-3907-9281"
-    - family-names: "Morell"
-      given-names: "Oliver"
-      orcid: "https://orcid.org/0009-0000-8702-1792"
     - family-names: "Mabona"
       given-names: "Amandla"
       orcid: "https://orcid.org/0009-0009-7514-677X"
+    - family-names: "Morell"
+      given-names: "Oliver"
+      orcid: "https://orcid.org/0009-0000-8702-1792"
+    - family-names: "Catzel"
+      given-names: "Rachel"
+      orcid: "https://orcid.org/0000-0002-2983-9833"
+    - family-names: "Rivera-de-Torre"
+      given-names: "Esperanza"
+      orcid: "https://orcid.org/0000-0002-0272-6150"
     - family-names: "Berg Jespersen"
       given-names: "Jakob"
       orcid: "https://orcid.org/0000-0001-6634-6256"
@@ -72,9 +78,9 @@ preferred-citation:
     - family-names: "Jenkins"
       given-names: "Timothy P."
       orcid: "https://orcid.org/0000-0003-2979-5663"
-  doi: 10.1101/2023.08.30.555055
-  journal: "bioRxiv"
+  doi: 10.1038/s42256-025-01019-5
+  journal: "Nature Machine Intelligence"
   title:
-    "De novo peptide sequencing with InstaNovo: Accurate, database-free peptide identification for
-    large scale proteomics experiments"
-  url: "https://www.biorxiv.org/content/10.1101/2023.08.30.555055v3"
+    "InstaNovo enables diffusion-powered de novo peptide sequencing in large-scale proteomics
+    experiments"
+  url: "https://www.nature.com/articles/s42256-025-01019-5"

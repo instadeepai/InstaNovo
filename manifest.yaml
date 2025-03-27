@@ -1,0 +1,55 @@
+# yaml-language-server: $schema=https://instadeep.aichor.ai/schema/latest/manifest.schema.json
+kind: AIchorManifest
+apiVersion: 0.2.1
+builder:
+  image: instanovo
+  dockerfile: ./Dockerfile
+  context: .
+  buildArgs:
+    USE_CUDA: "true"
+spec:
+  operator: tf
+  image: instanovo
+  # command: make set-gcp-credentials && make tests && make coverage
+  # command: make set-gcp-credentials && make download_validation && make download_dataset_v2_ipc && make validate_instanovo
+  # command: make set-gcp-credentials && make instanovo_plus_train_acpt
+  # command: make set-gcp-credentials && make eval_instanovoplus_acpt
+  command: make set-gcp-credentials && time make train_nine_species_v1 && instanovo version
+  # command: make set-gcp-credentials && make train_acpt
+  # command: make set-gcp-credentials && make ft_eval_nine_species_v2
+  # command: make set-gcp-credentials && make zs_eval_nine_species_v2
+  # command: make set-gcp-credentials && make train_instanovoplus_acpt
+  # command: make set-gcp-credentials && make train_instanovoplus_extended_massive
+  # command: make set-gcp-credentials && make inplus_eval_acpt
+  # command: make set-gcp-credentials && make finetune_on_hcpt
+  # command: make set-gcp-credentials && make finetune_on_phospho
+  # command: make set-gcp-credentials && make train_extended_massive
+  # command: make set-gcp-credentials && make eval_species_zero_shot
+  # command: make set-gcp-credentials && make add-kyber-pvc-data && ls -lR /mnt/instanovo-data-kyber/identity_splits_parquet
+
+  debug:
+    vscode:
+      enabled: false # required
+      path: "/aichor/code" # Optional, defaults to "code". Refer the absolute path of the binary if not findable in $PATH
+      provider: "github" # Optional, vscode tunnel provider. Options are "github" or "microsoft", defaults to "github"
+
+  tensorboard: # optional, disabled by default
+    enabled: true
+
+  storage:
+    attachExistingPVCs: # optional, array
+      - name: "dtu-denovo-s-2e6da747d6d34f62-instanovo-da-200e9d5fce4a4085"
+        mountPoint: "/mnt/instanovo-data-kyber"
+
+  types:
+    Worker:
+      count: 1
+      resources:
+        cpus: 24 # Fair use per gpu: 27
+        ramRatio: 8 # Fair use per cpu: 9
+
+        accelerators:
+          gpu:
+            count: 1
+            type: gpu
+            product: NVIDIA-H100-80GB-HBM3

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import copy
-import logging
 import os
 import shutil
 from pathlib import Path
@@ -11,12 +10,13 @@ import pytest
 import torch
 from omegaconf import DictConfig
 
+from instanovo.__init__ import console
 from instanovo.transformer.model import InstaNovo
 from instanovo.transformer.predict import get_preds
 from instanovo.transformer.train import train
+from instanovo.utils.colorlogging import ColorLog
 
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
+logger = ColorLog(console, __name__).logger
 
 
 @pytest.mark.skipif(
@@ -30,7 +30,6 @@ def test_train_model(
     instanovo_inference_config: DictConfig,
 ) -> None:
     """Test training an InstaNovo model and doing inference end-to-end."""
-    torch.backends.cuda.enable_cudnn_sdp(False)  # required for torch 2.5 compatibility
     assert instanovo_config.residues == {
         "A": 10.5,
         "B": 20.75,
@@ -55,6 +54,13 @@ def test_train_model(
         tmp_path
     )  # save the model in a temporary directory
 
+    temp_train_config = copy.deepcopy(instanovo_config)
+    temp_inference_config = copy.deepcopy(instanovo_inference_config)
+
+    temp_train_config["model_save_folder_path"] = str(
+        tmp_path
+    )  # save the model in a temporary directory
+
     logger.info("Training model.")
     train(temp_train_config)
 
@@ -62,9 +68,7 @@ def test_train_model(
     checkpoint_path = os.path.join(
         temp_train_config["model_save_folder_path"], "epoch=0-step=480.ckpt"
     )
-    assert os.path.exists(
-        checkpoint_path
-    ), f"Checkpoint file {checkpoint_path} does not exist."
+    assert os.path.exists(checkpoint_path), f"Checkpoint file {checkpoint_path} does not exist."
     model, config = InstaNovo.load(checkpoint_path)
 
     temp_inference_config["output_path"] = os.path.join(
@@ -77,9 +81,9 @@ def test_train_model(
         model_config=config,
     )
 
-    assert os.path.exists(
-        temp_inference_config["output_path"]
-    ), f"Output file {temp_inference_config['output_path']} does not exist."
+    assert os.path.exists(temp_inference_config["output_path"]), (
+        f"Output file {temp_inference_config['output_path']} does not exist."
+    )
 
     pred_df = pl.read_csv(temp_inference_config["output_path"])
     assert pred_df["targets"][0] == "DDCA"

@@ -1,39 +1,43 @@
 from __future__ import annotations
 
-import logging
-
-from matchms.exporting import save_as_mgf
-from matchms.importing import load_from_mgf
-from matchms import Spectrum
-import pandas as pd
-import polars as pl
-from pathlib import Path
-from enum import Enum
+import asyncio
 import glob
 import os
 import random
-import tempfile
-from typing import Iterator, Callable, Any, cast
-import uuid
-import numpy as np
-import asyncio
-from concurrent.futures import ThreadPoolExecutor
-import shutil
-from datasets import Dataset, load_dataset
 import re
+import shutil
+import tempfile
+import time
+import uuid
+from concurrent.futures import ThreadPoolExecutor
+from enum import Enum
+from itertools import chain
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, Callable, Iterator, Union, cast
+
+import numpy as np
+import pandas as pd
+import polars as pl
+from datasets import Dataset, load_dataset
+from matchms import Spectrum
+from matchms.exporting import save_as_mgf
+from matchms.importing import load_from_mgf
 
 from instanovo.constants import (
-    PROTON_MASS_AMU,
-    MSColumns,
-    MS_TYPES,
     ANNOTATED_COLUMN,
     ANNOTATION_ERROR,
+    MS_TYPES,
+    PROTON_MASS_AMU,
+    MSColumns,
 )
-from instanovo.utils import Metrics
+
+if TYPE_CHECKING:
+    from instanovo.utils import Metrics
+from instanovo.__init__ import console
+from instanovo.utils.colorlogging import ColorLog
 from instanovo.utils.msreader import read_mzml, read_mzxml
 
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+logger = ColorLog(console, __name__).logger
 
 
 class SpectrumDataFrame:
@@ -46,12 +50,11 @@ class SpectrumDataFrame:
     in chunks.
 
     Attributes:
-        is_annotated (bool): Whether the dataset is annotated with peptide sequences.
-        has_predictions (bool): Whether the dataset contains predictions.
-        is_lazy (bool): Whether lazy loading mode is used.
+        is_annotated: Whether the dataset is annotated with peptide sequences.
+        has_predictions: Whether the dataset contains predictions.
+        is_lazy: Whether lazy loading mode is used.
     """
 
-    # flake8: noqa: CCR001
     def __init__(
         self,
         df: pl.DataFrame | None = None,
@@ -91,6 +94,9 @@ class SpectrumDataFrame:
         self._verbose = verbose
         self.executor = None
         self._temp_directory = None
+        # String representation values:
+        self.max_items_per_column = 3
+        self.max_colname_length = 20
 
         if df is None and file_paths is None:
             raise ValueError("Must specify either df or file_paths, both are None.")
@@ -102,15 +108,13 @@ class SpectrumDataFrame:
 
         if self._is_native:
             # Get all file paths
-            self._file_paths = self._convert_file_paths(
-                cast(str | list[str], file_paths)
-            )
+            self._file_paths = self._convert_file_paths(cast(str | list[str], file_paths))
 
             if len(self._file_paths) == 0:
                 raise FileNotFoundError(f"No files matching '{file_paths}' were found.")
 
             # If any of the files are not .parquet, create a tempdir with the converted files.
-            if not all([fp.lower().endswith(".parquet") for fp in self._file_paths]):
+            if not all(fp.lower().endswith(".parquet") for fp in self._file_paths):
                 # If lazy make tempdir, if not convert to non-native and load all contents into df
                 # Only iterate over non-parquet files
                 df_iterator = SpectrumDataFrame.get_data_shards(
@@ -128,7 +132,6 @@ class SpectrumDataFrame:
                         fp for fp in self._file_paths if fp.lower().endswith(".parquet")
                     ]
                     for temp_df in df_iterator:
-                        # TODO: better way to generate id than hash?
                         temp_parquet_path = os.path.join(
                             self._temp_directory, f"temp_{uuid.uuid4().hex}.parquet"
                         )
@@ -138,10 +141,7 @@ class SpectrumDataFrame:
                     self._file_paths = new_file_paths
                 else:
                     self.df = pl.concat(
-                        [
-                            SpectrumDataFrame._cast_columns(temp_df)
-                            for temp_df in df_iterator
-                        ]
+                        [SpectrumDataFrame._cast_columns(temp_df) for temp_df in df_iterator]
                     )
                     # Ensure parquet files are re-added
                     self.df = pl.concat(
@@ -169,9 +169,7 @@ class SpectrumDataFrame:
 
             if self._file_paths is not None:
                 self._filter_series_per_file: dict[str, pl.Series] = {
-                    fp: pl.Series(
-                        np.full(pl.scan_parquet(fp).collect().height, True, dtype=bool)
-                    )
+                    fp: pl.Series(np.full(pl.scan_parquet(fp).collect().height, True, dtype=bool))
                     for fp in self._file_paths
                 }
         else:
@@ -191,7 +189,6 @@ class SpectrumDataFrame:
                 self.df = SpectrumDataFrame._shuffle_df(self.df)
         elif self._is_native:
             # Sort files alphabetically
-            # TODO: Do we want this? Keeps consistent when loading files across devices
             self._file_paths.sort()
             self._update_file_indices()
 
@@ -208,15 +205,14 @@ class SpectrumDataFrame:
         """Shuffle the rows of the given DataFrame."""
         shuffled_indices = np.random.permutation(len(df))
         return df[shuffled_indices]
-        # return df.with_row_count("row_nr").select(pl.all().shuffle())
 
     @staticmethod
     def _sanitise_peptide(peptide: str) -> str:
         """Sanitise peptide sequence."""
         # Some datasets save sequence wrapped with _ or .
-        if peptide[0] == "_":
+        if peptide[0] == "_" and peptide[-1] == "_":
             peptide = peptide[1:-1]
-        if peptide[0] == ".":
+        if peptide[0] == "." and peptide[-1] == ".":
             peptide = peptide[1:-1]
         return peptide
 
@@ -230,6 +226,10 @@ class SpectrumDataFrame:
                 if column.value in df.columns
             ]
         )
+
+    @staticmethod
+    def _is_glob(path: str) -> bool:
+        return "*" in path or "?" in path or "[" in path
 
     @staticmethod
     def _convert_file_paths(file_paths: str | list[str]) -> list[str]:
@@ -247,18 +247,28 @@ class SpectrumDataFrame:
         if isinstance(file_paths, str):
             if os.path.isdir(file_paths):
                 raise ValueError(
-                    "Input must be a string (filepath or glob) or a list of file paths. Found directory."
+                    "Input must be a string (filepath or glob) or a list of file paths. "
+                    "Found directory."
                 )
-            if "*" in file_paths or "?" in file_paths or "[" in file_paths:
+            if SpectrumDataFrame._is_glob(file_paths):
                 # Glob notation: path/to/data/*.parquet
                 return glob.glob(file_paths)
             else:
                 # Single file
                 return [file_paths]
         elif not isinstance(file_paths, list):
-            ValueError(
-                "Input must be a string (filepath or glob) or a list of file paths."
+            ValueError("Input must be a string (filepath or glob) or a list of file paths.")
+
+        # Expand if list of globs
+        file_paths = list(
+            chain.from_iterable(
+                [
+                    glob.glob(path) if SpectrumDataFrame._is_glob(path) else [path]
+                    for path in file_paths
+                ]
             )
+        )
+
         return file_paths
 
     @staticmethod
@@ -283,7 +293,6 @@ class SpectrumDataFrame:
 
         return pl.concat([df1, df2], how="vertical_relaxed")
 
-    # flake8: noqa: CR001
     @staticmethod
     def get_data_shards(
         file_paths: list[str],
@@ -307,7 +316,7 @@ class SpectrumDataFrame:
         """
         column_mapping = column_mapping or {}
         current_shard = None
-        for i, fp in enumerate(file_paths):
+        for i, fp in enumerate(file_paths, 1):
             if verbose:
                 logger.info(f"Loading file {i:03,d} of {len(file_paths):03,d}: {fp}")
 
@@ -327,15 +336,11 @@ class SpectrumDataFrame:
             # Add special columns for indexing
             if add_index_cols:
                 exp_name = Path(fp).stem
-                df = df.with_columns(
-                    pl.lit(exp_name).alias("experiment_name").cast(pl.Utf8)
-                )
+                df = df.with_columns(pl.lit(exp_name).alias("experiment_name").cast(pl.Utf8))
                 if "scan_number" in df.columns:
                     df = df.with_columns(
                         (
-                            pl.col("experiment_name")
-                            + ":"
-                            + pl.col("scan_number").cast(pl.Utf8)
+                            pl.col("experiment_name") + ":" + pl.col("scan_number").cast(pl.Utf8)
                         ).alias("spectrum_id")
                     )
 
@@ -398,13 +403,9 @@ class SpectrumDataFrame:
     def reset_filter(self) -> None:
         """Reset the filters applied to the DataFrame."""
         if not self._is_native:
-            raise NotImplementedError(
-                "Filter reset is not supported in non-native mode."
-            )
+            raise NotImplementedError("Filter reset is not supported in non-native mode.")
         self._filter_series_per_file = {
-            fp: pl.Series(
-                np.full(pl.scan_parquet(fp).collect().height, True, dtype=bool)
-            )
+            fp: pl.Series(np.full(pl.scan_parquet(fp).collect().height, True, dtype=bool))
             for fp in self._file_paths
         }
         self._reset_current_file()
@@ -438,9 +439,7 @@ class SpectrumDataFrame:
         if num_files <= 1:
             return
 
-        self._log(
-            f"Pre-shuffling across {num_files:03,d} shards. This may take a while..."
-        )
+        self._log(f"Pre-shuffling across {num_files:03,d} shards. This may take a while...")
 
         self._log("Computing new mapping per original shard")
         index_to_file_index = pl.concat(
@@ -451,9 +450,7 @@ class SpectrumDataFrame:
         )
 
         # To ensure consistent shard sizes, we sample based on index permutations
-        index_to_file_index = pl.Series(
-            np.random.permutation(index_to_file_index.to_numpy())
-        )
+        index_to_file_index = pl.Series(np.random.permutation(index_to_file_index.to_numpy()))
 
         offset = 0
         mapping_per_file = {}
@@ -462,14 +459,16 @@ class SpectrumDataFrame:
             mapping_per_file[fp] = index_to_file_index[offset : offset + height]
             offset += height
 
+        if self._temp_directory is None:
+            self._temp_directory = tempfile.mkdtemp()
+
         self._log("Extracting rows to create shuffled shards")
         new_file_paths = []
+        start = time.time()
         for i in range(num_files):
             df = None
             for fp in self._file_paths:
-                temp_df = (
-                    pl.scan_parquet(fp).filter(mapping_per_file[fp] == i).collect()
-                )
+                temp_df = pl.scan_parquet(fp).filter(mapping_per_file[fp] == i).collect()
                 if df is None:
                     df = temp_df
                 else:
@@ -483,17 +482,18 @@ class SpectrumDataFrame:
             )
             df.write_parquet(temp_parquet_path)
             new_file_paths.append(temp_parquet_path)
+
+            delta = time.time() - start
+            est_total = delta / (i + 1) * (num_files - i - 1)
             self._log(
-                f"Writing shuffled shard {i:03,d}/{num_files:03,d} to {temp_parquet_path}"
+                f"Writing shuffled shard {i:03,d}/{num_files:03,d} to {temp_parquet_path} "
+                f"[{_format_time(delta)}/{_format_time(est_total)}, {(delta / (i + 1)):.3f}s/it]"
             )
 
         self._log("Removing unshuffled shards")
         # Remove old temp files:
         for fp in self._file_paths:
-            if (
-                os.path.commonpath([str(self._temp_directory), fp])
-                == self._temp_directory
-            ):
+            if os.path.commonpath([str(self._temp_directory), fp]) == self._temp_directory:
                 try:
                     os.remove(fp)
                 except OSError as e:
@@ -501,24 +501,18 @@ class SpectrumDataFrame:
 
         self._file_paths = new_file_paths
         self._filter_series_per_file = {
-            fp: pl.Series(
-                np.full(pl.scan_parquet(fp).collect().height, True, dtype=bool)
-            )
+            fp: pl.Series(np.full(pl.scan_parquet(fp).collect().height, True, dtype=bool))
             for fp in self._file_paths
         }
         self._log("Pre-shuffle complete")
 
     def _reset_current_file(self) -> None:
         # Shuffled file handling, uses a two-step shuffle to optimise efficiency
-        self._current_index_in_file = (
-            0  # index in the current file, used in shuffle mode
-        )
+        self._current_index_in_file = 0  # index in the current file, used in shuffle mode
         self._next_file_index = 0  # index of the next file to be loaded in _file_paths
         self._current_file: str | None = None  # filename of the current file
         self._current_file_len = 0  # length of the current file
-        self._current_file_data: pl.DataFrame | None = (
-            None  # loaded data of the current file
-        )
+        self._current_file_data: pl.DataFrame | None = None  # loaded data of the current file
         self._current_file_position = 0  # starting index of the current file, used to
 
     def _shuffle_file_order(self) -> None:
@@ -527,11 +521,7 @@ class SpectrumDataFrame:
 
     def _load_parquet_data(self, file_path: str) -> pl.DataFrame:
         """Load data from a parquet file and apply the filters."""
-        return (
-            pl.scan_parquet(file_path)
-            .filter(self._filter_series_per_file[file_path])
-            .collect()
-        )
+        return pl.scan_parquet(file_path).filter(self._filter_series_per_file[file_path]).collect()
 
     def _load_next_file(self) -> None:
         """Load the next file in sequence for lazy loading."""
@@ -566,9 +556,7 @@ class SpectrumDataFrame:
     def _start_preload_next(self, file_path: str) -> None:
         """Start preloading the next file asynchronously."""
         if self._preload_task is None or self._preload_task.done():
-            self._preload_task = self.loop.create_task(
-                self._preload_next_file(file_path)
-            )
+            self._preload_task = self.loop.create_task(self._preload_next_file(file_path))
 
     async def _preload_next_file(self, file_path: str) -> None:
         """Asynchronously preload the next file."""
@@ -580,7 +568,7 @@ class SpectrumDataFrame:
             logger.warning(f"Error preloading file {file_path}: {e}")
             self._next_file_future = None
 
-    def __len__(self) -> int:  # noqa: CCE001
+    def __len__(self) -> int:
         """Returns the total number of rows in the SpectrumDataFrame.
 
         Returns:
@@ -669,9 +657,7 @@ class SpectrumDataFrame:
         row = SpectrumDataFrame._cast_columns(row)
 
         # Squeeze all entries
-        row_dict: dict[str, Any] = {
-            k: v[0] for k, v in row.to_dict(as_series=False).items()
-        }
+        row_dict: dict[str, Any] = {k: v[0] for k, v in row.to_dict(as_series=False).items()}
 
         if self.is_annotated:
             row_dict[ANNOTATED_COLUMN] = SpectrumDataFrame._sanitise_peptide(
@@ -679,10 +665,6 @@ class SpectrumDataFrame:
             )
 
         return row_dict
-
-    # def iterable(self, df: pl.DataFrame) -> None:
-    #     """Iterates dataset. Supports streaming?"""
-    #     pass
 
     @property
     def is_annotated(self) -> bool:
@@ -713,7 +695,7 @@ class SpectrumDataFrame:
 
     def save(
         self,
-        target: str,
+        target: Path,
         partition: str | None = None,
         name: str | None = None,
         max_shard_size: int | None = None,
@@ -721,10 +703,10 @@ class SpectrumDataFrame:
         """Save the dataset in parquet format with the option to partition and shard the data.
 
         Args:
-            target (str): Directory to save the dataset.
-            partition (str | None): Partition name to be included in the file names.
-            name (str | None): Dataset name to be included in the file names.
-            max_shard_size (int | None): Maximum size of the data shards.
+            target: Directory to save the dataset.
+            partition: Partition name to be included in the file names.
+            name: Dataset name to be included in the file names.
+            max_shard_size: Maximum size of the data shards.
         """
         max_shard_size = max_shard_size or self._max_shard_size
         partition = partition or "default"
@@ -734,25 +716,25 @@ class SpectrumDataFrame:
 
         shards = self._to_parquet_chunks(target, max_shard_size)
 
-        os.makedirs(target, exist_ok=True)
+        Path(target).mkdir(parents=True, exist_ok=True)
 
-        for i, shard in enumerate(shards):
-            filename = (
-                f"dataset-{name}-{partition}-{i:04d}-{total_num_files:04d}.parquet"
-            )
-            shard.write_parquet(os.path.join(target, filename))
+        for i, shard in enumerate(shards, 1):
+            filename = f"dataset-{name}-{partition}-{i:04d}-{total_num_files:04d}.parquet"
+            shard_path = os.path.join(target, filename)
+            logger.info(f"Writing {shard_path}")
+            shard.write_parquet(shard_path)
 
     def _to_parquet_chunks(
-        self, target: str, max_shard_size: int = 1_000_000
+        self, target: Path, max_shard_size: int = 1_000_000
     ) -> Iterator[pl.DataFrame]:
         """Generate DataFrame chunks to be saved as parquet files.
 
         Args:
-            target (str): Directory to save the parquet files.
-            max_shard_size (int): Maximum size of the data shards.
+            target: Directory to save the parquet files.
+            max_shard_size: Maximum size of the data shards.
 
         Yields:
-            Iterator[pl.DataFrame]: Chunks of DataFrames to be saved.
+            Chunks of DataFrames to be saved.
         """
         if self._is_native:
             current_shard = None
@@ -770,9 +752,7 @@ class SpectrumDataFrame:
                 elif len(current_shard) + len(df) < max_shard_size:
                     current_shard = pl.concat([current_shard, df])
                 else:
-                    yield pl.concat(
-                        [current_shard, df[: (max_shard_size - len(current_shard))]]
-                    )
+                    yield pl.concat([current_shard, df[: (max_shard_size - len(current_shard))]])
                     current_shard = df[(max_shard_size - len(current_shard)) :]
             yield current_shard
         else:
@@ -816,7 +796,7 @@ class SpectrumDataFrame:
             try:
                 os.remove(target)
             except OSError as e:
-                logger.warn(f"Error deleting existing file '{target}': {e}")
+                logger.warning(f"Error deleting existing file '{target}': {e}")
                 return  # Exit the method if we can't delete the file
 
         save_as_mgf(spectra, target, export_style=export_style)
@@ -856,7 +836,7 @@ class SpectrumDataFrame:
         Returns:
             pd.DataFrame: The dataset in pandas DataFrame format.
         """
-        return self.to_polars(return_lazy=False).to_pandas()
+        return cast(pd.DataFrame, self.to_polars(return_lazy=False).to_pandas())
 
     def to_polars(self, return_lazy: bool = True) -> pl.DataFrame | pl.LazyFrame:
         """Convert the dataset to a polars DataFrame.
@@ -937,11 +917,7 @@ class SpectrumDataFrame:
         name = name or "ms"
 
         # Native mode
-        if (
-            isinstance(source, str)
-            and os.path.isdir(source)
-            and source_type == "default"
-        ):
+        if isinstance(source, str) and os.path.isdir(source) and source_type == "default":
             # /path/to/folder/dataset-name-train-0000-of-0001.parquet
             source = os.path.join(source, f"dataset-{name}-{partition}-*-*.parquet")
 
@@ -1012,9 +988,7 @@ class SpectrumDataFrame:
         return SpectrumDataFrame._df_from_matchms(spectra)
 
     @classmethod
-    def load_pointnovo(
-        cls, spectrum_source: str, feature_source: str
-    ) -> "SpectrumDataFrame":
+    def load_pointnovo(cls, spectrum_source: str, feature_source: str) -> "SpectrumDataFrame":
         """Load a SpectrumDataFrame from PointNovo format.
 
         Args:
@@ -1057,8 +1031,6 @@ class SpectrumDataFrame:
         Returns:
             SpectrumDataFrame: The loaded SpectrumDataFrame.
         """
-        # spectra = list(load_from_mzxml(source))
-        # return cls.from_matchms(spectra)
         df = SpectrumDataFrame._df_from_dict(read_mzxml(source))
         return cls.from_polars(df)
 
@@ -1072,8 +1044,6 @@ class SpectrumDataFrame:
         Returns:
             pl.DataFrame: The loaded polars DataFrame.
         """
-        # spectra = list(load_from_mzxml(source))
-        # return SpectrumDataFrame._df_from_matchms(spectra)
         return SpectrumDataFrame._df_from_dict(read_mzxml(source))
 
     @classmethod
@@ -1086,8 +1056,6 @@ class SpectrumDataFrame:
         Returns:
             SpectrumDataFrame: The loaded SpectrumDataFrame.
         """
-        # spectra = list(load_from_mzml(source))
-        # return cls.from_matchms(spectra)
         df = SpectrumDataFrame._df_from_dict(read_mzml(source))
         return cls.from_polars(df)
 
@@ -1101,8 +1069,6 @@ class SpectrumDataFrame:
         Returns:
             pl.DataFrame: The loaded polars DataFrame.
         """
-        # spectra = list(load_from_mzml(source))
-        # return SpectrumDataFrame._df_from_matchms(spectra)
         return SpectrumDataFrame._df_from_dict(read_mzml(source))
 
     @classmethod
@@ -1128,9 +1094,7 @@ class SpectrumDataFrame:
         if isinstance(dataset, str):
             dataset = load_dataset(dataset, **kwargs)
         # TODO: Explore dataset.to_pandas(batched=True)
-        return cls.from_pandas(
-            dataset.to_pandas(), shuffle=shuffle, is_annotated=is_annotated
-        )
+        return cls.from_pandas(dataset.to_pandas(), shuffle=shuffle, is_annotated=is_annotated)
 
     @classmethod
     def from_pandas(
@@ -1209,7 +1173,8 @@ class SpectrumDataFrame:
         Args:
             spectra (list): List of Matchms spectrum objects.
             shuffle (bool, optional): If True, shuffle the data. Defaults to False.
-            is_annotated (bool, optional): If True, treat the spectra as annotated. Defaults to False.
+            is_annotated (bool, optional): If True, treat the spectra as annotated.
+                Defaults to False.
 
         Returns:
             SpectrumDataFrame: The resulting SpectrumDataFrame.
@@ -1325,7 +1290,6 @@ class SpectrumDataFrame:
         for row in df.iter_rows(named=True):
             metadata = {
                 "peptide_sequence": row[ANNOTATED_COLUMN],
-                # "pepmass": row[MSColumns.PRECURSOR_MASS.value],
                 "precursor_mz": row[MSColumns.PRECURSOR_MZ.value],
                 "charge": row[MSColumns.PRECURSOR_CHARGE.value],
                 "retention_time": row[MSColumns.RETENTION_TIME.value],
@@ -1395,8 +1359,7 @@ class SpectrumDataFrame:
             else:
                 has_annotations = self.df.select(
                     (
-                        (pl.col(ANNOTATED_COLUMN).is_not_null())
-                        & (pl.col(ANNOTATED_COLUMN) != "")
+                        (pl.col(ANNOTATED_COLUMN).is_not_null()) & (pl.col(ANNOTATED_COLUMN) != "")
                     ).all()
                 ).to_numpy()[0]
                 if not has_annotations:
@@ -1519,9 +1482,7 @@ class SpectrumDataFrame:
                             .alias("precursor_match")
                         ]
                     )
-                    .select(
-                        pl.col("precursor_match").sum().alias("num_matches_precursor")
-                    )
+                    .select(pl.col("precursor_match").sum().alias("num_matches_precursor"))
                 )
                 num_matches_precursor += result.collect()["num_matches_precursor"][0]
         else:
@@ -1558,17 +1519,17 @@ class SpectrumDataFrame:
 
         if num_matches_precursor == 0:
             raise ValueError(
-                "None of the sequence labels in the dataset match the precursor mz. Check sequences and residue set for errors."
+                "None of the sequence labels in the dataset match the precursor mz. "
+                "Check sequences and residue set for errors."
             )
         elif num_matches_precursor < len(self):
-            logger.warn(
-                f"{len(self) - num_matches_precursor:,d} ({(1 - num_matches_precursor/len(self))*100:.2f}%) of the sequence labels do not match the precursor mz to {tolerance}ppm."
+            logger.warning(
+                f"{len(self) - num_matches_precursor:,d} "
+                f"({(1 - num_matches_precursor / len(self)) * 100:.2f}%) of the sequence labels "
+                f"do not match the precursor mz to {tolerance}ppm."
             )
 
         return num_matches_precursor
-
-    # def filter(self, *args, **kwargs) -> "SpectrumDataFrame":
-    #     return self.df.filter(*args, **kwargs)
 
     def sample_subset(self, fraction: float, seed: int | None = None) -> None:
         """Sample a subset of the dataset.
@@ -1583,7 +1544,8 @@ class SpectrumDataFrame:
             for fp in self._file_paths:
                 if seed:
                     np.random.seed(seed)
-                filter = self._filter_series_per_file[fp].to_numpy()
+                # TODO: variable "filter" is shadowing a python builtin
+                filter = self._filter_series_per_file[fp].to_numpy()  # noqa
                 filter[filter] = np.random.choice(
                     [True, False], size=filter.sum(), p=[fraction, 1 - fraction]
                 )
@@ -1611,3 +1573,166 @@ class SpectrumDataFrame:
             self.executor.shutdown(wait=True)
         if self._temp_directory is not None and os.path.exists(self._temp_directory):
             shutil.rmtree(self._temp_directory)
+
+    def _strip_shape_info(self, s: str) -> str:
+        """Adjust the string representation of a SpectrumDataFrame for lazy loading.
+
+        Strips shape information that would only correspond to the first temporary file.
+
+        Parameters:
+            s (str): The string representation of the SpectrumDataFrame.
+
+        Returns:
+            str: The adjusted string representation of the SpectrumDataFrame.
+        """
+        # Pattern to match rows and columns lines
+        pattern = re.compile(r"(Rows:\s*\d+\s*Columns:\s*\d+)")
+        # Replace the shape with a placeholder
+        return pattern.sub("Shape: unknown in lazy loading mode.", s)
+
+    @staticmethod
+    def _truncate_list_repr(s: str, max_items: int = 3) -> str:
+        """Find and truncate long lists within the SpectrumDataFrame string preview.
+
+        Args:
+            s (str): String representation of SpectrumDataFrame.
+            max_items (int): Maximum number of list items to display at the list's head and tail.
+
+        Returns:
+            str: SpectrumDataFrame string representation with truncated list items, if necessary.
+        """
+
+        def process_list(match: re.Match) -> str:
+            # Extract the list content
+            list_content = match.group(1)
+            # Convert to a Python list
+            values = list(map(str.strip, list_content.split(",")))
+            # Truncate if necessary
+            if len(values) > 2 * max_items:
+                truncated = values[:max_items] + ["..."] + values[-max_items:]
+            else:
+                truncated = values
+            # Rebuild the list as a string
+            return f"[{', '.join(truncated)}]"
+
+        # Regex to find lists in the string
+        list_pattern = re.compile(r"\[([^\]]*?)\]")
+        # Apply truncation to all matches
+        return list_pattern.sub(process_list, s)
+
+    def _display_string_preview(self, df: Union[pl.DataFrame, "SpectrumDataFrame"]) -> str:
+        """String preview of SpectrumDataFrame, truncating long list items.
+
+        Args:
+            df (Union(pl.DataFrame, "SpectrumDataFrame")): SpectrumDataFrame or Polars form of
+            SpectrumDataFrame for string representation.
+
+        Returns:
+            str: String representation of SpectrumDataFrame.
+        """
+        if type(df) is not pl.DataFrame:
+            df = df.to_polars(return_lazy=False)
+
+        preview = df.glimpse(
+            max_items_per_column=self.max_items_per_column,
+            max_colname_length=self.max_colname_length,
+            return_as_string=True,
+        )
+
+        if self.is_lazy:
+            preview = self._strip_shape_info(preview)
+
+        preview = self._truncate_list_repr(preview)
+
+        return preview
+
+    def __str__(self) -> str:
+        """A user-friendly string representation of the SpectrumDataFrame object.
+
+        Returns:
+            str: String representation of SpectrumDataFrame.
+        """
+        # Metadata summary
+        output = f"<SpectrumDataFrame | Lazy Loaded: {'Yes' if self.is_lazy else 'No'}>\n"
+
+        if not self.is_lazy and self._file_paths == []:
+            # Eager loading and non-parquet input case: the df is already loaded in memory
+            output += self._display_string_preview(self.df)
+
+        else:
+            # Lazy loading and parquet cases: only load the first temp file.
+            temp_sdf = self.load(self._file_paths[0])
+            output += self._display_string_preview(temp_sdf)
+
+        return output
+
+    def __repr__(self) -> str:
+        """An unambiguous string representation of the SpectrumDataFrame object.
+
+        This method is intended to provide enough detail to reconstruct the SpectrumDataFrame
+        object (if possible) or for debugging purposes. It includes all relevant attributes
+        in a nested format.
+
+        Returns:
+            str: String representation of SpectrumDataFrame.
+        """
+
+        def adjust_indentation(input_string: str) -> str:
+            """Adjusts the indentation of a multiline string based on the number of leading tabs.
+
+            Args:
+                input_string (str): The input string with potential leading tabs.
+
+            Returns:
+                str: A string with consistent indentation after each newline.
+            """
+            # Find the leading tabs at the beginning of the string
+            match = re.match(r"^(\t*)", input_string)
+            if match:
+                leading_tabs = match.group(1)  # Capture the leading tabs
+            else:
+                leading_tabs = ""
+
+            # Add the leading tabs after every newline
+            adjusted_string = input_string.replace("\n", "\n" + leading_tabs)
+
+            return adjusted_string
+
+        def pretty(d: dict, indent: int = 1) -> str:
+            """Recursively formats a dictionary into a pretty indented string.
+
+            Args:
+                d (dict): The dictionary to format.
+                indent (int): The current indentation level.
+
+            Returns:
+                str: A pretty-formatted string representation of the dictionary.
+            """
+            lines = []
+            for key, value in d.items():
+                lines.append("\t" * indent + str(key) + " =")  # Add the key
+                if isinstance(value, dict):
+                    # Recursively format nested dictionary
+                    lines.append(pretty(value, indent + 1))
+                else:
+                    # Add the value
+                    next_rep = "\t" * (indent + 1) + str(value)
+                    if isinstance(value, pl.DataFrame) or isinstance(value, pl.Series):
+                        # Find how many tabs are at the front of the string,
+                        # and add that many tabs after every newline entry.
+                        next_rep = adjust_indentation(next_rep)
+
+                    lines.append(next_rep)
+
+            return "\n".join(lines)
+
+        class_name = self.__class__.__name__
+        attributes = pretty(vars(self))
+        rep = f"{class_name}(\n{attributes}\n)"
+
+        return rep
+
+
+def _format_time(seconds: float) -> str:
+    seconds = int(seconds)
+    return f"{seconds // 3600:02d}:{(seconds % 3600) // 60:02d}:{seconds % 60:02d}"

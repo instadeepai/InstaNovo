@@ -1,0 +1,25 @@
+# # Ignore all by default to reduce build context as much as possible
+*
+
+# To run the linters in the CI job
+!.pre-commit-config.yaml
+
+# To be able to run the tests
+!tests
+!instanovo
+
+# To run scripts
+!scripts
+
+# To run Make commands
+!Makefile
+
+# To parse the number of GPUs
+!manifest.yaml
+
+# To be able to read the config files
+!configs
+
+# To be able to install InstaNovo
+!pyproject.toml
+!README.md

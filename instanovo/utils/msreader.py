@@ -13,15 +13,9 @@ def read_mgf(file_path: str) -> dict[str, list[Any]]:
         for spectrum in reader:
             data["scan_number"].append(spectrum.get("params", {}).get("title", ""))
             data["sequence"].append(spectrum.get("params", {}).get("seq", ""))
-            data["precursor_mz"].append(
-                spectrum.get("params", {}).get("pepmass", [None])[0]
-            )
-            data["precursor_charge"].append(
-                spectrum.get("params", {}).get("charge", [None])[0]
-            )
-            data["retention_time"].append(
-                spectrum.get("params", {}).get("rtinseconds", 0)
-            )
+            data["precursor_mz"].append(spectrum.get("params", {}).get("pepmass", [None])[0])
+            data["precursor_charge"].append(spectrum.get("params", {}).get("charge", [None])[0])
+            data["retention_time"].append(spectrum.get("params", {}).get("rtinseconds", 0))
             data["mz_array"].append(spectrum.get("m/z array", []))
             data["intensity_array"].append(spectrum.get("intensity array", []))
 
@@ -47,9 +41,7 @@ def read_mzml(
     with mzml.read(file_path) as reader:
         for spectrum in reader:
             spectrum_dict = cvquery(spectrum)
-            if (
-                spectrum_dict.get(ms_vocab["ms_level"]) == 2
-            ):  # Ensure it's an MS2 spectrum
+            if spectrum_dict.get(ms_vocab["ms_level"]) == 2:  # Ensure it's an MS2 spectrum
                 data["scan_number"].append(spectrum.get("id", ""))
 
                 data["sequence"].append(spectrum_dict.get(ms_vocab["sequence"], ""))
@@ -61,16 +53,10 @@ def read_mzml(
                 )
                 data["precursor_mz"].append(spectrum_dict.get(pre_mz_key, ""))
 
-                data["precursor_charge"].append(
-                    spectrum_dict.get(ms_vocab["precursor_charge"], "")
-                )
-                data["retention_time"].append(
-                    spectrum_dict.get(ms_vocab["retention_time"])
-                )
+                data["precursor_charge"].append(spectrum_dict.get(ms_vocab["precursor_charge"], ""))
+                data["retention_time"].append(spectrum_dict.get(ms_vocab["retention_time"]))
                 data["mz_array"].append(list(spectrum_dict.get(ms_vocab["mz_array"])))
-                data["intensity_array"].append(
-                    list(spectrum_dict.get(ms_vocab["intensity_array"]))
-                )
+                data["intensity_array"].append(list(spectrum_dict.get(ms_vocab["intensity_array"])))
 
     return data
 

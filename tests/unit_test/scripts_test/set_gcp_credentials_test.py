@@ -1,9 +1,9 @@
-import os
 import base64
 import json
+import os
 from pathlib import Path
 from typing import Any
-from unittest.mock import patch, mock_open
+from unittest.mock import mock_open, patch
 
 import pytest
 
@@ -18,8 +18,8 @@ def test_set_credentials(mock_file: Any) -> None:
     with patch.dict(os.environ, {}, clear=True):
         with pytest.raises(
             OSError,
-            match="To use GCP buckets you should set 'GOOGLE_APPLICATION_CREDENTIALS' env variable. "
-            "It corresponds to the path to the json file with the credentials.",
+            match="To use GCP buckets you should set 'GOOGLE_APPLICATION_CREDENTIALS' env variable."
+            " It corresponds to the path to the json file with the credentials.",
         ):
             set_credentials()
 

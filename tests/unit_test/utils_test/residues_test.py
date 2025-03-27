@@ -9,9 +9,7 @@ from instanovo.utils.residues import ResidueSet
 
 def test_init(residue_set: Any) -> None:
     """Test residue set initialisation."""
-    rs = ResidueSet(
-        residue_masses=residue_set.residue_masses, residue_remapping={"E": "F"}
-    )
+    rs = ResidueSet(residue_masses=residue_set.residue_masses, residue_remapping={"E": "F"})
 
     assert rs.residue_masses == {
         "A": 10.5,
@@ -43,7 +41,7 @@ def test_init(residue_set: Any) -> None:
         6: "D",
         7: "E",
     }
-    assert rs.tokenizer_regex == r"(\([^)]+\))|([A-Z](?:\([^)]+\))?)"
+    assert rs.tokenizer_regex == r"(\[UNIMOD:\d+\]|\([^)]+\))|([A-Z](?:\[UNIMOD:\d+\]|\([^)]+\))?)"
     assert rs.PAD_INDEX == 0
     assert rs.SOS_INDEX == 1
     assert rs.EOS_INDEX == 2
@@ -124,14 +122,10 @@ def test_encoder(residue_set: Any) -> None:
     tokens = rs.encode(["B", "A", "C", "D", "E"], add_eos=True, pad_length=7)
     assert tokens == [4, 3, 5, 6, 7, 2, 0]
 
-    tokens = rs.encode(
-        ["B", "A", "C", "D", "E"], add_eos=True, pad_length=7, return_tensor="np"
-    )
+    tokens = rs.encode(["B", "A", "C", "D", "E"], add_eos=True, pad_length=7, return_tensor="np")
     assert np.array_equal(tokens, np.array([4, 3, 5, 6, 7, 2, 0]))
 
-    tokens = rs.encode(
-        ["B", "A", "C", "D", "E"], add_eos=True, pad_length=7, return_tensor="pt"
-    )
+    tokens = rs.encode(["B", "A", "C", "D", "E"], add_eos=True, pad_length=7, return_tensor="pt")
     assert torch.equal(tokens, torch.tensor([4, 3, 5, 6, 7, 2, 0]))
 
 
