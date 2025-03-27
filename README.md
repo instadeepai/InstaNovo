@@ -1,4 +1,6 @@
-![InstaNovo Logo](https://raw.githubusercontent.com/instadeepai/InstaNovo/main/docs/assets/instanovo.svg)
+<p align="center" width="100%">
+    <img width="33%" src="https://raw.githubusercontent.com/instadeepai/InstaNovo/main/docs/assets/instanovo.svg">
+</p>
 
 # _De novo_ peptide sequencing with InstaNovo
 
