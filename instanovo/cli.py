@@ -269,8 +269,7 @@ def diffusion_predict(
             "-p",
             help="Either a model ID (currently supported: "
             f"""{", ".join(f"'{model_id}'" for model_id in InstaNovoPlus.get_pretrained())})"""
-            " or a path to an Instanovo+ checkpoint directory (containing a "
-            "`transition_model.ckpt`, `config.yaml` and `diffusion_schedule.pt` file).",
+            " or a path to an Instanovo+ checkpoint file (.ckpt format)",
         ),
     ] = None,
     denovo: Annotated[
@@ -478,8 +477,7 @@ def predict(
             help=(
                 "Either a model ID (currently supported: "
                 f"""{", ".join(f"'{model_id}'" for model_id in InstaNovoPlus.get_pretrained())}) """
-                "or a path to an Instanovo+ checkpoint directory (containing a "
-                "`transition_model.ckpt`, `config.yaml` and `diffusion_schedule.pt` file)."
+                "or a path to an Instanovo+ checkpoint file (.ckpt format)"
             ),
         ),
     ] = None,

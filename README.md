@@ -120,8 +120,7 @@ InstaNovo uses command line arguments for commonly used parameters:
 - `--instanovo-model` - Model to use for InstaNovo. Either a model ID (currently supported:
   `instanovo-v1.1.0`) or a path to an Instanovo checkpoint file (.ckpt format).
 - `--instanovo-plus-model` - Model to use for InstaNovo+. Either a model ID (currently supported:
-  `instanovo-plus-v1.1.0`) or a path to an Instanovo+ checkpoint directory (containing a
-  `transition_model.ckpt`, `config.yaml` and `diffusion_schedule.pt` file)
+  `instanovoplus-v1.1.0-alpha`) or a path to an Instanovo+ checkpoint file (.ckpt format).
 - `--denovo` - Whether to do _de novo_ predictions. If you want to evaluate the model on annotated
   data, use the flag `--evaluation` flag.
 - `--with-refinement` - Whether to use InstaNovo+ for iterative refinement of InstaNovo predictions.

@@ -287,7 +287,7 @@ def mzml_file(tmp_dir: Path) -> str:
     return str(file_path)
 
 
-@pytest.mark.skip
+@pytest.mark.skip(reason="Input files need to be added to Zenodo")
 @pytest.mark.parametrize("input_file_fixture", ["mgf_file", "mzml_file"])
 def test_transformer_predict(
     tmp_dir: Path, input_file_fixture: str, request: pytest.FixtureRequest

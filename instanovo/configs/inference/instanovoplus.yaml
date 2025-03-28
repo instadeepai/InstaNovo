@@ -1,6 +1,6 @@
 # Data paths and output location
 data_path: /mnt/instanovo-data-kyber/ac_pt_shards/valid_shard_*.ipc # type: .mgf, .mzml or any other filetype supported by SpectrumDataFrame
-instanovo_plus_model: instanovo-plus-v1.1.0 # type: directory
+instanovo_plus_model: instanovoplus-v1.1.0-alpha # type: model id or path to a *.ckpt file
 output_path: ./instanovoplus_predictions.csv # type: .csv
 knapsack_path: # type: directory
 

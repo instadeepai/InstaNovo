@@ -106,6 +106,7 @@ class InstaNovoPlus(nn.Module):
         ckpt_details: str,
         overwrite: bool = False,
         temp_dir: str = "",  # type: ignore
+        use_legacy_format: bool = True,
     ) -> None:
         """Save the model to a directory.
 
@@ -125,6 +126,9 @@ class InstaNovoPlus(nn.Module):
             temp_dir (str, optional):
                 Temporary directory to save intermediate files to.
 
+            use_legacy_format (bool, optional):
+                Whether to save the model in the legacy folder format.
+                If False, saves as a single file. Defaults to True.
 
         Raises:
             FileExistsError: If `overwrite` is `False` and a directory already exists
@@ -143,13 +147,16 @@ class InstaNovoPlus(nn.Module):
             )
 
         if not temp_dir:
-            if os.path.exists(model_dir):
+            if os.path.exists(model_dir) and os.path.isdir(model_dir):
                 if overwrite:
                     shutil.rmtree(model_dir)
                 else:
                     raise FileExistsError
 
-            os.makedirs(name=model_dir, exist_ok=True)
+            if use_legacy_format:
+                os.makedirs(model_dir, exist_ok=True)
+            elif os.path.dirname(model_dir):
+                os.makedirs(os.path.dirname(model_dir), exist_ok=True)
 
             save_path = model_dir
             save_file = save_file_local
@@ -158,24 +165,45 @@ class InstaNovoPlus(nn.Module):
             save_path = temp_dir
             save_file = save_file_s3
 
-        # Save config
-        config_path = os.path.join(save_path, "config.yaml")
-        OmegaConf.save(config=self.config, f=config_path)
-        save_file("config.yaml", config_path)
+        if use_legacy_format:
+            # Save model as a folder
+            # Save config
+            config_path = os.path.join(save_path, "config.yaml")
+            OmegaConf.save(config=self.config, f=config_path)
+            save_file("config.yaml", config_path)
 
-        # Save schedule
-        diff_schedule_path = os.path.join(save_path, "diffusion_schedule.pt")
-        torch.save(torch.exp(self.diffusion_schedule), diff_schedule_path)
-        save_file("diffusion_schedule.pt", diff_schedule_path)
+            # Save schedule
+            diff_schedule_path = os.path.join(save_path, "diffusion_schedule.pt")
+            torch.save(torch.exp(self.diffusion_schedule), diff_schedule_path)
+            save_file("diffusion_schedule.pt", diff_schedule_path)
 
-        # Save transition model
-        self.transition_model.to("cpu")
-        transition_model_path = os.path.join(save_path, "transition_model.ckpt")
-        torch.save(self.transition_model.state_dict(), transition_model_path)
-        save_file("transition_model.ckpt", transition_model_path)
-        device = self.config.get("device", "cuda" if torch.cuda.is_available() else "cpu")
-        logger.info(f"Moving transition model to device {device}")
-        self.transition_model.to(device)
+            # Save transition model
+            self.transition_model.to("cpu")
+            transition_model_path = os.path.join(save_path, "transition_model.ckpt")
+            torch.save(self.transition_model.state_dict(), transition_model_path)
+            save_file("transition_model.ckpt", transition_model_path)
+            device = self.config.get("device", "cuda" if torch.cuda.is_available() else "cpu")
+            logger.info(f"Moving transition model to device {device}")
+            self.transition_model.to(device)
+        else:
+            # Save model as a single file
+            transition_model_state = {
+                k: v.cpu() for k, v in self.transition_model.state_dict().items()
+            }
+
+            model_data = {
+                "config": OmegaConf.to_container(self.config),
+                "diffusion_schedule": torch.exp(self.diffusion_schedule).tolist(),
+                "transition_model": transition_model_state,
+            }
+
+            if temp_dir:
+                save_path = os.path.join(save_path, "instanovo_plus.ckpt")
+                torch.save(model_data, save_path)
+                save_file("instanovo_plus.ckpt", save_path)
+            else:
+                torch.save(model_data, save_path)
+                save_file("instanovo_plus.ckpt", save_path)
 
     @classmethod
     def load(cls, path: str) -> Tuple[InstaNovoPlus, DictConfig]:
@@ -183,17 +211,34 @@ class InstaNovoPlus(nn.Module):
 
         Args:
             path (str):
-                Path to the directory where the model is saved.
+                Path to model checkpoint file or directory where model is saved.
 
         Returns:
             (InstaNovoPlus): The loaded model.
 
         """
-        # Load config
-        cls.config_path = os.path.join(path, "config.yaml")
-        config = OmegaConf.load(cls.config_path)
-        device = config.get("device", "cuda" if torch.cuda.is_available() else "cpu")
-        logger.info(f"Loading InstaNovoPlus model to device: {device}.")
+        if os.path.isdir(path):
+            # Load config
+            cls.config_path = os.path.join(path, "config.yaml")
+            config = OmegaConf.load(cls.config_path)
+
+            cls.schedule_path = os.path.join(path, "diffusion_schedule.pt")
+            diffusion_schedule = torch.load(
+                cls.schedule_path, map_location=torch.device("cpu"), weights_only=True
+            )
+
+            cls.checkpoint_path = os.path.join(path, "transition_model.ckpt")
+            transition_model_state = torch.load(
+                cls.checkpoint_path, map_location=torch.device("cpu"), weights_only=True
+            )
+
+        else:
+            # Load model from checkpoint file
+            model_data = torch.load(path, map_location=torch.device("cpu"), weights_only=False)
+            config = OmegaConf.create(model_data["config"])
+
+            diffusion_schedule = torch.tensor(model_data["diffusion_schedule"])
+            transition_model_state = model_data["transition_model"]
 
         # Load residues
         residues = ResidueSet(
@@ -201,21 +246,17 @@ class InstaNovoPlus(nn.Module):
             residue_remapping=config["residue_remapping"],
         )
 
-        # Load schedule
-        cls.schedule_path = os.path.join(path, "diffusion_schedule.pt")
-        diffusion_schedule = torch.load(
-            cls.schedule_path, map_location=torch.device(device), weights_only=True
-        )
-
         # Load transition model
         transition_model = MassSpectrumTransFusion(
             config,
             config.max_length,
         )
-        cls.checkpoint_path = os.path.join(path, "transition_model.ckpt")
-        transition_model.load_state_dict(
-            torch.load(cls.checkpoint_path, map_location=torch.device(device), weights_only=True)
-        )
+        transition_model.load_state_dict(transition_model_state)
+
+        device = config.get("device", "cuda" if torch.cuda.is_available() else "cpu")
+        logger.info(f"Loading InstaNovoPlus model to device: {device}.")
+        transition_model.to(device)
+        diffusion_schedule = diffusion_schedule.to(device)
 
         return cls(
             config=config,
@@ -252,6 +293,8 @@ class InstaNovoPlus(nn.Module):
                     f"InstaNovo+ model directory {model_id} is missing "
                     f"the expected file(s): {', '.join(missing_files)}."
                 )
+        elif os.path.exists(model_id):
+            return cls.load(model_id)
 
         # Load the models.json file
         with resources.files("instanovo").joinpath("models.json").open("r", encoding="utf-8") as f:
@@ -328,6 +371,8 @@ class InstaNovoPlus(nn.Module):
                         f"InstaNovo+ model directory {instanovo_plus_model} is missing the "
                         f"expected file(s): {', '.join(missing_files)}."
                     )
+            elif os.path.exists(instanovo_plus_model):
+                return cls.load(instanovo_plus_model)
             else:
                 raise ValueError(
                     f"Local model path '{instanovo_plus_model}' must exist, be a directory and "
