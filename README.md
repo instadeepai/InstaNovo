@@ -1,3 +1,7 @@
+<p align="center" width="100%">
+    <img width="33%" src="https://raw.githubusercontent.com/instadeepai/InstaNovo/main/docs/assets/instanovo.svg">
+</p>
+
 # _De novo_ peptide sequencing with InstaNovo
 
 [![PyPI version](https://badge.fury.io/py/instanovo.svg)](https://badge.fury.io/py/instanovo)
@@ -157,7 +161,8 @@ columns.
 
 ### Models
 
-InstaNovo 1.1.0 includes a new model `instanovo.ckpt` trained on a larger dataset with more PTMs.
+InstaNovo 1.1.0 includes a new model `instanovo-v1.1.0.ckpt` trained on a larger dataset with more
+PTMs.
 
 > Note: The InstaNovo Extended 1.0.0 training data mis-represented Cysteine as unmodified for the
 > majority of the training data. Please update to the latest version of the model.
@@ -268,46 +273,6 @@ and then use the predictions as input for InstaNovo+:
 ```bash
 instanovo diffusion predict --data-path ./sample_data/spectra.mgf --output-path instanovo_plus_predictions.csv instanovo_predictions_path=instanovo_predictions.csv
 ```
-
-## Additional features
-
-### Models
-
-InstaNovo 1.0.0 includes a new model `instanovo_extended.ckpt` trained on a larger dataset with more
-PTMs
-
-**Training Datasets**
-
-- [ProteomeTools](https://www.proteometools.org/) Part
-  [I (PXD004732)](https://www.ebi.ac.uk/pride/archive/projects/PXD004732),
-  [II (PXD010595)](https://www.ebi.ac.uk/pride/archive/projects/PXD010595), and
-  [III (PXD021013)](https://www.ebi.ac.uk/pride/archive/projects/PXD021013) \
-  (referred to as the all-confidence ProteomeTools `AC-PT` dataset in our paper)
-- Additional PRIDE dataset with more modifications: \
-  ([PXD000666](https://www.ebi.ac.uk/pride/archive/projects/PXD000666), [PXD000867](https://www.ebi.ac.uk/pride/archive/projects/PXD000867),
-  [PXD001839](https://www.ebi.ac.uk/pride/archive/projects/PXD001839), [PXD003155](https://www.ebi.ac.uk/pride/archive/projects/PXD003155),
-  [PXD004364](https://www.ebi.ac.uk/pride/archive/projects/PXD004364), [PXD004612](https://www.ebi.ac.uk/pride/archive/projects/PXD004612),
-  [PXD005230](https://www.ebi.ac.uk/pride/archive/projects/PXD005230), [PXD006692](https://www.ebi.ac.uk/pride/archive/projects/PXD006692),
-  [PXD011360](https://www.ebi.ac.uk/pride/archive/projects/PXD011360), [PXD011536](https://www.ebi.ac.uk/pride/archive/projects/PXD011536),
-  [PXD013543](https://www.ebi.ac.uk/pride/archive/projects/PXD013543), [PXD015928](https://www.ebi.ac.uk/pride/archive/projects/PXD015928),
-  [PXD016793](https://www.ebi.ac.uk/pride/archive/projects/PXD016793), [PXD017671](https://www.ebi.ac.uk/pride/archive/projects/PXD017671),
-  [PXD019431](https://www.ebi.ac.uk/pride/archive/projects/PXD019431), [PXD019852](https://www.ebi.ac.uk/pride/archive/projects/PXD019852),
-  [PXD026910](https://www.ebi.ac.uk/pride/archive/projects/PXD026910), [PXD027772](https://www.ebi.ac.uk/pride/archive/projects/PXD027772))
-- Additional phosphorylation dataset \
-  (not yet publicly released)
-
-**Natively Supported Modifications**
-
-- Oxidation of methionine
-- Cysteine alkylation / Carboxyamidomethylation
-- Asparagine and glutamine deamidation
-- Serine, Threonine, and Tyrosine phosphorylation
-- N-terminal ammonia loss
-- N-terminal carbamylation
-- N-terminal acetylation
-
-See residue configuration under
-[instanovo/configs/residues/extended.yaml](./instanovo/configs/residues/extended.yaml)
 
 ## Additional features
 
