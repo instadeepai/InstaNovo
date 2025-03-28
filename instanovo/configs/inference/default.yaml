@@ -1,7 +1,7 @@
 # Data paths and output location
 data_path: # type: .mgf, .mzml or any other filetype supported by SpectrumDataFrame
 instanovo_model: instanovo-v1.1.0 # type: model id or path to a *.ckpt file
-instanovo_plus_model: instanovo-plus-v1.1.0 # type: model id or path to a directory with *.ckpt, *.yaml and *.pt files
+instanovo_plus_model: instanovoplus-v1.1.0-alpha # type: model id or path to a *.ckpt file
 output_path: # type: .csv
 knapsack_path: # type: directory
 
