@@ -1,5 +1,5 @@
 <p align="center" width="100%">
-    <img width="33%" src="https://raw.githubusercontent.com/instadeepai/InstaNovo/main/docs/assets/instanovo.svg">
+     <img width="33%" src="https://raw.githubusercontent.com/instadeepai/InstaNovo/main/docs/assets/instanovo.svg">
 </p>
 
 # _De novo_ peptide sequencing with InstaNovo
@@ -7,6 +7,8 @@
 [![PyPI version](https://badge.fury.io/py/instanovo.svg)](https://badge.fury.io/py/instanovo)
 [![DOI](https://zenodo.org/badge/681625644.svg)](https://doi.org/10.5281/zenodo.14712453)
 
+<!-- [![Tests Status](./reports/junit/tests-badge.svg?dummy=8484744)](./reports/junit/report.html) -->
+<!-- [![Coverage Status](./reports/coverage/coverage-badge.svg?dummy=8484744)](./reports/coverage/index.html) -->
 <a target="_blank" href="https://colab.research.google.com/github/instadeepai/InstaNovo/blob/main/notebooks/getting_started_with_instanovo.ipynb">
 <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/> </a>
 <!-- <a target="_blank" href="https://kaggle.com/kernels/welcome?src=https://github.com/instadeepai/InstaNovo/blob/main/notebooks/getting_started_with_instanovo.ipynb">
@@ -35,12 +37,31 @@ iterative refinement of predicted sequences.
 
 ## Usage
 
+### HuggingFace Space
+
+InstaNovo is available as a HuggingFace Space at
+[hf.co/spaces/InstaDeepAI/InstaNovo](https://huggingface.co/spaces/InstaDeepAI/InstaNovo) for quick
+testing and evaluation. You can upload your own spectra files in `.mgf`, `.mzml`, or `.mzxml` format
+and run _de novo_ predictions. The results will be displayed in a table format, and you can download
+the predictions as a CSV file. The HuggingFace Space is powered by the InstaNovo model and the
+InstaNovo+ model for iterative refinement.
+
+[![HuggingFace Space](https://raw.githubusercontent.com/instadeepai/InstaNovo/main/docs/assets/huggingface_space.png)](https://huggingface.co/spaces/InstaDeepAI/InstaNovo)
+
 ### Installation
 
-To use InstaNovo, we need to install the module via `pip`:
+To use InstaNovo Python package with command line interface, we need to install the module via
+`pip`:
 
 ```bash
 pip install instanovo
+```
+
+If you have access to an NVIDIA GPU, you can install InstaNovo with the GPU version of PyTorch
+(recommended):
+
+```bash
+pip install instanovo[cu124]
 ```
 
 ### Command line usage
@@ -427,7 +448,7 @@ On Windows:
 powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
 ```
 
-Note: InstaNovo is built for Python >=3.10, <3.13 and tested on Linux, Windows and macOS.
+Note: InstaNovo is built for Python >=3.10, <3.13 and tested on Linux.
 
 ### Fork and clone the repository
 
@@ -549,15 +570,21 @@ If you use InstaNovo in your research, please cite the following paper:
 
 ```bibtex
 @article{eloff_kalogeropoulos_2025_instanovo,
-    author={Eloff, Kevin and Kalogeropoulos, Konstantinos and Mabona, Amandla and Morell, Oliver and Catzel, Rachel and Rivera-de-Torre, Esperanza and Berg Jespersen, Jakob and Williams, Wesley and van Beljouw, Sam P. B. and Skwark, Marcin J. and Laustsen, Andreas Hougaard and Brouns, Stan J. J. and Ljungars, Anne and Schoof, Erwin M. and Van Goey, Jeroen and auf dem Keller, Ulrich and Beguir, Karim and Lopez Carranza, Nicolas and Jenkins, Timothy P.},
-    title={InstaNovo enables diffusion-powered de novo peptide sequencing in large-scale proteomics experiments},
-    journal={Nature Machine Intelligence},
-    year={2025},
-    month={Mar},
-    day={31},
-    issn={2522-5839},
-    doi={10.1038/s42256-025-01019-5},
-    url={https://doi.org/10.1038/s42256-025-01019-5}
+        title        = {InstaNovo enables diffusion-powered de novo peptide sequencing in large-scale
+                        proteomics experiments},
+        author       = {Eloff, Kevin and Kalogeropoulos, Konstantinos and Mabona, Amandla and Morell,
+                        Oliver and Catzel, Rachel and Rivera-de-Torre, Esperanza and Berg Jespersen,
+                        Jakob and Williams, Wesley and van Beljouw, Sam P. B. and Skwark, Marcin J.
+                        and Laustsen, Andreas Hougaard and Brouns, Stan J. J. and Ljungars,
+                        Anne and Schoof, Erwin M. and Van Goey, Jeroen and auf dem Keller, Ulrich and
+                        Beguir, Karim and Lopez Carranza, Nicolas and Jenkins, Timothy P.},
+        year         = 2025,
+        month        = {Mar},
+        day          = 31,
+        journal      = {Nature Machine Intelligence},
+        doi          = {10.1038/s42256-025-01019-5},
+        issn         = {2522-5839},
+        url          = {https://doi.org/10.1038/s42256-025-01019-5}
 }
 ```
 
