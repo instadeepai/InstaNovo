@@ -61,6 +61,7 @@ dev = [
     "ipykernel>=6.29.5",
     "ipywidgets>=8.1.5",
     "jupyter>=1.1.1",
+    "nbmake>=1.5.5",
     "pip>=25.0.1",
     "pre-commit>=4.0.1",
     "pyopenms-viz>=0.1.5",
