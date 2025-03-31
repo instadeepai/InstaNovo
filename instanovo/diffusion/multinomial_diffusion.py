@@ -206,7 +206,7 @@ class InstaNovoPlus(nn.Module):
                 save_file("instanovo_plus.ckpt", save_path)
 
     @classmethod
-    def load(cls, path: str) -> Tuple[InstaNovoPlus, DictConfig]:
+    def load(cls, path: str, device: str = "auto") -> Tuple[InstaNovoPlus, DictConfig]:
         """Load a saved model.
 
         Args:
@@ -253,7 +253,11 @@ class InstaNovoPlus(nn.Module):
         )
         transition_model.load_state_dict(transition_model_state)
 
-        device = config.get("device", "cuda" if torch.cuda.is_available() else "cpu")
+        device = (
+            (torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu"))
+            if device == "auto"
+            else torch.device(device)
+        )
         logger.info(f"Loading InstaNovoPlus model to device: {device}.")
         transition_model.to(device)
         diffusion_schedule = diffusion_schedule.to(device)
@@ -278,13 +282,15 @@ class InstaNovoPlus(nn.Module):
         return list(models_config[MODEL_TYPE].keys())
 
     @classmethod
-    def from_pretrained(cls, model_id: str) -> Tuple["InstaNovoPlus", "DictConfig"]:
+    def from_pretrained(
+        cls, model_id: str, device: str = "auto"
+    ) -> Tuple["InstaNovoPlus", "DictConfig"]:
         """Download and load by model id or model path."""
         # Check if model_id is a local dir
         expected_files = ["config.yaml", "diffusion_schedule.pt", "transition_model.ckpt"]
         if os.path.isdir(model_id):
             if all(os.path.exists(os.path.join(model_id, fn)) for fn in expected_files):
-                return cls.load(model_id)
+                return cls.load(model_id, device=device)
             else:
                 missing_files = [
                     fn for fn in expected_files if not os.path.exists(os.path.join(model_id, fn))
@@ -294,7 +300,7 @@ class InstaNovoPlus(nn.Module):
                     f"the expected file(s): {', '.join(missing_files)}."
                 )
         elif os.path.exists(model_id):
-            return cls.load(model_id)
+            return cls.load(model_id, device=device)
 
         # Load the models.json file
         with resources.files("instanovo").joinpath("models.json").open("r", encoding="utf-8") as f:
@@ -351,7 +357,7 @@ class InstaNovoPlus(nn.Module):
 
             # Load and return the model
             logger.info(f"Loading model {model_id} (remote)")
-            return cls.load(str(cached_file))
+            return cls.load(str(cached_file), device=device)
 
         elif "local" in model_info:
             instanovo_plus_model = model_info["local"]
@@ -360,7 +366,7 @@ class InstaNovoPlus(nn.Module):
                     os.path.exists(os.path.join(instanovo_plus_model, fn)) for fn in expected_files
                 ):
                     logger.info(f"Loading model {model_id} (local)")
-                    return cls.load(instanovo_plus_model)
+                    return cls.load(instanovo_plus_model, device=device)
                 else:
                     missing_files = [
                         fn
@@ -372,7 +378,7 @@ class InstaNovoPlus(nn.Module):
                         f"expected file(s): {', '.join(missing_files)}."
                     )
             elif os.path.exists(instanovo_plus_model):
-                return cls.load(instanovo_plus_model)
+                return cls.load(instanovo_plus_model, device=device)
             else:
                 raise ValueError(
                     f"Local model path '{instanovo_plus_model}' must exist, be a directory and "
