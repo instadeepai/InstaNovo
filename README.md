@@ -22,9 +22,9 @@ iterative refinement of predicted sequences.
 
 **Links:**
 
-- bioRxiv:
-  [https://www.biorxiv.org/content/10.1101/2023.08.30.555055v3](https://www.biorxiv.org/content/10.1101/2023.08.30.555055v3)
-- documentation:
+- Publication in Nature Machine Intelligence:
+  [InstaNovo enables diffusion-powered de novo peptide sequencing in large-scale proteomics experiments](https://www.nature.com/articles/s42256-025-01019-5)
+- Documentation:
   [https://instadeepai.github.io/InstaNovo/](https://instadeepai.github.io/InstaNovo/)
 
 **Developed by:**
@@ -548,14 +548,16 @@ The model checkpoints are licensed under Creative Commons Non-Commercial
 If you use InstaNovo in your research, please cite the following paper:
 
 ```bibtex
-@article{eloff_kalogeropoulos_2024_instanovo,
-	title = {De novo peptide sequencing with InstaNovo: Accurate, database-free peptide identification for large scale proteomics experiments},
-	author = {Kevin Eloff and Konstantinos Kalogeropoulos and Oliver Morell and Amandla Mabona and Jakob Berg Jespersen and Wesley Williams and Sam van Beljouw and Marcin Skwark and Andreas Hougaard Laustsen and Stan J. J. Brouns and Anne Ljungars and Erwin Marten Schoof and Jeroen Van Goey and Ulrich auf dem Keller and Karim Beguir and Nicolas Lopez Carranza and Timothy Patrick Jenkins},
-	year = {2024},
-	doi = {10.1101/2023.08.30.555055},
-	publisher = {Cold Spring Harbor Laboratory},
-	URL = {https://www.biorxiv.org/content/10.1101/2023.08.30.555055v3},
-	journal = {bioRxiv}
+@article{eloff_kalogeropoulos_2025_instanovo,
+    author={Eloff, Kevin and Kalogeropoulos, Konstantinos and Mabona, Amandla and Morell, Oliver and Catzel, Rachel and Rivera-de-Torre, Esperanza and Berg Jespersen, Jakob and Williams, Wesley and van Beljouw, Sam P. B. and Skwark, Marcin J. and Laustsen, Andreas Hougaard and Brouns, Stan J. J. and Ljungars, Anne and Schoof, Erwin M. and Van Goey, Jeroen and auf dem Keller, Ulrich and Beguir, Karim and Lopez Carranza, Nicolas and Jenkins, Timothy P.},
+    title={InstaNovo enables diffusion-powered de novo peptide sequencing in large-scale proteomics experiments},
+    journal={Nature Machine Intelligence},
+    year={2025},
+    month={Mar},
+    day={31},
+    issn={2522-5839},
+    doi={10.1038/s42256-025-01019-5},
+    url={https://doi.org/10.1038/s42256-025-01019-5}
 }
 ```
 

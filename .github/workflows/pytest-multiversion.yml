@@ -37,12 +37,13 @@ jobs:
           uv run --frozen  pytest -v --alluredir=allure_results  --cov-report=html --cov  --random-order
           coverage report -m
       - name: Test notebooks on Linux
-        if: runner.os != 'Windows' && github.ref == 'refs/heads/main' && github.event_name == 'push'
+        if: runner.os != 'Windows' && github.event_name == 'push'
         run: |
+          sed -i 's/test\[:10%\]/test[:100]/g' notebooks/getting_started_with_instanovo.ipynb
           PYDEVD_DISABLE_FILE_VALIDATION=1 python -m ipykernel install --user --name instanovo
           uv run --frozen  pytest --nbmake "./notebooks"  --nbmake-kernel=instanovo --nbmake-timeout=10000
       - name: Test notebooks on Windows
-        if: runner.os == 'Windows' && github.ref == 'refs/heads/main' && github.event_name == 'push'
+        if: runner.os == 'Windows' && github.event_name == 'push'
         run: |
           $env:PYDEVD_DISABLE_FILE_VALIDATION=1; python -m ipykernel install --user --name instanovo
           uv run --frozen  pytest --nbmake "./notebooks"  --nbmake-kernel=instanovo --nbmake-timeout=10000
