@@ -14,7 +14,7 @@ authors:
     given-names: "Jeroen"
     orcid: "https://orcid.org/0000-0003-4480-5567"
 title: "InstaNovo"
-version: 1.1.0
+version: 1.1.1
 doi: 10.5281/zenodo.15101326
 date-released: 2025-03-28
 url: "https://github.com/instadeepai/instanovo"
