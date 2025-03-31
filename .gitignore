@@ -181,6 +181,8 @@ logs/
 mlruns/
 notebooks/checkpoints
 notebooks/predictions.csv
+notebooks/diffusion_predictions.csv
+notebooks/predictions_knapsack_beam_search.csv
 outputs/
 secrets/
 lightning_logs/

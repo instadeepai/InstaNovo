@@ -40,6 +40,7 @@ class SpectrumDataset(Dataset):
         bin_spectra: bool = False,
         bin_size: float = 0.01,
         diffusion: bool = False,
+        tokenize_peptide: bool = True,
     ) -> None:
         super().__init__()
         self.df = df
@@ -57,6 +58,7 @@ class SpectrumDataset(Dataset):
         self.bin_spectra = bin_spectra
         self.bin_size = bin_size
         self.diffusion = diffusion
+        self.tokenize_peptide = tokenize_peptide
 
         if self.bin_spectra:
             self.bins = torch.arange(0, self.max_mz + self.bin_size, self.bin_size)
@@ -90,7 +92,10 @@ class SpectrumDataset(Dataset):
             spectrum = spectrum_padded
 
         if not self.return_str:
-            peptide_tokenized = self.residue_set.tokenize(peptide)
+            if self.tokenize_peptide:
+                peptide_tokenized = self.residue_set.tokenize(peptide)
+            else:
+                peptide_tokenized = peptide  # type: ignore
             if self.reverse_peptide:
                 peptide_tokenized = peptide_tokenized[::-1]
 
@@ -212,6 +217,7 @@ def collate_batch(
     return spectra, precursors, spectra_mask, peptides, peptides_mask
 
 
+# TODO: move to generic utils
 def load_ipc_shards(
     data_path: str | Path, split: str = "train", remap_cols: bool = True
 ) -> pl.DataFrame:
