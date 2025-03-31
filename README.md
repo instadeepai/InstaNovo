@@ -26,6 +26,7 @@ iterative refinement of predicted sequences.
 
 - Publication in Nature Machine Intelligence:
   [InstaNovo enables diffusion-powered de novo peptide sequencing in large-scale proteomics experiments](https://www.nature.com/articles/s42256-025-01019-5)
+- InstaNovo blog: [https://instanovo.ai/](https://instanovo.ai/)
 - Documentation:
   [https://instadeepai.github.io/InstaNovo/](https://instadeepai.github.io/InstaNovo/)
 
@@ -130,8 +131,9 @@ ground truth peptide sequence. Metrics will be calculated and displayed in the c
 
 ### Command line arguments and overriding config values
 
-The configuration file for inference may be found under [/configs/inference/](./configs/inference/)
-folder. By default, the [`default.yaml`](configs/inference/default.yaml) file is used.
+The configuration file for inference may be found under
+[instanovo/configs/inference/](instanovo/configs/inference/) folder. By default, the
+[`default.yaml`](instanovo/configs/inference/default.yaml) file is used.
 
 InstaNovo uses command line arguments for commonly used parameters:
 
