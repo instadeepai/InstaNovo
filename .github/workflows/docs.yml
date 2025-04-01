@@ -2,9 +2,8 @@ name: MKDocs -> GitHub Pages
 
 on:
   push:
-#     branches:
-#       - main
-# TODO enable back for main branch only
+    branches:
+      - main
 
 jobs:
   deploy:
