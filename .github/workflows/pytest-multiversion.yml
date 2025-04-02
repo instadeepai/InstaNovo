@@ -8,11 +8,9 @@ name: Test, Lint, and Update Coverage Badge
 # Triggers for the workflow
 on:
   push:
-    branches:
-      - "*" # Trigger on pushes to any branch
-  pull_request:
-    branches:
-      - main
+#     branches: ["main"] # Run on pushes to the main branch
+#   pull_request:
+#     branches: ["main"] # Run on pull requests targeting the main branch
 
 # Concurrency control
 concurrency:
