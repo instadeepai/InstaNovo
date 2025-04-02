@@ -8,9 +8,19 @@ name: Test, Lint, and Update Coverage Badge
 # Triggers for the workflow
 on:
   push:
-#     branches: ["main"] # Run on pushes to the main branch
-#   pull_request:
-#     branches: ["main"] # Run on pull requests targeting the main branch
+    branches:
+      - "*" # Trigger on pushes to any branch
+  pull_request:
+    branches:
+      - main
+
+# Concurrency control
+concurrency:
+  # Group runs by workflow name and the Git ref (branch or tag)
+  # Ensures only one run proceeds for the same workflow and ref at a time
+  group: ${{ github.workflow }}-${{ github.ref }}
+  # Cancel any ongoing runs for the same group (workflow + ref) when a new run starts
+  cancel-in-progress: true
 
 # Define the jobs to run
 jobs:
