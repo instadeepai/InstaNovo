@@ -95,6 +95,7 @@ jobs:
         with:
           commit_message: "chore: update coverage badge [skip ci]" # Commit message
           file_pattern: ./docs/assets/coverage.svg # Pattern of files to commit
+          add_options: "-f" # Force add coverage badge file
           commit_options: "--no-verify" # Skip pre-commit hooks for this commit
           repository: . # Commit to the current repository
           commit_user_name: github-actions[bot]

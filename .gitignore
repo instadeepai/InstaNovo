@@ -187,8 +187,5 @@ outputs/
 secrets/
 lightning_logs/
 
-# Whitelist assets
-!docs/assets/
-
 # Test resources
 tests/instanovo_test_resources*
