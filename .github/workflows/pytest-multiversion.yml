@@ -86,7 +86,7 @@ jobs:
         uses: stefanzweifel/git-auto-commit-action@v5 # Use the auto-commit action
         with:
           commit_message: "chore: update coverage badge [skip ci]" # Commit message
-          file_pattern: coverage.svg # Pattern of files to commit
+          file_pattern: ./docs/assets/coverage.svg # Pattern of files to commit
           commit_options: "--no-verify" # Skip pre-commit hooks for this commit
           repository: . # Commit to the current repository
           commit_user_name: github-actions[bot]
