@@ -80,8 +80,8 @@ jobs:
       - name: Commit coverage badge
         # Only run this step on pushes to main for the specific matrix combination
         if:
-          github.event_name == 'push' && github.ref == 'refs/heads/main' && matrix.python-version ==
-          '3.12' && matrix.os == 'ubuntu-latest'
+          github.event_name == 'push' && matrix.python-version == '3.12' && matrix.os ==
+          'ubuntu-latest'
         uses: stefanzweifel/git-auto-commit-action@v5 # Use the auto-commit action
         with:
           commit_message: "chore: update coverage badge [skip ci]" # Commit message
