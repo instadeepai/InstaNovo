@@ -2,7 +2,7 @@ site_name: InstaNovo
 site_description: Documentation for InstaNovo
 site_author: InstaDeep Developers
 site_url: https://instadeepai.github.io/InstaNovo/
-site_dir: public
+site_dir: docs_public
 repo_name: instadeepai/InstaNovo
 repo_url: https://github.com/instadeepai/InstaNovo
 strict: false
