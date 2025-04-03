@@ -156,7 +156,7 @@ exclude_lines = [
     "if __name__ == .__main__.:"]
 
 [tool.coverage.html]
-directory = "coverage"
+directory = "htmlcov"
 
 [tool.codespell]
 skip = "*.js,*.html,*.css, *.svg"
