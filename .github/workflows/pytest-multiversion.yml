@@ -77,18 +77,18 @@ jobs:
         # allowing the badge to be generated. Consider adding a separate step
         # later in the workflow to enforce a minimum coverage threshold if desired.
 
-      # Step 6: Install Allure Commandline (only for Python 3.12 on Ubuntu)
-      - name: Install Allure Commandline
+      # Step 6: Set up Allure Commandline (only for Python 3.12 on Ubuntu)
+      - name: Set up Allure Commandline
+        id: setup-allure
         if: matrix.python-version == '3.12' && matrix.os == 'ubuntu-latest'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y allure # Installs allure commandline tool
+        uses: allure-framework/setup-allurectl@v1
 
       # Step 7: Generate Allure Report (only for Python 3.12 on Ubuntu)
       - name: Generate Allure Report
+        # Run only if setup was successful and results exist
         if:
-          matrix.python-version == '3.12' && matrix.os == 'ubuntu-latest' &&
-          hashFiles('allure_results/**') != ''
+          steps.setup-allure.outcome == 'success' && matrix.python-version == '3.12' && matrix.os ==
+          'ubuntu-latest' && hashFiles('allure_results/**') != ''
         run: allure generate allure_results --clean -o allure-report # Generate HTML report into './allure-report'
 
       # Step 8: Upload Coverage HTML Artifact (only for Python 3.12 on Ubuntu)
