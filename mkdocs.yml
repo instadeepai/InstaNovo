@@ -78,4 +78,6 @@ plugins:
 
 nav:
   - Home: index.md
+  - Coverage Report: coverage/index.html
+  - Test Report: allure/index.html
   - License: LICENSE.md

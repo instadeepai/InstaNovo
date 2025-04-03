@@ -77,32 +77,63 @@ jobs:
         # allowing the badge to be generated. Consider adding a separate step
         # later in the workflow to enforce a minimum coverage threshold if desired.
 
-      # Step 6: Generate coverage badge (only for Python 3.12 on Ubuntu)
-      - name: Generate coverage badge
-        # Only run this step for a specific matrix combination to avoid multiple badge generations
+      # Step 6: Install Allure Commandline (only for Python 3.12 on Ubuntu)
+      - name: Install Allure Commandline
         if: matrix.python-version == '3.12' && matrix.os == 'ubuntu-latest'
-        uses: tj-actions/coverage-badge-py@v2 # Use the coverage badge action
-        with:
-          output: ./docs/assets/coverage.svg # Output badge file name
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y allure # Installs allure commandline tool
 
-      # Step 7: Commit coverage badge (only on push to main for Python 3.12 on Ubuntu)
+      # Step 7: Generate Allure Report (only for Python 3.12 on Ubuntu)
+      - name: Generate Allure Report
+        if:
+          matrix.python-version == '3.12' && matrix.os == 'ubuntu-latest' &&
+          hashFiles('allure_results/**') != ''
+        run: allure generate allure_results --clean -o allure-report # Generate HTML report into './allure-report'
+
+      # Step 8: Upload Coverage HTML Artifact (only for Python 3.12 on Ubuntu)
+      - name: Upload Coverage HTML Artifact
+        if: matrix.python-version == '3.12' && matrix.os == 'ubuntu-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-html # Artifact name
+          path: htmlcov/ # Directory to upload
+
+      # Step 9: Upload Allure Report Artifact (only for Python 3.12 on Ubuntu)
+      - name: Upload Allure Report Artifact
+        # Only upload if the report directory exists (generation step might be skipped if no results)
+        if:
+          matrix.python-version == '3.12' && matrix.os == 'ubuntu-latest' &&
+          hashFiles('allure-report/**') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-report # Artifact name
+          path: allure-report/ # Directory to upload
+
+      # Step 10: Generate coverage badge (only for Python 3.12 on Ubuntu)
+      - name: Generate coverage badge
+        if: matrix.python-version == '3.12' && matrix.os == 'ubuntu-latest'
+        uses: tj-actions/coverage-badge-py@v2
+        with:
+          output: ./docs/assets/coverage.svg
+
+      # Step 11: Commit coverage badge (only on push to main for Python 3.12 on Ubuntu)
       - name: Commit coverage badge
-        # Only run this step on pushes to main for the specific matrix combination
         if:
           github.event_name == 'push' && matrix.python-version == '3.12' && matrix.os ==
           'ubuntu-latest'
-        uses: stefanzweifel/git-auto-commit-action@v5 # Use the auto-commit action
+        uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          commit_message: "chore: update coverage badge [skip ci]" # Commit message
-          file_pattern: ./docs/assets/coverage.svg # Pattern of files to commit
-          add_options: "-f" # Force add coverage badge file
-          commit_options: "--no-verify" # Skip pre-commit hooks for this commit
-          repository: . # Commit to the current repository
+          commit_message: "chore: update coverage badge [skip ci]"
+          file_pattern: ./docs/assets/coverage.svg
+          add_options: "-f"
+          commit_options: "--no-verify"
+          repository: .
           commit_user_name: github-actions[bot]
           commit_user_email: github-actions[bot]@users.noreply.github.com
           commit_author: github-actions[bot] <github-actions[bot]@users.noreply.github.com>
 
-      # Step 8: Test notebooks on Linux (conditional)
+      # Step 12: Test notebooks on Linux (conditional)
       - name: Test notebooks on Linux
         if: runner.os != 'Windows' # Only run if the OS is not Windows
         run: |
@@ -113,7 +144,7 @@ jobs:
           # Run notebook tests with nbmake
           uv run --frozen pytest --nbmake "./notebooks" --nbmake-kernel=instanovo --nbmake-timeout=10000
 
-      # Step 9: Test notebooks on Windows (conditional)
+      # Step 13: Test notebooks on Windows (conditional)
       - name: Test notebooks on Windows
         if: runner.os == 'Windows' # Only run if the OS is Windows
         run: |

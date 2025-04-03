@@ -20,45 +20,93 @@ jobs:
     # Add a condition to only run this job if the triggering workflow was successful
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
 
-    # Define the steps within the job
+    # Define permissions needed for the job
+    permissions:
+      contents: write # Needed for peaceiris/actions-gh-pages
+
     steps:
       # Step 1: Checkout repository
-      # This automatically checks out the code from the commit associated with the completed workflow_run event,
-      # ensuring it includes any changes made by that workflow (like the coverage badge).
+      # Checks out the commit associated with the *completed* workflow_run event
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Step 2: Set up Python
+      # Step 2: Download Coverage HTML Artifact
+      - name: Download Coverage HTML Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: coverage-html # Must match the upload artifact name
+          path: ./temp_coverage # Download to a temporary directory
+          # Specify the triggering workflow run ID
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: ${{ github.event.workflow_run.id }}
+
+      # Step 3: Download Allure Report Artifact
+      - name: Download Allure Report Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: allure-report # Must match the upload artifact name
+          path: ./temp_allure # Download to a temporary directory
+          # Specify the triggering workflow run ID
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: ${{ github.event.workflow_run.id }}
+
+      # Step 4: Set up Python
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12" # Specify the Python version
+          python-version: "3.12"
 
-      # Step 3: Install uv package manager
-      # Using curl to install uv and add uv to the system PATH
+      # Step 5: Install uv package manager
       - name: Install uv
         run: |
           curl -LsSf https://astral.sh/uv/install.sh | sh
           echo "$HOME/.cargo/bin" >> $GITHUB_PATH
 
-      # Step 4: Create and activate virtual environment using uv
-      # uv automatically detects and uses the virtual environment in subsequent steps
+      # Step 6: Create and activate virtual environment using uv
       - name: Create virtual environment
         run: |
           uv venv
           echo "${{ github.workspace }}/.venv/bin" >> $GITHUB_PATH
 
-      # Step 5: Install documentation dependencies using uv
+      # Step 7: Install documentation dependencies using uv
       - name: Install dependencies
-        run: uv sync --extra cpu --group docs # Install dependencies from the 'docs' group and 'cpu' extra
+        run: uv sync --extra cpu --group docs
 
-      # Step 6: Build the MkDocs site
+      # Step 8: Prepare docs directory and move reports
+      - name: Prepare docs directory and move reports
+        run: |
+          mkdir -p docs/coverage docs/allure # Ensure target directories exist
+          # Check if downloaded directories exist before moving
+          if [ -d "temp_coverage" ]; then
+            # Move contents, overwrite if exists (-T avoids creating subdir)
+            mv -T temp_coverage docs/coverage
+            echo "Moved coverage report."
+          else
+            echo "Coverage report artifact not found or empty."
+          fi
+          if [ -d "temp_allure" ]; then
+            # Move contents, overwrite if exists (-T avoids creating subdir)
+            mv -T temp_allure docs/allure
+            echo "Moved Allure report."
+          else
+            echo "Allure report artifact not found or empty."
+          fi
+
+      # Step 9: Build the MkDocs site
+      # MkDocs will automatically copy docs/coverage and docs/allure into docs_public
       - name: Build the MkDocs site
-        run: mkdocs build # Run the mkdocs build command
+        run: mkdocs build
 
-      # Step 7: Deploy the built site to GitHub Pages
+      # Step 10: Deploy the built site to GitHub Pages
       - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v4 # Use the GitHub Pages deployment action
+        uses: peaceiris/actions-gh-pages@v4
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }} # Use the default GitHub token for authentication
-          publish_dir: ./docs_public # Directory containing the built site (MkDocs default is './site')
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./docs_public # Directory containing the built site
+          # Optional: uncomment to deploy to a specific branch like gh-pages
+          # publish_branch: gh-pages
+          # Keep history
+          keep_files: true
+          # Commit user configuration
+          user_name: "github-actions[bot]"
+          user_email: "github-actions[bot]@users.noreply.github.com"
