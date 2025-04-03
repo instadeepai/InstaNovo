@@ -756,40 +756,43 @@ InstaNovo+ model for iterative refinement.</p>
 </code></pre></div>
 <p>If you have access to an NVIDIA GPU, you can install InstaNovo with the GPU version of PyTorch
 (recommended):</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>pip<span class="w"> </span>install<span class="w"> </span>instanovo<span class="o">[</span>cu124<span class="o">]</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;instanovo[cu124]&quot;</span>
+</code></pre></div>
+<p>If you are on macOS, you can install the CPU-only version of PyTorch:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;instanovo[cpu]&quot;</span>
 </code></pre></div>
 <h3 id="command-line-usage">Command line usage</h3>
 <p>InstaNovo provides a comprehensive command line interface (CLI) for both prediction and training
 tasks.</p>
 <p>To get help and see the available commands:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>instanovo --help
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>instanovo --help
 </code></pre></div>
 <p><img alt="instanovo --help" src="https://raw.githubusercontent.com/instadeepai/InstaNovo/main/docs/assets/instanovo_help.svg" /></p>
 <p>To see the version of InstaNovo, InstaNovo+ and some of the dependencies:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>instanovo version
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>instanovo version
 </code></pre></div>
 <p><img alt="instanovo version" src="https://raw.githubusercontent.com/instadeepai/InstaNovo/main/docs/assets/instanovo_version.svg" /></p>
 <h3 id="predicting">Predicting</h3>
 <p>To get help about the prediction command line options:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>instanovo predict --help
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>instanovo predict --help
 </code></pre></div>
 <p><img alt="instanovo predict --help" src="https://raw.githubusercontent.com/instadeepai/InstaNovo/main/docs/assets/instanovo_predict_help.svg" /></p>
 <h3 id="running-predictions-with-both-instanovo-and-instanovo">Running predictions with both InstaNovo and InstaNovo+</h3>
 <p>The default is to run predictions first with the transformer-based InstaNovo model, and then further
 improve the performance by iterative refinement of these predicted sequences by the diffusion-based
 InstaNov+ model.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>instanovo predict --data-path ./sample_data/spectra.mgf --output-path predictions.csv
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>instanovo predict --data-path ./sample_data/spectra.mgf --output-path predictions.csv
 </code></pre></div>
 <p>Which results in the following output:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>scan_number,precursor_mz,precursor_charge,experiment_name,spectrum_id,diffusion_predictions_tokenised,diffusion_predictions,diffusion_log_probabilities,transformer_predictions,transformer_predictions_tokenised,transformer_log_probabilities,transformer_token_log_probabilities
-<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>0,451.25348,2,spectra,spectra:0,&quot;[&#39;A&#39;, &#39;L&#39;, &#39;P&#39;, &#39;Y&#39;, &#39;T&#39;, &#39;P&#39;, &#39;K&#39;, &#39;K&#39;]&quot;,ALPYTPKK,-0.03160184621810913,LAHYNKK,&quot;L, A, H, Y, N, K, K&quot;,-424.5889587402344,&quot;[-0.5959059000015259, -0.0059959776699543, -0.01749008148908615, -0.03598890081048012, -0.48958998918533325, -1.5242897272109985, -0.656516432762146]&quot;
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>scan_number,precursor_mz,precursor_charge,experiment_name,spectrum_id,diffusion_predictions_tokenised,diffusion_predictions,diffusion_log_probabilities,transformer_predictions,transformer_predictions_tokenised,transformer_log_probabilities,transformer_token_log_probabilities
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>0,451.25348,2,spectra,spectra:0,&quot;[&#39;A&#39;, &#39;L&#39;, &#39;P&#39;, &#39;Y&#39;, &#39;T&#39;, &#39;P&#39;, &#39;K&#39;, &#39;K&#39;]&quot;,ALPYTPKK,-0.03160184621810913,LAHYNKK,&quot;L, A, H, Y, N, K, K&quot;,-424.5889587402344,&quot;[-0.5959059000015259, -0.0059959776699543, -0.01749008148908615, -0.03598890081048012, -0.48958998918533325, -1.5242897272109985, -0.656516432762146]&quot;
 </code></pre></div>
 <p>To evaluate InstaNovo performance on an annotated dataset:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>instanovo<span class="w"> </span>predict<span class="w"> </span>--evaluation<span class="w"> </span>--data-path<span class="w"> </span>./sample_data/spectra.mgf<span class="w"> </span>--output-path<span class="w"> </span>predictions.csv
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>instanovo<span class="w"> </span>predict<span class="w"> </span>--evaluation<span class="w"> </span>--data-path<span class="w"> </span>./sample_data/spectra.mgf<span class="w"> </span>--output-path<span class="w"> </span>predictions.csv
 </code></pre></div>
 <p>Which results in the following output:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>scan_number,precursor_mz,precursor_charge,experiment_name,spectrum_id,diffusion_predictions_tokenised,diffusion_predictions,diffusion_log_probabilities,targets,transformer_predictions,transformer_predictions_tokenised,transformer_log_probabilities,transformer_token_log_probabilities
-<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>0,451.25348,2,spectra,spectra:0,&quot;[&#39;L&#39;, &#39;A&#39;, &#39;H&#39;, &#39;Y&#39;, &#39;N&#39;, &#39;K&#39;, &#39;K&#39;]&quot;,LAHYNKK,-0.06637095659971237,IAHYNKR,LAHYNKK,&quot;L, A, H, Y, N, K, K&quot;,-424.5889587402344,&quot;[-0.5959059000015259, -0.0059959776699543, -0.01749008148908615, -0.03598890081048012, -0.48958998918533325, -1.5242897272109985, -0.656516432762146]&quot;
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>scan_number,precursor_mz,precursor_charge,experiment_name,spectrum_id,diffusion_predictions_tokenised,diffusion_predictions,diffusion_log_probabilities,targets,transformer_predictions,transformer_predictions_tokenised,transformer_log_probabilities,transformer_token_log_probabilities
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>0,451.25348,2,spectra,spectra:0,&quot;[&#39;L&#39;, &#39;A&#39;, &#39;H&#39;, &#39;Y&#39;, &#39;N&#39;, &#39;K&#39;, &#39;K&#39;]&quot;,LAHYNKK,-0.06637095659971237,IAHYNKR,LAHYNKK,&quot;L, A, H, Y, N, K, K&quot;,-424.5889587402344,&quot;[-0.5959059000015259, -0.0059959776699543, -0.01749008148908615, -0.03598890081048012, -0.48958998918533325, -1.5242897272109985, -0.656516432762146]&quot;
 </code></pre></div>
 <p>Note that the <code>--evaluation</code> flag includes the <code>targets</code> column in the output, which contains the
 ground truth peptide sequence. Metrics will be calculated and displayed in the console.</p>
@@ -814,7 +817,7 @@ ground truth peptide sequence. Metrics will be calculated and displayed in the c
 <p>To override the configuration values in the config files, you can use command line arguments. For
 example, by default beam search with one beam is used. If you want to use beam search with 5 beams,
 you can use the following command:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>instanovo<span class="w"> </span>predict<span class="w"> </span>--data-path<span class="w"> </span>./sample_data/spectra.mgf<span class="w"> </span>--output-path<span class="w"> </span>predictions.csv<span class="w"> </span><span class="nv">num_beams</span><span class="o">=</span><span class="m">5</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>instanovo<span class="w"> </span>predict<span class="w"> </span>--data-path<span class="w"> </span>./sample_data/spectra.mgf<span class="w"> </span>--output-path<span class="w"> </span>predictions.csv<span class="w"> </span><span class="nv">num_beams</span><span class="o">=</span><span class="m">5</span>
 </code></pre></div>
 <p>Note the lack of prefix <code>--</code> before <code>num_beams</code> in the command line argument because you are
 overriding the value of key defined in the config file.</p>
@@ -1001,7 +1004,7 @@ data conversion for preferred formatting.</p>
 <p>To train the auto-regressive transformer model InstaNovo using the config file
 <a href="./instanovo/configs/instanovo.yaml">instanovo/configs/instanovo.yaml</a>, you can use the following
 command:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>instanovo<span class="w"> </span>transformer<span class="w"> </span>train<span class="w"> </span>--help
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>instanovo<span class="w"> </span>transformer<span class="w"> </span>train<span class="w"> </span>--help
 </code></pre></div>
 <p><img alt="instanovo transformer train --help" src="https://raw.githubusercontent.com/instadeepai/InstaNovo/main/docs/assets/instanovo_transformer_train_help.svg" /></p>
 <p>To update the InstaNovo model config, modify the config file under
@@ -1010,7 +1013,7 @@ command:</p>
 <p>To train the diffusion model InstaNovo+ using the config file
 <a href="instanovo/configs/instanovoplus.yaml">instanovo/configs/instanovoplus.yaml</a>, you can use the
 following command:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>instanovo<span class="w"> </span>diffusion<span class="w"> </span>train<span class="w"> </span>--help
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>instanovo<span class="w"> </span>diffusion<span class="w"> </span>train<span class="w"> </span>--help
 </code></pre></div>
 <p><img alt="instanovo diffusion train --help" src="https://raw.githubusercontent.com/instadeepai/InstaNovo/main/docs/assets/instanovo_diffusion_train_help.svg" /></p>
 <p>To update the InstaNovo+ model config, modify the config file under
@@ -1018,20 +1021,20 @@ following command:</p>
 <h3 id="advanced-prediction-options">Advanced prediction options</h3>
 <h3 id="run-predictions-with-only-instanovo">Run predictions with only InstaNovo</h3>
 <p>If you want to run predictions with only InstaNovo, you can use the following command:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>instanovo<span class="w"> </span>transformer<span class="w"> </span>predict<span class="w"> </span>--help
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>instanovo<span class="w"> </span>transformer<span class="w"> </span>predict<span class="w"> </span>--help
 </code></pre></div>
 <p><img alt="instanovo transformer predict --help" src="https://raw.githubusercontent.com/instadeepai/InstaNovo/main/docs/assets/instanovo_transformer_predict_help.svg" /></p>
 <h3 id="run-predictions-with-only-instanovo_1">Run predictions with only InstaNovo+</h3>
 <p>If you want to run predictions with only InstaNovo+, you can use the following command:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>instanovo<span class="w"> </span>diffusion<span class="w"> </span>predict<span class="w"> </span>--help
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>instanovo<span class="w"> </span>diffusion<span class="w"> </span>predict<span class="w"> </span>--help
 </code></pre></div>
 <p><img alt="instanovo diffusion predict --help" src="https://raw.githubusercontent.com/instadeepai/InstaNovo/main/docs/assets/instanovo_diffusion_predict_help.svg" /></p>
 <h3 id="run-predictions-with-instanovo-and-instanovo-in-separate-steps">Run predictions with InstaNovo and InstaNovo+ in separate steps</h3>
 <p>You can first run predictions with InstaNovo</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>instanovo<span class="w"> </span>transformer<span class="w"> </span>predict<span class="w"> </span>--data-path<span class="w"> </span>./sample_data/spectra.mgf<span class="w"> </span>--output-path<span class="w"> </span>instanovo_predictions.csv
+<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>instanovo<span class="w"> </span>transformer<span class="w"> </span>predict<span class="w"> </span>--data-path<span class="w"> </span>./sample_data/spectra.mgf<span class="w"> </span>--output-path<span class="w"> </span>instanovo_predictions.csv
 </code></pre></div>
 <p>and then use the predictions as input for InstaNovo+:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>instanovo<span class="w"> </span>diffusion<span class="w"> </span>predict<span class="w"> </span>--data-path<span class="w"> </span>./sample_data/spectra.mgf<span class="w"> </span>--output-path<span class="w"> </span>instanovo_plus_predictions.csv<span class="w"> </span><span class="nv">instanovo_predictions_path</span><span class="o">=</span>instanovo_predictions.csv
+<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>instanovo<span class="w"> </span>diffusion<span class="w"> </span>predict<span class="w"> </span>--data-path<span class="w"> </span>./sample_data/spectra.mgf<span class="w"> </span>--output-path<span class="w"> </span>instanovo_plus_predictions.csv<span class="w"> </span><span class="nv">instanovo_predictions_path</span><span class="o">=</span>instanovo_predictions.csv
 </code></pre></div>
 <h2 id="additional-features">Additional features</h2>
 <h3 id="spectrum-data-class">Spectrum Data Class</h3>
@@ -1044,7 +1047,7 @@ internal SpectrumDataFrame supported by InstaNovo for training and inference. An
 specified using <a href="https://en.wikipedia.org/wiki/Glob_(programming)">glob notation</a>. For example you
 could use the following command to get <em>de novo</em> predictions from all the files in the folder
 <code>./experiment</code>:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>instanovo<span class="w"> </span>predict<span class="w"> </span>--data_path<span class="o">=</span>./experiment/*.mgf
+<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>instanovo<span class="w"> </span>predict<span class="w"> </span>--data_path<span class="o">=</span>./experiment/*.mgf
 </code></pre></div>
 <p>Alternatively, a list of files may be specified in the
 <a href="./configs/inference/default.yaml">inference config</a>.</p>
@@ -1054,46 +1057,46 @@ temporary directory. Alternatively, the data may be saved permanently natively a
 optimal loading.</p>
 <p><strong>Example usage:</strong></p>
 <p>Converting mgf files to the native format:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">instanovo.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">SpectrumDataFrame</span>
-<a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>
-<a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a><span class="c1"># Convert mgf files native parquet:</span>
-<a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a><span class="n">sdf</span> <span class="o">=</span> <span class="n">SpectrumDataFrame</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">&quot;/path/to/data.mgf&quot;</span><span class="p">,</span> <span class="n">lazy</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">is_annotated</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a><span class="n">sdf</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="s2">&quot;path/to/parquet/folder&quot;</span><span class="p">,</span> <span class="n">partition</span><span class="o">=</span><span class="s2">&quot;train&quot;</span><span class="p">,</span> <span class="n">chunk_size</span><span class="o">=</span><span class="mf">1e6</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">instanovo.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">SpectrumDataFrame</span>
+<a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a>
+<a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a><span class="c1"># Convert mgf files native parquet:</span>
+<a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a><span class="n">sdf</span> <span class="o">=</span> <span class="n">SpectrumDataFrame</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">&quot;/path/to/data.mgf&quot;</span><span class="p">,</span> <span class="n">lazy</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">is_annotated</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a><span class="n">sdf</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="s2">&quot;path/to/parquet/folder&quot;</span><span class="p">,</span> <span class="n">partition</span><span class="o">=</span><span class="s2">&quot;train&quot;</span><span class="p">,</span> <span class="n">chunk_size</span><span class="o">=</span><span class="mf">1e6</span><span class="p">)</span>
 </code></pre></div>
 <p>Loading the native format in shuffle mode:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="c1"># Load a native parquet dataset:</span>
-<a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a><span class="n">sdf</span> <span class="o">=</span> <span class="n">SpectrumDataFrame</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">&quot;path/to/parquet/folder&quot;</span><span class="p">,</span> <span class="n">partition</span><span class="o">=</span><span class="s2">&quot;train&quot;</span><span class="p">,</span> <span class="n">shuffle</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">lazy</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">is_annotated</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="c1"># Load a native parquet dataset:</span>
+<a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a><span class="n">sdf</span> <span class="o">=</span> <span class="n">SpectrumDataFrame</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">&quot;path/to/parquet/folder&quot;</span><span class="p">,</span> <span class="n">partition</span><span class="o">=</span><span class="s2">&quot;train&quot;</span><span class="p">,</span> <span class="n">shuffle</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">lazy</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">is_annotated</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 </code></pre></div>
 <p>Using the loaded SpectrumDataFrame in a PyTorch DataLoader:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">instanovo.transformer.dataset</span><span class="w"> </span><span class="kn">import</span> <span class="n">SpectrumDataset</span>
-<a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">torch.utils.data</span><span class="w"> </span><span class="kn">import</span> <span class="n">DataLoader</span>
-<a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a>
-<a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a><span class="n">ds</span> <span class="o">=</span> <span class="n">SpectrumDataset</span><span class="p">(</span><span class="n">sdf</span><span class="p">)</span>
-<a id="__codelineno-19-5" name="__codelineno-19-5" href="#__codelineno-19-5"></a><span class="c1"># Note: Shuffle and workers is handled by the SpectrumDataFrame</span>
-<a id="__codelineno-19-6" name="__codelineno-19-6" href="#__codelineno-19-6"></a><span class="n">dl</span> <span class="o">=</span> <span class="n">DataLoader</span><span class="p">(</span>
-<a id="__codelineno-19-7" name="__codelineno-19-7" href="#__codelineno-19-7"></a>    <span class="n">ds</span><span class="p">,</span>
-<a id="__codelineno-19-8" name="__codelineno-19-8" href="#__codelineno-19-8"></a>    <span class="n">collate_fn</span><span class="o">=</span><span class="n">SpectrumDataset</span><span class="o">.</span><span class="n">collate_batch</span><span class="p">,</span>
-<a id="__codelineno-19-9" name="__codelineno-19-9" href="#__codelineno-19-9"></a>    <span class="n">shuffle</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
-<a id="__codelineno-19-10" name="__codelineno-19-10" href="#__codelineno-19-10"></a>    <span class="n">num_workers</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
-<a id="__codelineno-19-11" name="__codelineno-19-11" href="#__codelineno-19-11"></a><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">instanovo.transformer.dataset</span><span class="w"> </span><span class="kn">import</span> <span class="n">SpectrumDataset</span>
+<a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">torch.utils.data</span><span class="w"> </span><span class="kn">import</span> <span class="n">DataLoader</span>
+<a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a>
+<a id="__codelineno-20-4" name="__codelineno-20-4" href="#__codelineno-20-4"></a><span class="n">ds</span> <span class="o">=</span> <span class="n">SpectrumDataset</span><span class="p">(</span><span class="n">sdf</span><span class="p">)</span>
+<a id="__codelineno-20-5" name="__codelineno-20-5" href="#__codelineno-20-5"></a><span class="c1"># Note: Shuffle and workers is handled by the SpectrumDataFrame</span>
+<a id="__codelineno-20-6" name="__codelineno-20-6" href="#__codelineno-20-6"></a><span class="n">dl</span> <span class="o">=</span> <span class="n">DataLoader</span><span class="p">(</span>
+<a id="__codelineno-20-7" name="__codelineno-20-7" href="#__codelineno-20-7"></a>    <span class="n">ds</span><span class="p">,</span>
+<a id="__codelineno-20-8" name="__codelineno-20-8" href="#__codelineno-20-8"></a>    <span class="n">collate_fn</span><span class="o">=</span><span class="n">SpectrumDataset</span><span class="o">.</span><span class="n">collate_batch</span><span class="p">,</span>
+<a id="__codelineno-20-9" name="__codelineno-20-9" href="#__codelineno-20-9"></a>    <span class="n">shuffle</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+<a id="__codelineno-20-10" name="__codelineno-20-10" href="#__codelineno-20-10"></a>    <span class="n">num_workers</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+<a id="__codelineno-20-11" name="__codelineno-20-11" href="#__codelineno-20-11"></a><span class="p">)</span>
 </code></pre></div>
 <p>Some more examples using the SpectrumDataFrame:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="n">sdf</span> <span class="o">=</span> <span class="n">SpectrumDataFrame</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">&quot;/path/to/experiment/*.mzml&quot;</span><span class="p">,</span> <span class="n">lazy</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a>
-<a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a><span class="c1"># Remove rows with a charge value &gt; 3:</span>
-<a id="__codelineno-20-4" name="__codelineno-20-4" href="#__codelineno-20-4"></a><span class="n">sdf</span><span class="o">.</span><span class="n">filter_rows</span><span class="p">(</span><span class="k">lambda</span> <span class="n">row</span><span class="p">:</span> <span class="n">row</span><span class="p">[</span><span class="s2">&quot;precursor_charge&quot;</span><span class="p">]</span><span class="o">&lt;=</span><span class="mi">2</span><span class="p">)</span>
-<a id="__codelineno-20-5" name="__codelineno-20-5" href="#__codelineno-20-5"></a>
-<a id="__codelineno-20-6" name="__codelineno-20-6" href="#__codelineno-20-6"></a><span class="c1"># Sample a subset of the data:</span>
-<a id="__codelineno-20-7" name="__codelineno-20-7" href="#__codelineno-20-7"></a><span class="n">sdf</span><span class="o">.</span><span class="n">sample_subset</span><span class="p">(</span><span class="n">fraction</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">42</span><span class="p">)</span>
-<a id="__codelineno-20-8" name="__codelineno-20-8" href="#__codelineno-20-8"></a>
-<a id="__codelineno-20-9" name="__codelineno-20-9" href="#__codelineno-20-9"></a><span class="c1"># Convert to pandas</span>
-<a id="__codelineno-20-10" name="__codelineno-20-10" href="#__codelineno-20-10"></a><span class="n">df</span> <span class="o">=</span> <span class="n">sdf</span><span class="o">.</span><span class="n">to_pandas</span><span class="p">()</span> <span class="c1"># Returns a pd.DataFrame</span>
-<a id="__codelineno-20-11" name="__codelineno-20-11" href="#__codelineno-20-11"></a>
-<a id="__codelineno-20-12" name="__codelineno-20-12" href="#__codelineno-20-12"></a><span class="c1"># Convert to polars LazyFrame</span>
-<a id="__codelineno-20-13" name="__codelineno-20-13" href="#__codelineno-20-13"></a><span class="n">lazy_df</span> <span class="o">=</span> <span class="n">sdf</span><span class="o">.</span><span class="n">to_polars</span><span class="p">(</span><span class="n">return_lazy</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span> <span class="c1"># Returns a pl.LazyFrame</span>
-<a id="__codelineno-20-14" name="__codelineno-20-14" href="#__codelineno-20-14"></a>
-<a id="__codelineno-20-15" name="__codelineno-20-15" href="#__codelineno-20-15"></a><span class="c1"># Save as an `.mgf` file</span>
-<a id="__codelineno-20-16" name="__codelineno-20-16" href="#__codelineno-20-16"></a><span class="n">sdf</span><span class="o">.</span><span class="n">write_mgf</span><span class="p">(</span><span class="s2">&quot;path/to/output.mgf&quot;</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="n">sdf</span> <span class="o">=</span> <span class="n">SpectrumDataFrame</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">&quot;/path/to/experiment/*.mzml&quot;</span><span class="p">,</span> <span class="n">lazy</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a>
+<a id="__codelineno-21-3" name="__codelineno-21-3" href="#__codelineno-21-3"></a><span class="c1"># Remove rows with a charge value &gt; 3:</span>
+<a id="__codelineno-21-4" name="__codelineno-21-4" href="#__codelineno-21-4"></a><span class="n">sdf</span><span class="o">.</span><span class="n">filter_rows</span><span class="p">(</span><span class="k">lambda</span> <span class="n">row</span><span class="p">:</span> <span class="n">row</span><span class="p">[</span><span class="s2">&quot;precursor_charge&quot;</span><span class="p">]</span><span class="o">&lt;=</span><span class="mi">2</span><span class="p">)</span>
+<a id="__codelineno-21-5" name="__codelineno-21-5" href="#__codelineno-21-5"></a>
+<a id="__codelineno-21-6" name="__codelineno-21-6" href="#__codelineno-21-6"></a><span class="c1"># Sample a subset of the data:</span>
+<a id="__codelineno-21-7" name="__codelineno-21-7" href="#__codelineno-21-7"></a><span class="n">sdf</span><span class="o">.</span><span class="n">sample_subset</span><span class="p">(</span><span class="n">fraction</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">42</span><span class="p">)</span>
+<a id="__codelineno-21-8" name="__codelineno-21-8" href="#__codelineno-21-8"></a>
+<a id="__codelineno-21-9" name="__codelineno-21-9" href="#__codelineno-21-9"></a><span class="c1"># Convert to pandas</span>
+<a id="__codelineno-21-10" name="__codelineno-21-10" href="#__codelineno-21-10"></a><span class="n">df</span> <span class="o">=</span> <span class="n">sdf</span><span class="o">.</span><span class="n">to_pandas</span><span class="p">()</span> <span class="c1"># Returns a pd.DataFrame</span>
+<a id="__codelineno-21-11" name="__codelineno-21-11" href="#__codelineno-21-11"></a>
+<a id="__codelineno-21-12" name="__codelineno-21-12" href="#__codelineno-21-12"></a><span class="c1"># Convert to polars LazyFrame</span>
+<a id="__codelineno-21-13" name="__codelineno-21-13" href="#__codelineno-21-13"></a><span class="n">lazy_df</span> <span class="o">=</span> <span class="n">sdf</span><span class="o">.</span><span class="n">to_polars</span><span class="p">(</span><span class="n">return_lazy</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span> <span class="c1"># Returns a pl.LazyFrame</span>
+<a id="__codelineno-21-14" name="__codelineno-21-14" href="#__codelineno-21-14"></a>
+<a id="__codelineno-21-15" name="__codelineno-21-15" href="#__codelineno-21-15"></a><span class="c1"># Save as an `.mgf` file</span>
+<a id="__codelineno-21-16" name="__codelineno-21-16" href="#__codelineno-21-16"></a><span class="n">sdf</span><span class="o">.</span><span class="n">write_mgf</span><span class="p">(</span><span class="s2">&quot;path/to/output.mgf&quot;</span><span class="p">)</span>
 </code></pre></div>
 <p><strong>SpectrumDataFrame Features:</strong></p>
 <ul>
@@ -1181,7 +1184,7 @@ looks as follows:</p>
 </table>
 <p>For <em>de novo</em> prediction, the <code>sequence</code> column is not required.</p>
 <p>We also provide a conversion script for converting to native SpectrumDataFrame (sdf) format:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a>instanovo<span class="w"> </span>convert<span class="w"> </span>--help
+<div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a>instanovo<span class="w"> </span>convert<span class="w"> </span>--help
 </code></pre></div>
 <p><img alt="instanovo convert --help" src="https://raw.githubusercontent.com/instadeepai/InstaNovo/main/docs/assets/instanovo_convert_help.svg" /></p>
 <h2 id="development">Development</h2>
@@ -1190,70 +1193,70 @@ looks as follows:</p>
 First, be sure you <a href="https://docs.astral.sh/uv/getting-started/installation/">have uv installed</a> on
 your system.</p>
 <p>On Linux and macOS:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a>curl<span class="w"> </span>-LsSf<span class="w"> </span>https://astral.sh/uv/install.sh<span class="w"> </span><span class="p">|</span><span class="w"> </span>sh
+<div class="highlight"><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a>curl<span class="w"> </span>-LsSf<span class="w"> </span>https://astral.sh/uv/install.sh<span class="w"> </span><span class="p">|</span><span class="w"> </span>sh
 </code></pre></div>
 <p>On Windows:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a><span class="n">powershell</span> <span class="n">-c</span> <span class="s2">&quot;irm https://astral.sh/uv/install.ps1 | iex&quot;</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a><span class="n">powershell</span> <span class="n">-c</span> <span class="s2">&quot;irm https://astral.sh/uv/install.ps1 | iex&quot;</span>
 </code></pre></div>
 <p>Note: InstaNovo is built for Python &gt;=3.10, &lt;3.13 and tested on Linux.</p>
 <h3 id="fork-and-clone-the-repository">Fork and clone the repository</h3>
 <p>Then <a href="https://github.com/instadeepai/InstaNovo/fork">fork</a> this repo (having your own fork will make
 it easier to contribute) and
 <a href="https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository">clone it</a>.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/YOUR-USERNAME/InstaNovo.git
-<a id="__codelineno-24-2" name="__codelineno-24-2" href="#__codelineno-24-2"></a><span class="nb">cd</span><span class="w"> </span>InstaNovo
+<div class="highlight"><pre><span></span><code><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/YOUR-USERNAME/InstaNovo.git
+<a id="__codelineno-25-2" name="__codelineno-25-2" href="#__codelineno-25-2"></a><span class="nb">cd</span><span class="w"> </span>InstaNovo
 </code></pre></div>
 <p>Activate the virtual environment:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a><span class="nb">source</span><span class="w"> </span>.venv/bin/activate
+<div class="highlight"><pre><span></span><code><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a><span class="nb">source</span><span class="w"> </span>.venv/bin/activate
 </code></pre></div>
 <p>And install the dependencies. If you don't have access to a GPU, you can install the CPU-only
 version of PyTorch:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a>uv<span class="w"> </span>sync<span class="w"> </span>--extra<span class="w"> </span>cpu
-<a id="__codelineno-26-2" name="__codelineno-26-2" href="#__codelineno-26-2"></a>uv<span class="w"> </span>run<span class="w"> </span>pre-commit<span class="w"> </span>install
+<div class="highlight"><pre><span></span><code><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a>uv<span class="w"> </span>sync<span class="w"> </span>--extra<span class="w"> </span>cpu
+<a id="__codelineno-27-2" name="__codelineno-27-2" href="#__codelineno-27-2"></a>uv<span class="w"> </span>run<span class="w"> </span>pre-commit<span class="w"> </span>install
 </code></pre></div>
 <p>If you do have access to an NVIDIA GPU, you can install the GPU version of PyTorch (recommended):</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a>uv<span class="w"> </span>sync<span class="w"> </span>--extra<span class="w"> </span>cu124
-<a id="__codelineno-27-2" name="__codelineno-27-2" href="#__codelineno-27-2"></a>uv<span class="w"> </span>run<span class="w"> </span>pre-commit<span class="w"> </span>install
+<div class="highlight"><pre><span></span><code><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a>uv<span class="w"> </span>sync<span class="w"> </span>--extra<span class="w"> </span>cu124
+<a id="__codelineno-28-2" name="__codelineno-28-2" href="#__codelineno-28-2"></a>uv<span class="w"> </span>run<span class="w"> </span>pre-commit<span class="w"> </span>install
 </code></pre></div>
 <p>Both approaches above also install the development dependencies. If you also want to install the
 documentation dependencies, you can do so with:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a>uv<span class="w"> </span>sync<span class="w"> </span>--extra<span class="w"> </span>cu124<span class="w"> </span>--group<span class="w"> </span>docs
+<div class="highlight"><pre><span></span><code><a id="__codelineno-29-1" name="__codelineno-29-1" href="#__codelineno-29-1"></a>uv<span class="w"> </span>sync<span class="w"> </span>--extra<span class="w"> </span>cu124<span class="w"> </span>--group<span class="w"> </span>docs
 </code></pre></div>
 <p>To upgrade all packages to the latest versions, you can run:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-29-1" name="__codelineno-29-1" href="#__codelineno-29-1"></a>uv<span class="w"> </span>lock<span class="w"> </span>--upgrade
-<a id="__codelineno-29-2" name="__codelineno-29-2" href="#__codelineno-29-2"></a>uv<span class="w"> </span>sync<span class="w"> </span>--extra<span class="w"> </span>cu124
+<div class="highlight"><pre><span></span><code><a id="__codelineno-30-1" name="__codelineno-30-1" href="#__codelineno-30-1"></a>uv<span class="w"> </span>lock<span class="w"> </span>--upgrade
+<a id="__codelineno-30-2" name="__codelineno-30-2" href="#__codelineno-30-2"></a>uv<span class="w"> </span>sync<span class="w"> </span>--extra<span class="w"> </span>cu124
 </code></pre></div>
 <h3 id="basic-development-workflows">Basic development workflows</h3>
 <h4 id="testing">Testing</h4>
 <p>InstaNovo uses <code>pytest</code> for testing. To run the tests, you can use the following command:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-30-1" name="__codelineno-30-1" href="#__codelineno-30-1"></a>uv<span class="w"> </span>run<span class="w"> </span>instanovo/scripts/get_zenodo_record.py<span class="w"> </span><span class="c1"># Download the test data</span>
-<a id="__codelineno-30-2" name="__codelineno-30-2" href="#__codelineno-30-2"></a>python<span class="w"> </span>-m<span class="w"> </span>pytest<span class="w"> </span>--cov-report<span class="o">=</span>html<span class="w"> </span>--cov<span class="w"> </span>--random-order<span class="w"> </span>--verbose<span class="w"> </span>.
+<div class="highlight"><pre><span></span><code><a id="__codelineno-31-1" name="__codelineno-31-1" href="#__codelineno-31-1"></a>uv<span class="w"> </span>run<span class="w"> </span>instanovo/scripts/get_zenodo_record.py<span class="w"> </span><span class="c1"># Download the test data</span>
+<a id="__codelineno-31-2" name="__codelineno-31-2" href="#__codelineno-31-2"></a>python<span class="w"> </span>-m<span class="w"> </span>pytest<span class="w"> </span>--cov-report<span class="o">=</span>html<span class="w"> </span>--cov<span class="w"> </span>--random-order<span class="w"> </span>--verbose<span class="w"> </span>.
 </code></pre></div>
 <p>To see the coverage report, run:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-31-1" name="__codelineno-31-1" href="#__codelineno-31-1"></a>python<span class="w"> </span>-m<span class="w"> </span>coverage<span class="w"> </span>report<span class="w"> </span>-m
+<div class="highlight"><pre><span></span><code><a id="__codelineno-32-1" name="__codelineno-32-1" href="#__codelineno-32-1"></a>python<span class="w"> </span>-m<span class="w"> </span>coverage<span class="w"> </span>report<span class="w"> </span>-m
 </code></pre></div>
 <p>To view the coverage report in a browser, run:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-32-1" name="__codelineno-32-1" href="#__codelineno-32-1"></a>python<span class="w"> </span>-m<span class="w"> </span>http.server<span class="w"> </span>--directory<span class="w"> </span>./coverage
+<div class="highlight"><pre><span></span><code><a id="__codelineno-33-1" name="__codelineno-33-1" href="#__codelineno-33-1"></a>python<span class="w"> </span>-m<span class="w"> </span>http.server<span class="w"> </span>--directory<span class="w"> </span>./coverage
 </code></pre></div>
 <p>and navigate to <code>http://0.0.0.0:8000/</code> in your browser.</p>
 <h4 id="linting">Linting</h4>
 <p>InstaNovo uses <a href="https://pre-commit.com/">pre-commit hooks</a> to ensure code quality. To run the
 linters, you can use the following command:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-33-1" name="__codelineno-33-1" href="#__codelineno-33-1"></a>pre-commit<span class="w"> </span>run<span class="w"> </span>--all-files
+<div class="highlight"><pre><span></span><code><a id="__codelineno-34-1" name="__codelineno-34-1" href="#__codelineno-34-1"></a>pre-commit<span class="w"> </span>run<span class="w"> </span>--all-files
 </code></pre></div>
 <h4 id="building-the-documentation">Building the documentation</h4>
 <p>To build the documentation locally, you can use the following commands:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-34-1" name="__codelineno-34-1" href="#__codelineno-34-1"></a>uv<span class="w"> </span>sync<span class="w"> </span>--extra<span class="w"> </span>cu124<span class="w"> </span>--group<span class="w"> </span>docs
-<a id="__codelineno-34-2" name="__codelineno-34-2" href="#__codelineno-34-2"></a>git<span class="w"> </span>config<span class="w"> </span>--global<span class="w"> </span>--add<span class="w"> </span>safe.directory<span class="w"> </span><span class="s2">&quot;</span><span class="k">$(</span>dirname<span class="w"> </span><span class="s2">&quot;</span><span class="k">$(</span><span class="nb">pwd</span><span class="k">)</span><span class="s2">&quot;</span><span class="k">)</span><span class="s2">&quot;</span>
-<a id="__codelineno-34-3" name="__codelineno-34-3" href="#__codelineno-34-3"></a>rm<span class="w"> </span>-rf<span class="w"> </span>docs/reference
-<a id="__codelineno-34-4" name="__codelineno-34-4" href="#__codelineno-34-4"></a>python<span class="w"> </span>./docs/gen_ref_nav.py
-<a id="__codelineno-34-5" name="__codelineno-34-5" href="#__codelineno-34-5"></a>mkdocs<span class="w"> </span>build<span class="w"> </span>--verbose<span class="w"> </span>--site-dir<span class="w"> </span>docs_public
-<a id="__codelineno-34-6" name="__codelineno-34-6" href="#__codelineno-34-6"></a>mkdocs<span class="w"> </span>serve
+<div class="highlight"><pre><span></span><code><a id="__codelineno-35-1" name="__codelineno-35-1" href="#__codelineno-35-1"></a>uv<span class="w"> </span>sync<span class="w"> </span>--extra<span class="w"> </span>cu124<span class="w"> </span>--group<span class="w"> </span>docs
+<a id="__codelineno-35-2" name="__codelineno-35-2" href="#__codelineno-35-2"></a>git<span class="w"> </span>config<span class="w"> </span>--global<span class="w"> </span>--add<span class="w"> </span>safe.directory<span class="w"> </span><span class="s2">&quot;</span><span class="k">$(</span>dirname<span class="w"> </span><span class="s2">&quot;</span><span class="k">$(</span><span class="nb">pwd</span><span class="k">)</span><span class="s2">&quot;</span><span class="k">)</span><span class="s2">&quot;</span>
+<a id="__codelineno-35-3" name="__codelineno-35-3" href="#__codelineno-35-3"></a>rm<span class="w"> </span>-rf<span class="w"> </span>docs/reference
+<a id="__codelineno-35-4" name="__codelineno-35-4" href="#__codelineno-35-4"></a>python<span class="w"> </span>./docs/gen_ref_nav.py
+<a id="__codelineno-35-5" name="__codelineno-35-5" href="#__codelineno-35-5"></a>mkdocs<span class="w"> </span>build<span class="w"> </span>--verbose<span class="w"> </span>--site-dir<span class="w"> </span>docs_public
+<a id="__codelineno-35-6" name="__codelineno-35-6" href="#__codelineno-35-6"></a>mkdocs<span class="w"> </span>serve
 </code></pre></div>
 <h3 id="generating-a-requirementstxt-file">Generating a requirements.txt file</h3>
 <p>If you have a <code>pip</code> or <code>conda</code> based workflow and want to generate a <code>requirements.txt</code> file, you
 can use the following command:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-35-1" name="__codelineno-35-1" href="#__codelineno-35-1"></a>uv<span class="w"> </span><span class="nb">export</span><span class="w"> </span>--format<span class="w"> </span>requirements-txt<span class="w"> </span>&gt;<span class="w"> </span>requirements.txt
+<div class="highlight"><pre><span></span><code><a id="__codelineno-36-1" name="__codelineno-36-1" href="#__codelineno-36-1"></a>uv<span class="w"> </span><span class="nb">export</span><span class="w"> </span>--format<span class="w"> </span>requirements-txt<span class="w"> </span>&gt;<span class="w"> </span>requirements.txt
 </code></pre></div>
 <h3 id="setting-python-interpreter-in-vscode">Setting Python interpreter in VSCode</h3>
 <p>To set the Python interpreter in VSCode, open the Command Palette (<code>Ctrl+Shift+P</code>), search for
@@ -1264,23 +1267,23 @@ can use the following command:</p>
 (<a href="https://creativecommons.org/licenses/by-nc-sa/4.0/">CC BY-NC-SA 4.0</a>)</p>
 <h2 id="bibtex-entry-and-citation-info">BibTeX entry and citation info</h2>
 <p>If you use InstaNovo in your research, please cite the following paper:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-36-1" name="__codelineno-36-1" href="#__codelineno-36-1"></a><span class="nc">@article</span><span class="p">{</span><span class="nl">eloff_kalogeropoulos_2025_instanovo</span><span class="p">,</span>
-<a id="__codelineno-36-2" name="__codelineno-36-2" href="#__codelineno-36-2"></a><span class="w">        </span><span class="na">title</span><span class="w">        </span><span class="p">=</span><span class="w"> </span><span class="s">{InstaNovo enables diffusion-powered de novo peptide sequencing in large-scale</span>
-<a id="__codelineno-36-3" name="__codelineno-36-3" href="#__codelineno-36-3"></a><span class="s">                        proteomics experiments}</span><span class="p">,</span>
-<a id="__codelineno-36-4" name="__codelineno-36-4" href="#__codelineno-36-4"></a><span class="w">        </span><span class="na">author</span><span class="w">       </span><span class="p">=</span><span class="w"> </span><span class="s">{Eloff, Kevin and Kalogeropoulos, Konstantinos and Mabona, Amandla and Morell,</span>
-<a id="__codelineno-36-5" name="__codelineno-36-5" href="#__codelineno-36-5"></a><span class="s">                        Oliver and Catzel, Rachel and Rivera-de-Torre, Esperanza and Berg Jespersen,</span>
-<a id="__codelineno-36-6" name="__codelineno-36-6" href="#__codelineno-36-6"></a><span class="s">                        Jakob and Williams, Wesley and van Beljouw, Sam P. B. and Skwark, Marcin J.</span>
-<a id="__codelineno-36-7" name="__codelineno-36-7" href="#__codelineno-36-7"></a><span class="s">                        and Laustsen, Andreas Hougaard and Brouns, Stan J. J. and Ljungars,</span>
-<a id="__codelineno-36-8" name="__codelineno-36-8" href="#__codelineno-36-8"></a><span class="s">                        Anne and Schoof, Erwin M. and Van Goey, Jeroen and auf dem Keller, Ulrich and</span>
-<a id="__codelineno-36-9" name="__codelineno-36-9" href="#__codelineno-36-9"></a><span class="s">                        Beguir, Karim and Lopez Carranza, Nicolas and Jenkins, Timothy P.}</span><span class="p">,</span>
-<a id="__codelineno-36-10" name="__codelineno-36-10" href="#__codelineno-36-10"></a><span class="w">        </span><span class="na">year</span><span class="w">         </span><span class="p">=</span><span class="w"> </span><span class="m">2025</span><span class="p">,</span>
-<a id="__codelineno-36-11" name="__codelineno-36-11" href="#__codelineno-36-11"></a><span class="w">        </span><span class="na">month</span><span class="w">        </span><span class="p">=</span><span class="w"> </span><span class="s">{Mar}</span><span class="p">,</span>
-<a id="__codelineno-36-12" name="__codelineno-36-12" href="#__codelineno-36-12"></a><span class="w">        </span><span class="na">day</span><span class="w">          </span><span class="p">=</span><span class="w"> </span><span class="m">31</span><span class="p">,</span>
-<a id="__codelineno-36-13" name="__codelineno-36-13" href="#__codelineno-36-13"></a><span class="w">        </span><span class="na">journal</span><span class="w">      </span><span class="p">=</span><span class="w"> </span><span class="s">{Nature Machine Intelligence}</span><span class="p">,</span>
-<a id="__codelineno-36-14" name="__codelineno-36-14" href="#__codelineno-36-14"></a><span class="w">        </span><span class="na">doi</span><span class="w">          </span><span class="p">=</span><span class="w"> </span><span class="s">{10.1038/s42256-025-01019-5}</span><span class="p">,</span>
-<a id="__codelineno-36-15" name="__codelineno-36-15" href="#__codelineno-36-15"></a><span class="w">        </span><span class="na">issn</span><span class="w">         </span><span class="p">=</span><span class="w"> </span><span class="s">{2522-5839}</span><span class="p">,</span>
-<a id="__codelineno-36-16" name="__codelineno-36-16" href="#__codelineno-36-16"></a><span class="w">        </span><span class="na">url</span><span class="w">          </span><span class="p">=</span><span class="w"> </span><span class="s">{https://doi.org/10.1038/s42256-025-01019-5}</span>
-<a id="__codelineno-36-17" name="__codelineno-36-17" href="#__codelineno-36-17"></a><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-37-1" name="__codelineno-37-1" href="#__codelineno-37-1"></a><span class="nc">@article</span><span class="p">{</span><span class="nl">eloff_kalogeropoulos_2025_instanovo</span><span class="p">,</span>
+<a id="__codelineno-37-2" name="__codelineno-37-2" href="#__codelineno-37-2"></a><span class="w">        </span><span class="na">title</span><span class="w">        </span><span class="p">=</span><span class="w"> </span><span class="s">{InstaNovo enables diffusion-powered de novo peptide sequencing in large-scale</span>
+<a id="__codelineno-37-3" name="__codelineno-37-3" href="#__codelineno-37-3"></a><span class="s">                        proteomics experiments}</span><span class="p">,</span>
+<a id="__codelineno-37-4" name="__codelineno-37-4" href="#__codelineno-37-4"></a><span class="w">        </span><span class="na">author</span><span class="w">       </span><span class="p">=</span><span class="w"> </span><span class="s">{Eloff, Kevin and Kalogeropoulos, Konstantinos and Mabona, Amandla and Morell,</span>
+<a id="__codelineno-37-5" name="__codelineno-37-5" href="#__codelineno-37-5"></a><span class="s">                        Oliver and Catzel, Rachel and Rivera-de-Torre, Esperanza and Berg Jespersen,</span>
+<a id="__codelineno-37-6" name="__codelineno-37-6" href="#__codelineno-37-6"></a><span class="s">                        Jakob and Williams, Wesley and van Beljouw, Sam P. B. and Skwark, Marcin J.</span>
+<a id="__codelineno-37-7" name="__codelineno-37-7" href="#__codelineno-37-7"></a><span class="s">                        and Laustsen, Andreas Hougaard and Brouns, Stan J. J. and Ljungars,</span>
+<a id="__codelineno-37-8" name="__codelineno-37-8" href="#__codelineno-37-8"></a><span class="s">                        Anne and Schoof, Erwin M. and Van Goey, Jeroen and auf dem Keller, Ulrich and</span>
+<a id="__codelineno-37-9" name="__codelineno-37-9" href="#__codelineno-37-9"></a><span class="s">                        Beguir, Karim and Lopez Carranza, Nicolas and Jenkins, Timothy P.}</span><span class="p">,</span>
+<a id="__codelineno-37-10" name="__codelineno-37-10" href="#__codelineno-37-10"></a><span class="w">        </span><span class="na">year</span><span class="w">         </span><span class="p">=</span><span class="w"> </span><span class="m">2025</span><span class="p">,</span>
+<a id="__codelineno-37-11" name="__codelineno-37-11" href="#__codelineno-37-11"></a><span class="w">        </span><span class="na">month</span><span class="w">        </span><span class="p">=</span><span class="w"> </span><span class="s">{Mar}</span><span class="p">,</span>
+<a id="__codelineno-37-12" name="__codelineno-37-12" href="#__codelineno-37-12"></a><span class="w">        </span><span class="na">day</span><span class="w">          </span><span class="p">=</span><span class="w"> </span><span class="m">31</span><span class="p">,</span>
+<a id="__codelineno-37-13" name="__codelineno-37-13" href="#__codelineno-37-13"></a><span class="w">        </span><span class="na">journal</span><span class="w">      </span><span class="p">=</span><span class="w"> </span><span class="s">{Nature Machine Intelligence}</span><span class="p">,</span>
+<a id="__codelineno-37-14" name="__codelineno-37-14" href="#__codelineno-37-14"></a><span class="w">        </span><span class="na">doi</span><span class="w">          </span><span class="p">=</span><span class="w"> </span><span class="s">{10.1038/s42256-025-01019-5}</span><span class="p">,</span>
+<a id="__codelineno-37-15" name="__codelineno-37-15" href="#__codelineno-37-15"></a><span class="w">        </span><span class="na">issn</span><span class="w">         </span><span class="p">=</span><span class="w"> </span><span class="s">{2522-5839}</span><span class="p">,</span>
+<a id="__codelineno-37-16" name="__codelineno-37-16" href="#__codelineno-37-16"></a><span class="w">        </span><span class="na">url</span><span class="w">          </span><span class="p">=</span><span class="w"> </span><span class="s">{https://doi.org/10.1038/s42256-025-01019-5}</span>
+<a id="__codelineno-37-17" name="__codelineno-37-17" href="#__codelineno-37-17"></a><span class="p">}</span>
 </code></pre></div>
 <h2 id="acknowledgements">Acknowledgements</h2>
 <p>Big thanks to Pathmanaban Ramasamy, Tine Claeys, and Lennart Martens of the
