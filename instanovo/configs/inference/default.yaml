@@ -31,7 +31,7 @@ disable_terminal_residues_anywhere: True
 # Run config
 num_workers: 16
 batch_size: 128
-device: cuda
+device: auto
 fp16: True
 
 # Logging
