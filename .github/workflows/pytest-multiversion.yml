@@ -64,7 +64,7 @@ jobs:
       # Step 5: Run tests with pytest and generate coverage report
       - name: Test with pytest
         run: |
-          # Run a script (example, adjust if needed)
+          # Download test resources from Zenodo
           uv run python -m instanovo.scripts.get_zenodo_record
 
           # Run pytest with coverage, allure report, and random order
@@ -150,7 +150,7 @@ jobs:
       - name: Test notebooks on Linux
         if: runner.os != 'Windows' # Only run if the OS is not Windows
         run: |
-          # Modify notebook (example, adjust if needed)
+          # Modify notebook to only test on small amount of sample data
           sed -i 's/test\[:10%\]/test[:100]/g' notebooks/getting_started_with_instanovo.ipynb
           # Install ipykernel
           PYDEVD_DISABLE_FILE_VALIDATION=1 python -m ipykernel install --user --name instanovo
