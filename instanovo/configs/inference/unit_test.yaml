@@ -17,8 +17,8 @@ denovo: False
 subset: 1
 
 batch_size: 32
-device: cpu
-fp16: False
+device: auto
+fp16: True
 
 residue_remapping: ""
 pred_col: preds
