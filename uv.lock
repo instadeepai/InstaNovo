@@ -1395,6 +1395,7 @@ dev = [
     { name = "ipykernel" },
     { name = "ipywidgets" },
     { name = "jupyter" },
+    { name = "matplotlib-venn" },
     { name = "nbmake" },
     { name = "pip" },
     { name = "pre-commit" },
@@ -1464,6 +1465,7 @@ dev = [
     { name = "ipykernel", specifier = ">=6.29.5" },
     { name = "ipywidgets", specifier = ">=8.1.5" },
     { name = "jupyter", specifier = ">=1.1.1" },
+    { name = "matplotlib-venn", specifier = ">=1.1.2" },
     { name = "nbmake", specifier = ">=1.5.5" },
     { name = "pip", specifier = ">=25.0.1" },
     { name = "pre-commit", specifier = ">=4.0.1" },
@@ -2334,6 +2336,17 @@ sdist = { url = "https://files.pythonhosted.org/packages/99/5b/a36a337438a14116b
 wheels = [
     { url = "https://files.pythonhosted.org/packages/8f/8e/9ad090d3553c280a8060fbf6e24dc1c0c29704ee7d1c372f0c174aa59285/matplotlib_inline-0.1.7-py3-none-any.whl", hash = "sha256:df192d39a4ff8f21b1895d72e6a13f5fcc5099f00fa84384e0ea28c2cc0653ca", size = 9899 },
 ]
+
+[[package]]
+name = "matplotlib-venn"
+version = "1.1.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "matplotlib" },
+    { name = "numpy" },
+    { name = "scipy" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/e8/f7/47bddf95492f4d1370ed7164d2b16407805e8eeb38231361de65d387a562/matplotlib-venn-1.1.2.tar.gz", hash = "sha256:6f2b07a03e9bb5a62de2f32f965216739e175176f9d654dd19e7af2c22ec36e3", size = 40821 }
 
 [[package]]
 name = "mdurl"

@@ -62,9 +62,9 @@ def compose_config(
         return cfg
 
 
-combined_cli = typer.Typer(rich_markup_mode="rich")  # , pretty_exceptions_enable=False)
-instanovo_cli = typer.Typer(rich_markup_mode="rich")  # , pretty_exceptions_enable=False)
-instanovo_plus_cli = typer.Typer(rich_markup_mode="rich")  # , pretty_exceptions_enable=False)
+combined_cli = typer.Typer(rich_markup_mode="rich", pretty_exceptions_enable=False)
+instanovo_cli = typer.Typer(rich_markup_mode="rich", pretty_exceptions_enable=False)
+instanovo_plus_cli = typer.Typer(rich_markup_mode="rich", pretty_exceptions_enable=False)
 combined_cli.add_typer(
     instanovo_cli,
     name="transformer",

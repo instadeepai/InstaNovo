@@ -7,7 +7,7 @@ on:
     # Specify the workflow that must complete before this one runs
     workflows: ["Test, Lint, and Update Coverage Badge"]
     # Specify the branch the triggering workflow must run on
-    # branches: [main]
+    branches: [main]
     # Specify the event type that triggers this workflow (when the other workflow is completed)
     types:
       - completed
@@ -54,15 +54,17 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: "3.12" # Specify the Python version
 
       # Step 5: Install uv package manager
+      # Using curl to install uv and add uv to the system PATH
       - name: Install uv
         run: |
           curl -LsSf https://astral.sh/uv/install.sh | sh
           echo "$HOME/.cargo/bin" >> $GITHUB_PATH
 
       # Step 6: Create and activate virtual environment using uv
+      # uv automatically detects and uses the virtual environment in subsequent steps
       - name: Create virtual environment
         run: |
           uv venv
@@ -95,11 +97,11 @@ jobs:
       # Step 9: Build the MkDocs site
       # MkDocs will automatically copy docs/coverage and docs/allure into docs_public
       - name: Build the MkDocs site
-        run: mkdocs build
+        run: mkdocs build # Run the mkdocs build command
 
       # Step 10: Deploy the built site to GitHub Pages
       - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v4
+        uses: peaceiris/actions-gh-pages@v4 # Use the GitHub Pages deployment action
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./docs_public # Directory containing the built site

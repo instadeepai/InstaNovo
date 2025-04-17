@@ -8,9 +8,9 @@ name: Test, Lint, and Update Coverage Badge
 # Triggers for the workflow
 on:
   push:
-#     branches: ["main"] # Run on pushes to the main branch
-#   pull_request:
-#     branches: ["main"] # Run on pull requests targeting the main branch
+    branches: ["main"] # Run on pushes to the main branch
+  pull_request:
+    branches: ["main"] # Run on pull requests targeting the main branch
 
 # Concurrency control
 concurrency:
@@ -78,7 +78,6 @@ jobs:
         # later in the workflow to enforce a minimum coverage threshold if desired.
 
       # Step 6: Upload Coverage HTML Artifact (only for Python 3.12 on Ubuntu)
-      # Renumbered from Step 8
       - name: Upload Coverage HTML Artifact
         if: matrix.python-version == '3.12' && matrix.os == 'ubuntu-latest'
         uses: actions/upload-artifact@v4
@@ -87,7 +86,7 @@ jobs:
           path: htmlcov/ # Directory to upload
 
       # Step 7: Load test report history (only for Python 3.12 on Ubuntu)
-      # Renumbered - Runs if tests failed (always()) but only on the specific matrix entry
+      # Runs if tests failed (always()) but only on the specific matrix entry
       - name: Load test report history
         if: always() && matrix.python-version == '3.12' && matrix.os == 'ubuntu-latest'
         uses: actions/checkout@v4 # Use v4 for consistency
@@ -97,7 +96,6 @@ jobs:
           path: gh-pages
 
       # Step 8: Build Allure report (only for Python 3.12 on Ubuntu)
-      # Renumbered - Runs if tests failed (always()) but only on the specific matrix entry
       # Needs allure_results directory to exist from Step 5
       - name: Build Allure report
         uses: simple-elf/allure-report-action@v1.7
@@ -111,7 +109,6 @@ jobs:
           # keep_reports: 20 # Optional: Limit number of historical reports
 
       # Step 9: Publish Allure report to GitHub Pages (only for Python 3.12 on Ubuntu)
-      # Renumbered - Runs if tests failed (always()) but only on the specific matrix entry
       - name: Publish Allure report
         uses: peaceiris/actions-gh-pages@v3 # Consider updating to v4 if available/compatible
         if:

@@ -183,6 +183,7 @@ notebooks/checkpoints
 notebooks/predictions.csv
 notebooks/diffusion_predictions.csv
 notebooks/predictions_knapsack_beam_search.csv
+notebooks/15174703.zip
 outputs/
 secrets/
 lightning_logs/

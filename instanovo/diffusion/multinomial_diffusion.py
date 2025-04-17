@@ -23,6 +23,7 @@ from instanovo.__init__ import console
 from instanovo.diffusion.model import MassSpectrumTransFusion
 from instanovo.types import Peptide, ResidueLogProbabilities, TimeStep
 from instanovo.utils.colorlogging import ColorLog
+from instanovo.utils.device_handler import check_device
 from instanovo.utils.residues import ResidueSet
 
 MODEL_TYPE = "diffusion"
@@ -106,7 +107,7 @@ class InstaNovoPlus(nn.Module):
         ckpt_details: str,
         overwrite: bool = False,
         temp_dir: str = "",  # type: ignore
-        use_legacy_format: bool = True,
+        use_legacy_format: bool = True,  # TODO default to false post update
     ) -> None:
         """Save the model to a directory.
 
@@ -182,7 +183,8 @@ class InstaNovoPlus(nn.Module):
             transition_model_path = os.path.join(save_path, "transition_model.ckpt")
             torch.save(self.transition_model.state_dict(), transition_model_path)
             save_file("transition_model.ckpt", transition_model_path)
-            device = self.config.get("device", "cuda" if torch.cuda.is_available() else "cpu")
+
+            device = check_device(config=self.config)
             logger.info(f"Moving transition model to device {device}")
             self.transition_model.to(device)
         else:
@@ -253,11 +255,7 @@ class InstaNovoPlus(nn.Module):
         )
         transition_model.load_state_dict(transition_model_state)
 
-        device = (
-            (torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu"))
-            if device == "auto"
-            else torch.device(device)
-        )
+        device = check_device(device=device)
         logger.info(f"Loading InstaNovoPlus model to device: {device}.")
         transition_model.to(device)
         diffusion_schedule = diffusion_schedule.to(device)

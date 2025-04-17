@@ -19,6 +19,7 @@ from instanovo.transformer.dataset import SpectrumDataset, collate_batch
 from instanovo.transformer.predict import _format_time
 from instanovo.utils import Metrics, SpectrumDataFrame, s3
 from instanovo.utils.colorlogging import ColorLog
+from instanovo.utils.device_handler import check_device
 
 logger = ColorLog(console, __name__).logger
 
@@ -46,7 +47,7 @@ def get_preds(
     # Some commomly used config variables
     denovo = config.get("denovo", False)
     use_basic_logging = config.get("use_basic_logging", True)
-    device = config.get("device", "cuda" if torch.cuda.is_available() else "cpu")
+    device = check_device(config=config)
     logger.info(f"Using device {device} for InstaNovo+ predictions")
     fp16 = config.get("fp16", True)
 

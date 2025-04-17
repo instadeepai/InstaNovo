@@ -16,7 +16,6 @@ train_batch_size: 128
 n_gpu: 1
 gradient_clip_val: 5 #10.0
 predict_batch_size: 128
-fp16: True
 compile_model: True
 
 # Logging parameters
@@ -49,5 +48,7 @@ resume_checkpoint:
 
 blacklist:
 
-device: cuda
+device: auto
+fp16: True
+
 time_steps: 200
