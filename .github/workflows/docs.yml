@@ -5,7 +5,7 @@ name: Build and Deploy Documentation
 on:
   workflow_run:
     # Specify the workflow that must complete before this one runs
-    workflows: ["Test, Lint, and Update Coverage Badge / build (3.12, ubuntu-latest)"]
+    workflows: ["Test, Lint, and Update Coverage Badge"]
     # Specify the branch the triggering workflow must run on
     branches: [main]
     # Specify the event type that triggers this workflow (when the other workflow is completed)
