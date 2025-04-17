@@ -61,6 +61,7 @@ dev = [
     "ipykernel>=6.29.5",
     "ipywidgets>=8.1.5",
     "jupyter>=1.1.1",
+    "matplotlib-venn>=1.1.2",
     "nbmake>=1.5.5",
     "pip>=25.0.1",
     "pre-commit>=4.0.1",
@@ -159,8 +160,8 @@ exclude_lines = [
 directory = "coverage"
 
 [tool.codespell]
-skip = "*.js,*.html,*.css, *.svg"
-ignore-words-list = ["abck", "fOf", "te"]
+skip = "*.js,*.html,*.css, *.svg, *.csv"
+ignore-words-list = ["abck", "fOf", "te", "woh", "ges", "fpt", "filll", "inro", "nd", "fo", "nd"]
 
 [tool.mypy]
 python_version = "3.10"

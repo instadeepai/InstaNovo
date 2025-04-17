@@ -44,6 +44,7 @@ from instanovo.transformer.train import (
 )
 from instanovo.utils import SpectrumDataFrame
 from instanovo.utils.colorlogging import ColorLog
+from instanovo.utils.device_handler import check_device
 from instanovo.utils.metrics import Metrics
 from instanovo.utils.residues import ResidueSet
 
@@ -438,8 +439,8 @@ def train(config: DictConfig) -> None:
         f"Model loaded with {np.sum([p.numel() for p in model.parameters()]):,d} parameters"
     )
 
-    # Train on GPU if available
-    device = config.get("device", "cuda" if torch.cuda.is_available() else "cpu")
+    # Set device to train on
+    device = check_device(config=config)
     logger.info(f"Training InstaNovo+ on device: {device}")
     fp16 = config.get("fp16", True)
     if fp16 and device.lower() == "cpu":

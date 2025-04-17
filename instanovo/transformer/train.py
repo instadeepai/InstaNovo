@@ -42,6 +42,7 @@ from instanovo.types import (
 )
 from instanovo.utils import Metrics, ResidueSet, SpectrumDataFrame
 from instanovo.utils.colorlogging import ColorLog
+from instanovo.utils.device_handler import check_device
 
 load_dotenv()
 
@@ -724,9 +725,13 @@ def train(
             y = model(spectra, precursors, peptides, spectra_mask, peptides_mask)
             logger.info(f" - y.shape={y.shape}")
 
-    # Train on GPU
-    device = config.get("device", "cuda" if torch.cuda.is_available() else "cpu")
+    # Set device to train on
+    device = check_device(config=config)
     model = model.to(device)
+
+    if config.get("fp16", True) and device.lower() == "cpu":
+        logger.warning("fp16 is enabled but device type is cpu. fp16 will be disabled.")
+        config["fp16"] = False
 
     decoder = GreedyDecoder(model=model)
     metrics = Metrics(residue_set, config["isotope_error_range"])
@@ -793,7 +798,7 @@ def train(
 
     logger.info("Initializing Pytorch Lightning trainer.")
     trainer = L.pytorch.Trainer(
-        accelerator="auto",
+        accelerator="gpu" if "cuda" in device else "cpu",
         precision="16-mixed" if config["fp16"] else None,
         callbacks=callbacks,
         devices="auto",

@@ -22,7 +22,7 @@ subset: 0.0001 # Subset of dataset to perform inference on, useful for debugging
 # Run config
 num_workers: 16
 batch_size: 128
-device: cuda
+device: auto
 fp16: True
 
 # Logging

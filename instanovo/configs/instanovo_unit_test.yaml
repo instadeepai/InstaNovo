@@ -15,8 +15,8 @@ learning_rate: 1e-3
 train_batch_size: 32
 grad_accumulation: 1
 
-device: cpu
-fp16: False
+device: auto
+fp16: True
 
 # Logging parameters
 epochs: 1

@@ -63,7 +63,13 @@ If you have access to an NVIDIA GPU, you can install InstaNovo with the GPU vers
 (recommended):
 
 ```bash
-pip install instanovo[cu124]
+pip install "instanovo[cu124]"
+```
+
+If you are on macOS, you can install the CPU-only version of PyTorch:
+
+```bash
+pip install "instanovo[cpu]"
 ```
 
 ### Command line usage
