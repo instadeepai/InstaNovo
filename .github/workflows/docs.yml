@@ -12,6 +12,8 @@ on:
     types:
       - completed
 
+  workflow_dispatch: # Allows to manually trigger the workflow
+
 # Define the jobs to run
 jobs:
   deploy:
