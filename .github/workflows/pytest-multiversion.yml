@@ -47,7 +47,7 @@ jobs:
 
       # Step 2: Install uv and set up Python
       - name: Install uv and set up Python ${{ matrix.python-version }} on ${{ matrix.os }}
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@v6
         with:
           enable-cache: true # Enable caching for faster builds
           pyproject-file: "pyproject.toml" # Specify the pyproject.toml file
