@@ -6,8 +6,8 @@
     "instanovo-v1.0.0": {
       "remote": "https://github.com/instadeepai/InstaNovo/releases/download/1.0.0/instanovo_extended.ckpt"
     },
-    "instanovo-phospho-v0.1.6": {
-      "remote": "https://github.com/instadeepai/InstaNovo/releases/download/1.1.2/instanovo-phospho-v0.1.6.ckpt"
+    "instanovo-phospho-v1.0.0": {
+      "remote": "https://github.com/instadeepai/InstaNovo/releases/download/1.1.2/instanovo-phospho-v1.0.0.ckpt"
     }
   },
   "diffusion": {
