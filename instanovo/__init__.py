@@ -4,4 +4,4 @@ from rich.console import Console
 
 console = Console()
 
-__version__ = "1.1.1"
+__version__ = "1.1.2"
