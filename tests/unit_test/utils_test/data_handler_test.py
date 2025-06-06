@@ -234,7 +234,10 @@ def test_check_type_spec() -> None:
 
     with pytest.raises(
         ValueError,
-        match="Attempting to load annotated dataset, but no sequence annotations found.",
+        match=(
+            "Attempting to load annotated dataset, but some or all sequence "
+            "annotations are missing."
+        ),
     ):
         _ = SpectrumDataFrame(df=df, is_annotated=True)
 
@@ -275,7 +278,7 @@ def test_parquet_init(dir_paths: tuple[str, str], tmp_path: Any) -> None:
         }
     )
 
-    path = tmp_path / "dataset-ms-example_mgf-0001-0001.parquet"
+    path = tmp_path / "dataset-ms-example_mgf-0000-0001.parquet"
     df = pl.read_parquet(path).to_pandas()
 
     assert df.equals(expected_df)
@@ -334,7 +337,7 @@ def test_mgf_to_parquet(dir_paths: tuple[str, str], tmp_path: Any) -> None:
         }
     )
 
-    path = tmp_path / "dataset-ms-example_lazy_mgf-0001-0001.parquet"
+    path = tmp_path / "dataset-ms-example_lazy_mgf-0000-0001.parquet"
     df = pl.read_parquet(path).to_pandas()
 
     assert df.equals(expected_df)
@@ -366,7 +369,7 @@ def test_mzml_to_parquet(dir_paths: tuple[str, str], tmp_path: Any) -> None:
         }
     )
 
-    df = pl.read_parquet(tmp_path / "dataset-ms-example_mzml-0001-0001.parquet").to_pandas()
+    df = pl.read_parquet(tmp_path / "dataset-ms-example_mzml-0000-0001.parquet").to_pandas()
     assert df.equals(expected_df)
 
     sdf = SpectrumDataFrame(
@@ -377,7 +380,7 @@ def test_mzml_to_parquet(dir_paths: tuple[str, str], tmp_path: Any) -> None:
     )
     sdf.save(tmp_path, partition="example_lazy_mzml")
 
-    df = pl.read_parquet(tmp_path / "dataset-ms-example_lazy_mzml-0001-0001.parquet").to_pandas()
+    df = pl.read_parquet(tmp_path / "dataset-ms-example_lazy_mzml-0000-0001.parquet").to_pandas()
     assert df.equals(expected_df)
 
 
@@ -407,7 +410,7 @@ def test_mzxml_to_parquet(dir_paths: tuple[str, str], tmp_path: Any) -> None:
         }
     )
 
-    df = pl.read_parquet(tmp_path / "dataset-ms-example_mzxml-0001-0001.parquet").to_pandas()
+    df = pl.read_parquet(tmp_path / "dataset-ms-example_mzxml-0000-0001.parquet").to_pandas()
     assert df.equals(expected_df)
 
     sdf = SpectrumDataFrame(
@@ -418,5 +421,5 @@ def test_mzxml_to_parquet(dir_paths: tuple[str, str], tmp_path: Any) -> None:
     )
     sdf.save(tmp_path, partition="example_lazy_mzxml")
 
-    df = pl.read_parquet(tmp_path / "dataset-ms-example_lazy_mzxml-0001-0001.parquet").to_pandas()
+    df = pl.read_parquet(tmp_path / "dataset-ms-example_lazy_mzxml-0000-0001.parquet").to_pandas()
     assert df.equals(expected_df)
