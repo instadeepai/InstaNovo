@@ -7,7 +7,12 @@
 use_shards: True
 # train_path: /mnt/instanovo-data-kyber/identity_splits_parquet/*/*-train-*.parquet # Unshuffled
 train_path: /mnt/instanovo-data-kyber/shuffled/extended_massivekb_combined/*.parquet # Shuffled
-valid_path: /mnt/instanovo-data-kyber/identity_splits_parquet/acpt/*-valid-*.parquet
+valid_path: # /mnt/instanovo-data-kyber/identity_splits_parquet/acpt/*-valid-*.parquet
+  "acpt": /mnt/instanovo-data-kyber/identity_splits_parquet/acpt/*-valid-*.parquet
+  "phospho": /mnt/instanovo-data-kyber/identity_splits_parquet/phospho/*-valid-*.parquet
+  "pride": /mnt/instanovo-data-kyber/identity_splits_parquet/pride/*-valid-*.parquet
+  "massivekb": /mnt/instanovo-data-kyber/identity_splits_parquet/massivekb/*-valid-*.parquet
+
 valid_subset_of_train:
 # If any train sequences overlap with the blacklist, raise a ValueError
 blacklist: /mnt/instanovo-data-kyber/identity_splits_parquet/blacklist.csv
