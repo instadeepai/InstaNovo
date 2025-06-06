@@ -24,6 +24,7 @@ from instanovo.transformer.predict import get_preds as transformer_get_preds
 from instanovo.transformer.train import _set_author_neptune_api_token
 from instanovo.transformer.train import train as train_transformer
 from instanovo.utils.colorlogging import ColorLog
+from instanovo.utils.s3 import S3FileHandler
 
 # Filter out a SyntaxWarning from pubchempy, see:
 # https://github.com/mcs07/PubChemPy/pull/53
@@ -153,6 +154,8 @@ def transformer_predict(
     # Compose config with overrides
     logger.info("Initializing InstaNovo inference.")
 
+    s3 = S3FileHandler()
+
     if config_path is None:
         config_path = DEFAULT_INFERENCE_CONFIG_PATH
     if config_name is None:
@@ -180,20 +183,20 @@ def transformer_predict(
             "`.parquet` file. Glob notation is supported:  eg.: `--data-path='./experiment/*.mgf'`."
         )
 
+    if denovo is not None:
+        config.denovo = denovo
+
     if output_path is not None:
         if output_path.exists():
             logger.info(f"Output path '{output_path}' already exists and will be overwritten.")
         output_path.parent.mkdir(parents=True, exist_ok=True)
         config.output_path = str(output_path)
-    if config.get("output_path", None) is None:
+    if config.get("output_path", None) is None and config.get("denovo", False):
         raise ValueError(
-            "Expected 'output_path' but found None. Please specify it in the "
+            "Expected 'output_path' but found None in denovo mode. Please specify it in the "
             "`config/inference/<your_config>.yaml` configuration file or with the cli flag "
             "`--output-path=path/to/output_file`."
         )
-
-    if denovo is not None:
-        config.denovo = denovo
 
     if instanovo_model is not None:
         if Path(instanovo_model).is_file() and Path(instanovo_model).suffix != ".ckpt":
@@ -202,6 +205,7 @@ def transformer_predict(
             )
         if (
             not Path(instanovo_model).is_file()
+            and not instanovo_model.startswith("s3://")
             and instanovo_model not in InstaNovo.get_pretrained()
         ):
             raise ValueError(
@@ -220,9 +224,13 @@ def transformer_predict(
 
     logger.info(f"Loading InstaNovo model {config.instanovo_model}")
     if config.instanovo_model in InstaNovo.get_pretrained():
-        transformer_model, transformer_config = InstaNovo.from_pretrained(config.instanovo_model)
+        model_path = s3.get_local_path(config.instanovo_model)
+        assert model_path is not None
+        transformer_model, transformer_config = InstaNovo.from_pretrained(model_path)
     else:
-        transformer_model, transformer_config = InstaNovo.load(config.instanovo_model)
+        model_path = s3.get_local_path(config.instanovo_model)
+        assert model_path is not None
+        transformer_model, transformer_config = InstaNovo.load(model_path)
 
     logger.info(f"InstaNovo config:\n{OmegaConf.to_yaml(config)}")
     logger.info(
@@ -237,7 +245,7 @@ def transformer_predict(
             config["save_beams"] = False
 
     logger.info(f"Performing search with {config.get('num_beams', 1)} beams")
-    transformer_get_preds(config, transformer_model, transformer_config)
+    transformer_get_preds(config, transformer_model, transformer_config, s3)
     return config
 
 
@@ -309,6 +317,8 @@ def diffusion_predict(
     """Run predictions with InstaNovo+."""
     logger.info("Initializing InstaNovo+ inference.")
 
+    s3 = S3FileHandler()
+
     if config_path is None:
         config_path = DEFAULT_INFERENCE_CONFIG_PATH
     if config_name is None:
@@ -338,6 +348,8 @@ def diffusion_predict(
 
     if denovo is not None:
         config.denovo = denovo
+    if refine is not None:
+        config.refine = refine
 
     if output_path is not None:
         if output_path.exists():
@@ -346,15 +358,12 @@ def diffusion_predict(
         config.output_path = str(output_path)
     if config.output_path and not Path(config.output_path).parent.exists():
         Path(config.output_path).parent.mkdir(parents=True, exist_ok=True)
-    if config.get("output_path", None) is None:
+    if config.get("output_path", None) is None and (config.get("denovo", False)):
         raise ValueError(
-            "Expected 'output_path' but found None. Please specify it in the "
-            "`config/inference/<your_config>.yaml` configuration file or with the cli flag "
+            "Expected 'output_path' but found None in denovo mode. Please specify it "
+            "in the `config/inference/<your_config>.yaml` configuration file or with the cli flag "
             "`--output-path=path/to/output_file`."
         )
-
-    if refine is not None:
-        config.refine = refine
 
     if instanovo_plus_model is not None:
         if Path(instanovo_plus_model).is_dir():
@@ -369,6 +378,7 @@ def diffusion_predict(
                 )
         elif (
             not Path(instanovo_plus_model).is_file()
+            and not instanovo_plus_model.startswith("s3://")
             and instanovo_plus_model not in InstaNovoPlus.get_pretrained()
         ):
             raise ValueError(
@@ -388,15 +398,29 @@ def diffusion_predict(
     logger.info(f"InstaNovo+ config:\n{OmegaConf.to_yaml(config)}")
 
     # Save transformer predictions before refinement
-    if config.get("refine", False) and not config.get("instanovo_predictions_path", ""):
-        instanovo_predictions_path = Path(config.output_path).with_stem(
-            Path(config.output_path).stem + "_before_refinement"
-        )
-        instanovo_predictions_path.write_text(Path(config.output_path).read_text())
-        config.instanovo_predictions_path = str(instanovo_predictions_path)
+    if config.get("refine", False):
+        if not isinstance(config.get("data_path"), str):
+            # Handle data path list case
+            for data_entry in config.data_path:
+                if not data_entry.get("instanovo_predictions_path", ""):
+                    instanovo_predictions_path = Path(data_entry["output_path"]).with_stem(
+                        Path(data_entry["output_path"]).stem + "_before_refinement"
+                    )
+                    instanovo_predictions_path.write_text(
+                        Path(data_entry["output_path"]).read_text()
+                    )
+                    data_entry["instanovo_predictions_path"] = str(instanovo_predictions_path)
+        elif not config.get("instanovo_predictions_path", ""):
+            # Handle single data path case
+            instanovo_predictions_path = Path(config.output_path).with_stem(
+                Path(config.output_path).stem + "_before_refinement"
+            )
+            instanovo_predictions_path.write_text(Path(config.output_path).read_text())
+            config.instanovo_predictions_path = str(instanovo_predictions_path)
 
-    if config.get("refine", False) and config.get("instanovo_predictions_path", None) == config.get(
-        "output_path", None
+    if config.get("refine", False) and (
+        config.get("output_path", None) is not None
+        and config.get("instanovo_predictions_path", None) == config.get("output_path", None)
     ):
         raise ValueError(
             "The 'instanovo_predictions_path' should be different from the 'output_path' to avoid "
@@ -406,11 +430,13 @@ def diffusion_predict(
     logger.info(f"Loading InstaNovo+ model {config.instanovo_plus_model}")
 
     if config.instanovo_plus_model in InstaNovoPlus.get_pretrained():
-        diffusion_model, diffusion_config = InstaNovoPlus.from_pretrained(
-            config.instanovo_plus_model
-        )
+        model_path = s3.get_local_path(config.instanovo_plus_model)
+        assert model_path is not None
+        diffusion_model, diffusion_config = InstaNovoPlus.from_pretrained(model_path)
     else:
-        diffusion_model, diffusion_config = InstaNovoPlus.load(config.instanovo_plus_model)
+        model_path = s3.get_local_path(config.instanovo_plus_model)
+        assert model_path is not None
+        diffusion_model, diffusion_config = InstaNovoPlus.load(model_path)
 
     # # assert diffusion_model.residues == transformer_model.residue_set, f"Residue set of the "
     # f"InstaNovo+ diffusion model:\n{diffusion_model.residues.index_to_residue}\ndoes not equal "
@@ -430,10 +456,22 @@ def diffusion_predict(
         f"InstaNovo+ model params: {np.sum([p.numel() for p in diffusion_model.parameters()]):,d}"
     )
 
-    diffusion_get_preds(config, diffusion_model, diffusion_config)
+    diffusion_get_preds(config, diffusion_model, diffusion_config, s3)
 
-    if config.get("refine", False) and not config.get("instanovo_predictions_path", ""):
+    if (
+        config.get("refine", False)
+        and not config.get("instanovo_predictions_path", "")
+        and isinstance(config.get("data_path"), str)
+    ):
         instanovo_predictions_path.unlink()
+
+    elif config.get("refine", False) and not isinstance(config.get("data_path"), str):
+        for data_entry in config.data_path:
+            if not data_entry.get("instanovo_predictions_path", ""):
+                instanovo_predictions_path = Path(data_entry["output_path"]).with_stem(
+                    Path(data_entry["output_path"]).stem + "_before_refinement"
+                )
+                instanovo_predictions_path.unlink()
 
 
 @combined_cli.command()

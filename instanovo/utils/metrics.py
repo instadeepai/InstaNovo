@@ -26,12 +26,14 @@ class Metrics:
 
     def matches_precursor(
         self,
-        seq: str | list[str],
+        seq: str | list[str] | None,
         prec_mz: float,
         prec_charge: int,
         prec_tol: float = 50,
     ) -> tuple[bool, list[float]]:
         """Check if a sequence matches the precursor mass within some tolerance."""
+        if seq is None:
+            return False, []
         seq_mz = self._mass(seq, charge=prec_charge)
         delta_mass_ppm = [
             self._calc_mass_error(seq_mz, prec_mz, prec_charge, isotope)
