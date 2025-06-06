@@ -67,7 +67,11 @@ class SpectrumDataFrame:
         max_shard_size: int = 100_000,
         custom_load_fn: Callable | None = None,
         column_mapping: dict[str, str] | None = None,
+        add_source_file_column: bool = False,
+        force_convert_to_native: bool = False,
         verbose: bool = False,
+        add_spectrum_id: bool = False,
+        force_spectrum_id: bool = False,
     ) -> None:
         """Initialize SpectrumDataFrame.
 
@@ -80,6 +84,11 @@ class SpectrumDataFrame:
             is_lazy (bool): Whether to use lazy loading mode.
             shuffle (bool): Whether to shuffle the dataset.
             max_shard_size (int): Maximum size of data shards for chunking large datasets.
+            add_source_file_column (bool): Add source file column to the data.
+            force_convert_to_native (bool): Force conversion to native format.
+            verbose (bool): Whether to print verbose output.
+            add_spectrum_id (bool): Add spectrum id column to the data.
+            force_spectrum_id (bool): Force addition of spectrum id column to the data.
 
         Raises:
             ValueError: If neither `df` nor `file_paths` is specified, or both are given.
@@ -91,7 +100,10 @@ class SpectrumDataFrame:
         self._shuffle: bool = shuffle
         self._max_shard_size = max_shard_size
         self._custom_load_fn = custom_load_fn
+        self._add_source_file_column = add_source_file_column
         self._verbose = verbose
+        self._add_spectrum_id = add_spectrum_id
+        self._force_spectrum_id = force_spectrum_id
         self.executor = None
         self._temp_directory = None
         # String representation values:
@@ -114,7 +126,10 @@ class SpectrumDataFrame:
                 raise FileNotFoundError(f"No files matching '{file_paths}' were found.")
 
             # If any of the files are not .parquet, create a tempdir with the converted files.
-            if not all(fp.lower().endswith(".parquet") for fp in self._file_paths):
+            if (
+                not all(fp.lower().endswith(".parquet") for fp in self._file_paths)
+                or force_convert_to_native
+            ):
                 # If lazy make tempdir, if not convert to non-native and load all contents into df
                 # Only iterate over non-parquet files
                 df_iterator = SpectrumDataFrame.get_data_shards(
@@ -122,6 +137,8 @@ class SpectrumDataFrame:
                     max_shard_size=self._max_shard_size,
                     custom_load_fn=custom_load_fn,
                     column_mapping=column_mapping,
+                    add_source_file_column=add_source_file_column,
+                    force_convert_to_native=force_convert_to_native,
                     verbose=verbose,
                 )
 
@@ -129,7 +146,7 @@ class SpectrumDataFrame:
                     self._temp_directory = tempfile.mkdtemp()
 
                     new_file_paths = [
-                        fp for fp in self._file_paths if fp.lower().endswith(".parquet")
+                        fp for fp in self._file_paths if (fp.lower().endswith(".parquet") and not force_convert_to_native)
                     ]
                     for temp_df in df_iterator:
                         temp_parquet_path = os.path.join(
@@ -140,29 +157,59 @@ class SpectrumDataFrame:
                         self._log(f"Saving temporary file to {temp_parquet_path}")
                     self._file_paths = new_file_paths
                 else:
-                    self.df = pl.concat(
-                        [SpectrumDataFrame._cast_columns(temp_df) for temp_df in df_iterator]
-                    )
+                    self.df = None
+                    for temp_df in df_iterator:
+                        temp_df = SpectrumDataFrame._map_columns(
+                            temp_df, column_mapping=column_mapping
+                        )
+                        temp_df = SpectrumDataFrame._cast_columns(temp_df)
+                        if self.df is None:
+                            self.df = temp_df
+                        else:
+                            self.df = SpectrumDataFrame._concat_dataframes(self.df, temp_df)
+
                     # Ensure parquet files are re-added
-                    self.df = pl.concat(
-                        [self.df]
-                        + [
-                            SpectrumDataFrame._cast_columns(pl.read_parquet(fp))
-                            for fp in self._file_paths
-                            if fp.lower().endswith(".parquet")
-                        ]
-                    )
+                    for fp in self._file_paths:
+                        if not fp.lower().endswith(".parquet") or force_convert_to_native:
+                            continue
+                        temp_df = SpectrumDataFrame._map_columns(
+                            pl.read_parquet(fp), column_mapping=column_mapping
+                        )
+                        temp_df = SpectrumDataFrame._cast_columns(temp_df)
+                        temp_df = SpectrumDataFrame._ensure_experiment_name(
+                            temp_df,
+                            fp,
+                            add_source=add_source_file_column,
+                            force_source=True,
+                            add_spectrum_id=add_spectrum_id,
+                            force_spectrum_id=force_spectrum_id,
+                        )
+                        self.df = SpectrumDataFrame._concat_dataframes(self.df, temp_df)
+
                     # Native is disabled if not lazy
                     self._is_native = False
                     self._file_paths = []
             elif not self._is_lazy:
                 # Loaded native, convert to lazy
-                self.df = pl.concat(
-                    [
-                        SpectrumDataFrame._cast_columns(pl.read_parquet(fp))
-                        for fp in self._file_paths
-                    ]
-                )
+                self.df = None
+                for fp in self._file_paths:
+                    temp_df = SpectrumDataFrame._map_columns(
+                        pl.read_parquet(fp), column_mapping=column_mapping
+                    )
+                    temp_df = SpectrumDataFrame._cast_columns(temp_df)
+                    temp_df = SpectrumDataFrame._ensure_experiment_name(
+                        temp_df,
+                        fp,
+                        add_source=add_source_file_column,
+                        force_source=True,
+                        add_spectrum_id=add_spectrum_id,
+                        force_spectrum_id=force_spectrum_id,
+                    )
+                    if self.df is None:
+                        self.df = temp_df
+                    else:
+                        self.df = SpectrumDataFrame._concat_dataframes(self.df, temp_df)
+
                 # Native is disabled if not lazy
                 self._is_native = False
                 self._file_paths = []
@@ -210,11 +257,44 @@ class SpectrumDataFrame:
     def _sanitise_peptide(peptide: str) -> str:
         """Sanitise peptide sequence."""
         # Some datasets save sequence wrapped with _ or .
+        if peptide is None:
+            return None
         if peptide[0] == "_" and peptide[-1] == "_":
             peptide = peptide[1:-1]
         if peptide[0] == "." and peptide[-1] == ".":
             peptide = peptide[1:-1]
         return peptide
+
+    @staticmethod
+    def _ensure_experiment_name(
+        df: pl.DataFrame,
+        file_path: str,
+        add_source: bool = False,
+        force_source: bool = False,
+        add_spectrum_id: bool = False,
+        force_spectrum_id: bool = False,
+    ) -> pl.DataFrame:
+        """Ensure experiment_name is a column in the df."""
+        if "experiment_name" not in df.columns:
+            exp_name = Path(file_path).stem
+            df = df.with_columns(pl.lit(exp_name).alias("experiment_name").cast(pl.Utf8))
+        if add_source and (("source_file" not in df.columns) or force_source):
+            df = df.with_columns(pl.lit(file_path).alias("source_file").cast(pl.Utf8))
+        if add_spectrum_id and (("spectrum_id" not in df.columns) or force_spectrum_id):
+            df = df.with_row_count("idx")
+            df = df.with_columns(
+                (pl.col("idx").cast(pl.Utf8) + ":" + pl.col("source_file")).alias("spectrum_id")
+            )
+        return df
+
+    @staticmethod
+    def _map_columns(
+        df: pl.DataFrame, column_mapping: dict[str, str] | None = None
+    ) -> pl.DataFrame:
+        """Map the columns of the DataFrame to the appropriate data types based on MS_TYPES."""
+        if column_mapping is None:
+            return df
+        return df.rename({k: v for k, v in column_mapping.items() if k in df.columns})
 
     @staticmethod
     def _cast_columns(df: pl.DataFrame) -> pl.DataFrame:
@@ -300,6 +380,8 @@ class SpectrumDataFrame:
         column_mapping: dict[str, str] | None = None,
         max_shard_size: int = 100_000,
         add_index_cols: bool = True,
+        add_source_file_column: bool = False,
+        force_convert_to_native: bool = False,
         verbose: bool = False,
     ) -> Iterator[pl.DataFrame]:
         """Load data files into DataFrames one at a time to save memory.
@@ -310,6 +392,7 @@ class SpectrumDataFrame:
             max_shard_size (int): Maximum size of data shards.
             add_index_cols (bool): Whether to add special indexing columns.
             verbose (bool): Whether to using logger
+            force_convert_to_native (bool): Force conversion to native format.
 
         Yields:
             Iterator[pl.DataFrame]: DataFrames containing mass spectra data.
@@ -320,7 +403,7 @@ class SpectrumDataFrame:
             if verbose:
                 logger.info(f"Loading file {i:03,d} of {len(file_paths):03,d}: {fp}")
 
-            if fp.endswith(".parquet"):
+            if fp.endswith(".parquet") and not force_convert_to_native:
                 continue
 
             if custom_load_fn is not None:
@@ -344,8 +427,10 @@ class SpectrumDataFrame:
                         ).alias("spectrum_id")
                     )
 
-            df = df.rename({k: v for k, v in column_mapping.items() if k in df.columns})
+            if add_source_file_column:
+                df = df.with_columns(pl.lit(fp).alias("source_file").cast(pl.Utf8))
 
+            df = SpectrumDataFrame._map_columns(df, column_mapping=column_mapping)
             df = SpectrumDataFrame._cast_columns(df)
 
             # If df > shard_size, split it up first
@@ -387,6 +472,7 @@ class SpectrumDataFrame:
             if not self._shuffle:
                 self._update_file_indices()
         else:
+            assert self.df is not None
             new_filter = self.df.select(
                 [
                     pl.struct(self.df.columns)
@@ -521,7 +607,15 @@ class SpectrumDataFrame:
 
     def _load_parquet_data(self, file_path: str) -> pl.DataFrame:
         """Load data from a parquet file and apply the filters."""
-        return pl.scan_parquet(file_path).filter(self._filter_series_per_file[file_path]).collect()
+        # if the experiment_name column is missing, we add it
+        df = pl.scan_parquet(file_path).filter(self._filter_series_per_file[file_path]).collect()
+        df = SpectrumDataFrame._ensure_experiment_name(
+            df,
+            file_path,
+            add_source=self._add_source_file_column,
+            force_source=False,
+        )
+        return df
 
     def _load_next_file(self) -> None:
         """Load the next file in sequence for lazy loading."""
@@ -576,6 +670,7 @@ class SpectrumDataFrame:
         """
         if self._is_native:
             return sum([v.sum() for v in self._filter_series_per_file.values()])
+        assert self.df is not None
         return int(self.df.shape[0])
 
     def __getitem__(self, idx: int) -> dict[str, Any]:
@@ -641,6 +736,7 @@ class SpectrumDataFrame:
 
                 row = self._current_file_data[index_in_file]
         else:
+            assert self.df is not None
             # We're in non-native non-lazy mode
             if self._shuffle:
                 # Shuffle if we have passed through all entries
@@ -718,10 +814,10 @@ class SpectrumDataFrame:
 
         Path(target).mkdir(parents=True, exist_ok=True)
 
-        for i, shard in enumerate(shards, 1):
+        for i, shard in enumerate(shards):
             filename = f"dataset-{name}-{partition}-{i:04d}-{total_num_files:04d}.parquet"
             shard_path = os.path.join(target, filename)
-            logger.info(f"Writing {shard_path}")
+            self._log(f"Writing {shard_path}")
             shard.write_parquet(shard_path)
 
     def _to_parquet_chunks(
@@ -884,7 +980,7 @@ class SpectrumDataFrame:
     @classmethod
     def load(
         cls,
-        source: str | Path,
+        source: str | list[str] | Path,
         source_type: str = "default",
         is_annotated: bool = False,
         shuffle: bool = False,
@@ -895,6 +991,10 @@ class SpectrumDataFrame:
         lazy: bool = True,
         max_shard_size: int = 1_000_000,
         preshuffle_across_shards: bool = False,
+        add_source_file_column: bool = False,
+        add_spectrum_id: bool = False,
+        force_spectrum_id: bool = False,
+        force_convert_to_native: bool = False,
         verbose: bool = False,
     ) -> "SpectrumDataFrame":
         """Load a SpectrumDataFrame from a source.
@@ -909,6 +1009,12 @@ class SpectrumDataFrame:
             lazy (bool): Whether to use lazy loading mode.
             max_shard_size (int): Maximum size of data shards.
             preshuffle_across_shards (bool): Whether to perform a preshuffle across shards.
+            add_source_file_column (bool): Whether to add the source file column.
+            add_spectrum_id (bool): Whether to add spectrum id column.
+            force_spectrum_id (bool): Force adding spectrum id column.
+            force_convert_to_native (bool): Force conversion to native format when working
+            with parquet files.
+            verbose (bool): Whether to print verbose output.
 
         Returns:
             SpectrumDataFrame: The loaded SpectrumDataFrame.
@@ -930,6 +1036,10 @@ class SpectrumDataFrame:
             shuffle=shuffle,
             is_annotated=is_annotated,
             preshuffle_across_shards=preshuffle_across_shards,
+            add_source_file_column=add_source_file_column,
+            add_spectrum_id=add_spectrum_id,
+            force_spectrum_id=force_spectrum_id,
+            force_convert_to_native=force_convert_to_native,
             verbose=verbose,
         )
 
@@ -957,6 +1067,8 @@ class SpectrumDataFrame:
                 return SpectrumDataFrame._df_from_mzml(source)
             case "mzxml":
                 return SpectrumDataFrame._df_from_mzxml(source)
+            case "parquet":
+                return SpectrumDataFrame._df_from_parquet(source)
             case "_":
                 logger.info(f"Unknown filetype {source_type} of {source}")
                 return None
@@ -1017,8 +1129,7 @@ class SpectrumDataFrame:
             SpectrumDataFrame: The loaded SpectrumDataFrame.
         """
         df = pl.read_csv(source)
-        if column_mapping is not None:
-            df = df.rename({k: v for k, v in column_mapping.items() if k in df.columns})
+        df = SpectrumDataFrame._map_columns(df, column_mapping=column_mapping)
         return cls(df, is_annotated=annotated, is_lazy=lazy)
 
     @classmethod
@@ -1160,6 +1271,21 @@ class SpectrumDataFrame:
             pl.DataFrame: The loaded polars DataFrame.
         """
         df = pl.read_ipc(source)
+        if "modified_sequence" in df.columns:
+            df = df.with_columns(pl.col("modified_sequence").alias(ANNOTATED_COLUMN))
+        return df
+
+    @staticmethod
+    def _df_from_parquet(source: str) -> pl.DataFrame:
+        """Load a polars DataFrame from a parquet file.
+
+        Args:
+            source (str): Path to the parquet file.
+
+        Returns:
+            pl.DataFrame: The loaded polars DataFrame.
+        """
+        df = pl.read_parquet(source)
         if "modified_sequence" in df.columns:
             df = df.with_columns(pl.col("modified_sequence").alias(ANNOTATED_COLUMN))
         return df
@@ -1321,6 +1447,7 @@ class SpectrumDataFrame:
         if self.is_annotated:
             expected_cols.append(ANNOTATED_COLUMN)
 
+        missing_cols = []
         if self._is_native:
             # Check all parquet files
             for fp in self._file_paths:
@@ -1329,6 +1456,7 @@ class SpectrumDataFrame:
                 if missing_cols:
                     break
         else:
+            assert self.df is not None
             # Check only self.df
             missing_cols = [col for col in expected_cols if col not in self.df.columns]
 
@@ -1357,6 +1485,7 @@ class SpectrumDataFrame:
                     if not has_annotations:
                         raise ValueError(ANNOTATION_ERROR)
             else:
+                assert self.df is not None
                 has_annotations = self.df.select(
                     (
                         (pl.col(ANNOTATED_COLUMN).is_not_null()) & (pl.col(ANNOTATED_COLUMN) != "")
@@ -1408,6 +1537,7 @@ class SpectrumDataFrame:
                 sequences.update(set(df_unique[ANNOTATED_COLUMN].to_list()))
             return sequences
         else:
+            assert self.df is not None
             return set(self.df[ANNOTATED_COLUMN].unique())
 
     def get_vocabulary(self, tokenize_fn: Callable) -> set[str]:
@@ -1486,6 +1616,7 @@ class SpectrumDataFrame:
                 )
                 num_matches_precursor += result.collect()["num_matches_precursor"][0]
         else:
+            assert self.df is not None
             result = (
                 self.df.select(
                     [
@@ -1554,6 +1685,7 @@ class SpectrumDataFrame:
                     self._update_file_indices()
                 self._reset_current_file()
         else:
+            assert self.df is not None
             self.df = self.df.sample(fraction=fraction, seed=seed)
 
     def validate_data(self) -> bool:
