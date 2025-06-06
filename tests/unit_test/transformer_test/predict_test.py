@@ -9,6 +9,7 @@ from omegaconf import DictConfig
 
 from instanovo.transformer.predict import _format_time, get_preds
 from instanovo.utils.data_handler import SpectrumDataFrame
+from instanovo.utils.s3 import S3FileHandler
 
 
 def test_preds_with_beam(
@@ -24,10 +25,12 @@ def test_preds_with_beam(
 
     # Test beam search
     temp_config["save_beams"] = True
+    s3 = S3FileHandler()
     get_preds(
         config=temp_config,
         model=model,
         model_config=config,
+        s3=s3,
     )
     pred_df = pl.read_csv(temp_config["output_path"])
 
@@ -54,10 +57,12 @@ def test_preds_with_knapsack(
     temp_config["save_beams"] = False
     temp_config["use_knapsack"] = True
 
+    s3 = S3FileHandler()
     get_preds(
         config=temp_config,
         model=model,
         model_config=config,
+        s3=s3,
     )
     pred_df = pl.read_csv(temp_config["output_path"])
 
@@ -82,10 +87,12 @@ def test_preds_with_greedy(
     temp_config["use_knapsack"] = False
     temp_config["num_beams"] = 1
 
+    s3 = S3FileHandler()
     get_preds(
         config=temp_config,
         model=model,
         model_config=config,
+        s3=s3,
     )
     pred_df = pl.read_csv(temp_config["output_path"])
 
@@ -112,10 +119,12 @@ def test_row_drop(
     temp_config["data_path"] = (
         data_dir + "/test_sample_2.ipc"  # contains an invalid sequence
     )
+    s3 = S3FileHandler()
     get_preds(
         config=temp_config,
         model=model,
         model_config=config,
+        s3=s3,
     )
     pred_df = pl.read_csv(temp_config["output_path"])
     assert len(pred_df) == 1
@@ -138,11 +147,13 @@ def test_parquet_preds(
     sdf.save(Path(data_dir), partition="example_parquet")
 
     # Test prediction on parquet file
-    temp_config["data_path"] = data_dir + "/dataset-ms-example_parquet-0001-0001.parquet"
+    temp_config["data_path"] = data_dir + "/dataset-ms-example_parquet-0000-0001.parquet"
+    s3 = S3FileHandler()
     get_preds(
         config=temp_config,
         model=model,
         model_config=config,
+        s3=s3,
     )
     pred_df = pl.read_csv(temp_config["output_path"])
     assert pred_df["targets"][0] == "DDCA"
@@ -165,10 +176,12 @@ def test_mzml_preds(
     temp_config["data_path"] = data_dir + "/example.mzML"
     temp_config["denovo"] = True
 
+    s3 = S3FileHandler()
     get_preds(
         config=temp_config,
         model=model,
         model_config=config,
+        s3=s3,
     )
     pred_df = pl.read_csv(temp_config["output_path"])
     assert len(pred_df) == 1
@@ -191,10 +204,12 @@ def test_mzxml_preds(
     temp_config["data_path"] = data_dir + "/example.mzxml"
     temp_config["denovo"] = True
 
+    s3 = S3FileHandler()
     get_preds(
         config=temp_config,
         model=model,
         model_config=config,
+        s3=s3,
     )
     pred_df = pl.read_csv(temp_config["output_path"])
     assert len(pred_df) == 1
