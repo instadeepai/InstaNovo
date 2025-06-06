@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 import polars as pl
@@ -13,6 +14,9 @@ from instanovo.transformer.dataset import (
     load_ipc_shards,
 )
 from instanovo.utils.data_handler import SpectrumDataFrame
+
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
 
 
 def test_dataset_default_init(residue_set: Any) -> None:
@@ -49,7 +53,7 @@ def test_dataset_default_init(residue_set: Any) -> None:
     )
     assert precursor_mz == 35.83
     assert precursor_charge == 2
-    assert torch.allclose(peptide, torch.tensor([5, 4, 3, 3, 3, 7, 6, 5, 4, 3, 2]))
+    assert torch.allclose(peptide, torch.tensor([5, 4, 3, 3, 3, 7, 6, 5, 4, 3, 2, 0]))
 
 
 def test_dataset_spec_init(residue_set: Any) -> None:
@@ -136,7 +140,6 @@ def test_process_peaks(residue_set: Any) -> None:
         ),
         rtol=1e-04,
     )
-
     spectrum, precursor_mz, precursor_charge, peptide = sd[0]
 
     assert torch.allclose(
@@ -146,7 +149,7 @@ def test_process_peaks(residue_set: Any) -> None:
     )
     assert precursor_mz == 35.83
     assert precursor_charge == 2
-    assert torch.allclose(peptide, torch.tensor([5, 4, 3, 3, 3, 7, 6, 5, 4, 3, 2]))
+    assert torch.allclose(peptide, torch.tensor([5, 4, 3, 3, 3, 7, 6, 5, 4, 3, 2, 0]))
 
 
 def test_spectrum_errors(residue_set: Any) -> None:
@@ -231,7 +234,7 @@ def test_dataset_collate_diffusion(residue_set: Any) -> None:
         n_peaks=10,
         min_mz=25,
         peptide_pad_length=6,
-        diffusion=True,
+        add_eos=False,
     )
 
     output = collate_batch([sd[0]])

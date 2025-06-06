@@ -1,7 +1,7 @@
 # Data paths and output location
 data_path: # type: .mgf, .mzml or any other filetype supported by SpectrumDataFrame
 instanovo_model: instanovo-v1.1.0 # type: model id or path to a *.ckpt file
-instanovo_plus_model: instanovoplus-v1.1.0-alpha # type: model id or path to a *.ckpt file
+instanovo_plus_model: instanovoplus-v1.1.0 # type: model id or path to a *.ckpt file
 output_path: # type: .csv
 knapsack_path: # type: directory
 
@@ -10,17 +10,29 @@ data_type: # .csv, .mgf, .mzml, .mzxml
 
 # Inference mode
 denovo: True
-refine: True
 num_beams: 1 # 1 defaults to greedy search with basic filtering
 max_length: 40
 max_charge: 10 # Must be <= model max charge
 isotope_error_range: [0, 1]
-subset: 1.0 # Subset of dataset to perform inference on, useful for debugging
+subset: 1.0 # Subset of dataset to perform inference on, useful for debugging. Represented as a float between 0 and 1.
 use_knapsack: False
 save_beams: False
+n_preds: 5 # Number of diffusion predictions to sample per spectrum
+
+# Refine mode
+refine: True
 instanovo_predictions_path: # type: .csv
-id_col: "scan_number"
-pred_col: "predictions"
+pred_refine_col: preds_tokenised
+refine_all: False # If True, all predictions will be refined
+refine_threshold: 0.9 # Only predictions with a confidence score less than this will be refined
+
+# Prediction columns
+pred_tok_col: "preds_tokenised"
+pred_col: "preds"
+instanovo_id_col: "spectrum_id"
+instanovoplus_id_col: "spectrum_id"
+log_probs_col: "log_probs"
+token_log_probs_col: "token_log_probs"
 
 # These two only work in greedy search
 # Residues whose log probability will be set to -inf

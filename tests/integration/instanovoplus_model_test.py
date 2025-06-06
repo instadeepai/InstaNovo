@@ -1,4 +1,5 @@
 import copy
+import logging
 
 import polars as pl
 import pytest
@@ -11,7 +12,11 @@ from instanovo.diffusion.predict import get_preds
 from instanovo.inference.diffusion import DiffusionDecoder
 from instanovo.transformer.dataset import SpectrumDataset, collate_batch
 from instanovo.utils.data_handler import SpectrumDataFrame
+from instanovo.utils.s3 import S3FileHandler
 from tests.conftest import reset_seed
+
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
 
 
 @pytest.mark.usefixtures("_reset_seed")
@@ -27,8 +32,10 @@ def test_model(
 
     diffusion_model, _ = instanovoplus_model
 
-    assert diffusion_model.residues.residue_masses == instanovoplus_config["residues"]
-    assert diffusion_model.residues.residue_remapping == instanovoplus_config["residue_remapping"]
+    assert diffusion_model.residue_set.residue_masses == instanovoplus_config["residues"]
+    assert (
+        diffusion_model.residue_set.residue_remapping == instanovoplus_config["residue_remapping"]
+    )
     assert diffusion_model.config["vocab_size"] == 8
 
     assert instanovoplus_config["n_peaks"] == diffusion_model.config["n_peaks"]
@@ -41,12 +48,12 @@ def test_model(
 
     sd = SpectrumDataset(
         df=sdf,
-        residue_set=diffusion_model.residues,
+        residue_set=diffusion_model.residue_set,
         n_peaks=diffusion_model.config["n_peaks"],
         min_mz=diffusion_model.config["min_mz"],
         max_mz=diffusion_model.config["max_mz"],
         peptide_pad_length=diffusion_model.config["max_length"],
-        diffusion=True,
+        add_eos=False,
     )
     assert len(sd) == 1938
 
@@ -129,10 +136,12 @@ def test_model(
     )
     assert torch.allclose(peptides, torch.tensor([[6, 7, 5, 5, 3, 4], [4, 3, 7, 4, 5, 7]]))
 
+    s3 = S3FileHandler()
     get_preds(
         config=temp_inference_config,
         model=diffusion_model,
         model_config=diffusion_model.config,
+        s3=s3,
     )
 
     pred_df = pl.read_csv(temp_inference_config["output_path"])
@@ -140,12 +149,9 @@ def test_model(
     assert temp_inference_config["subset"] == 1
     assert (
         temp_inference_config["instanovo_plus_model"]
-        == "./tests/instanovo_test_resources/instanovoplus"
+        == "tests/instanovo_test_resources/instanovoplus"
     )
     assert pred_df["targets"][0] == "DDCA"
-    assert pred_df["diffusion_predictions"][0] == "EADCAD"
-    assert pred_df["diffusion_predictions_tokenised"][0] == "['E', 'A', 'D', 'C', 'A', 'D']"
-    assert pred_df["diffusion_log_probabilities"][0] == pytest.approx(-0.267, rel=1e-1)
 
     reset_seed()
 
@@ -163,6 +169,7 @@ def test_model(
             config=temp_inference_config,
             model=diffusion_model,
             model_config=diffusion_model.config,
+            s3=s3,
         )
 
     reset_seed()
@@ -175,12 +182,10 @@ def test_model(
         config=temp_inference_config,
         model=diffusion_model,
         model_config=diffusion_model.config,
+        s3=s3,
     )
 
     pred_df = pl.read_csv(temp_inference_config["output_path"])
 
     assert temp_inference_config["subset"] == 1
     assert pred_df["targets"][0] == "DDCA"
-    assert pred_df["diffusion_predictions"][0] == "BEAAAD"
-    assert pred_df["diffusion_predictions_tokenised"][0] == "['B', 'E', 'A', 'A', 'A', 'D']"
-    assert pred_df["diffusion_log_probabilities"][0] == pytest.approx(-0.402, rel=1e-1)

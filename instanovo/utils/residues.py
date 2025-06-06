@@ -114,15 +114,19 @@ class ResidueSet:
             mass = (mass / charge) + PROTON_MASS_AMU
         return float(mass)
 
-    def tokenize(self, sequence: str) -> list[str]:
+    def tokenize(self, sequence: str | list[str] | None) -> list[str]:
         """Split a peptide represented as a string into a list of residues.
 
         Args:
-            sequence (str): The peptide to be split.
+            sequence (str | list[str] | None): The peptide to be split.
 
         Returns:
             list[str]: The sequence of residues forming the peptide.
         """
+        if sequence is None:
+             return []
+        if isinstance(sequence, list):
+             return sequence
         return [
             item
             for sublist in re.findall(self.tokenizer_regex, sequence)

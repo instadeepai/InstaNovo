@@ -1,5 +1,5 @@
 # general params
-vocab_size: 33 #27
+vocab_size: 31 # For the extended massivekb dataset, vocab size is 31 in strict diffusion mode, and 33 in non-strict diffusion mode
 
 layers: 12
 dim: 768
