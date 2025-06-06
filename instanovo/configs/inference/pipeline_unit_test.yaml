@@ -4,14 +4,14 @@ defaults:
 
 # Data paths and output location
 data_path:
-- result_name: test
-  input_path: tests/instanovo_test_resources/example_data/test_sample.mgf # type: .ipc
-  output_path: tests/instanovo_test_resources/test_sample_preds.csv # type: .csv
+  - result_name: test
+    input_path: tests/instanovo_test_resources/example_data/test_sample.mgf # type: .ipc
+    output_path: tests/instanovo_test_resources/test_sample_preds.csv # type: .csv
 
 result_file_path: tests/instanovo_test_resources/instanovo_results.csv # type: .csv
 
 instanovo_model: tests/instanovo_test_resources/model.ckpt # type: .ckpt
-output_path:  # type: .csv
+output_path: # type: .csv
 knapsack_path: tests/instanovo_test_resources/example_knapsack # type: directory
 use_knapsack: False
 

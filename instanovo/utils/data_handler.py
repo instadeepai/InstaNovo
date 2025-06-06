@@ -146,7 +146,9 @@ class SpectrumDataFrame:
                     self._temp_directory = tempfile.mkdtemp()
 
                     new_file_paths = [
-                        fp for fp in self._file_paths if (fp.lower().endswith(".parquet") and not force_convert_to_native)
+                        fp
+                        for fp in self._file_paths
+                        if (fp.lower().endswith(".parquet") and not force_convert_to_native)
                     ]
                     for temp_df in df_iterator:
                         temp_parquet_path = os.path.join(

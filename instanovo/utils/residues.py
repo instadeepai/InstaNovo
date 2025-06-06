@@ -124,9 +124,9 @@ class ResidueSet:
             list[str]: The sequence of residues forming the peptide.
         """
         if sequence is None:
-             return []
+            return []
         if isinstance(sequence, list):
-             return sequence
+            return sequence
         return [
             item
             for sublist in re.findall(self.tokenizer_regex, sequence)

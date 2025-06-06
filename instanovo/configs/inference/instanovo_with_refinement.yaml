@@ -1,8 +1,8 @@
 # Data paths and output location
 data_path: /mnt/instanovo-data-kyber/ac_pt_shards/valid_shard_*.ipc # type: .mgf, .mzml or any other filetype supported by SpectrumDataFrame
 instanovo_model: instanovo-v1.1.0 # type: model id or path to a *.ckpt file
-instanovo_plus_model: instanovoplus-v1.1.0  # type: model id or path to a *.ckpt file
-output_path: instanovoplus_predictions.csv  # type: .csv
+instanovo_plus_model: instanovoplus-v1.1.0 # type: model id or path to a *.ckpt file
+output_path: instanovoplus_predictions.csv # type: .csv
 knapsack_path: # type: directory
 
 # Data type only used if data_path is a directory.
@@ -35,8 +35,7 @@ token_log_probs_col: "token_log_probs"
 
 # These two only work in greedy search
 # Residues whose log probability will be set to -inf
-suppressed_residues:
-  ["(+25.98)"] # legacy
+suppressed_residues: ["(+25.98)"] # legacy
 # Stop model from predicting n-terminal modifications anywhere along the sequence
 disable_terminal_residues_anywhere: True
 

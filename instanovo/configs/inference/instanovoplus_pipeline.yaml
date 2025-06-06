@@ -6,76 +6,76 @@ instanovo_run_name: instanovo_extended_massivekb_knapsack_8cbd543a
 instanovoplus_run_name: instanovoplus_extended_massivekb_fb7f5eea_refine_all_1_pred
 
 data_path: # type: .mgf, .mzml or any other filetype supported by SpectrumDataFrame
-# Biological validation datasets
-- result_name: gluc
-  input_path: ${data_dir}/biological/annotated/dataset-gluc-*.parquet
-  instanovo_predictions_path: ${output_dir}/${instanovo_run_name}/samples/gluc.csv
-  output_path: ${output_dir}/${instanovo_run_name}/${instanovoplus_run_name}/samples/gluc.csv
-- result_name: hela_qc
-  input_path: ${data_dir}/biological/annotated/dataset-helaqc-*.parquet
-  instanovo_predictions_path: ${output_dir}/${instanovo_run_name}/samples/helaqc.csv
-  output_path: ${output_dir}/${instanovo_run_name}/${instanovoplus_run_name}/samples/helaqc.csv
-- result_name: herceptin
-  input_path: ${data_dir}/biological/annotated/dataset-herceptin-*.parquet
-  instanovo_predictions_path: ${output_dir}/${instanovo_run_name}/samples/herceptin.csv
-  output_path: ${output_dir}/${instanovo_run_name}/${instanovoplus_run_name}/samples/herceptin.csv
-- result_name: immuno
-  input_path: ${data_dir}/biological/annotated/dataset-immuno-*.parquet
-  instanovo_predictions_path: ${output_dir}/${instanovo_run_name}/samples/immuno.csv
-  output_path: ${output_dir}/${instanovo_run_name}/${instanovoplus_run_name}/samples/immuno.csv
-- result_name: s_brodae
-  input_path: ${data_dir}/biological/annotated/dataset-sbrodae-*.parquet
-  instanovo_predictions_path: ${output_dir}/${instanovo_run_name}/samples/sbrodae.csv
-  output_path: ${output_dir}/${instanovo_run_name}/${instanovoplus_run_name}/samples/sbrodae.csv
-- result_name: snake_venoms
-  input_path: ${data_dir}/biological/annotated/dataset-snakevenoms-*.parquet
-  instanovo_predictions_path: ${output_dir}/${instanovo_run_name}/samples/snakevenoms.csv
-  output_path: ${output_dir}/${instanovo_run_name}/${instanovoplus_run_name}/samples/snakevenoms.csv
-- result_name: tpl_antibodies
-  input_path: ${data_dir}/biological/annotated/dataset-tplantibodies-*.parquet
-  instanovo_predictions_path: ${output_dir}/${instanovo_run_name}/samples/tplantibodies.csv
-  output_path: ${output_dir}/${instanovo_run_name}/${instanovoplus_run_name}/samples/tplantibodies.csv
-- result_name: wound_fluids
-  input_path: ${data_dir}/biological/annotated/dataset-woundfluids-*.parquet
-  instanovo_predictions_path: ${output_dir}/${instanovo_run_name}/samples/woundfluids.csv
-  output_path: ${output_dir}/${instanovo_run_name}/${instanovoplus_run_name}/samples/woundfluids.csv
-# Ninespecies v1
-- result_name: bacillus
-  input_path: ${data_dir}/ninespecies_v1/dataset-bacillus-*.parquet
-  instanovo_predictions_path: ${output_dir}/${instanovo_run_name}/samples/bacillus.csv
-  output_path: ${output_dir}/${instanovo_run_name}/${instanovoplus_run_name}/samples/bacillus.csv
-- result_name: clambacteria
-  input_path: ${data_dir}/ninespecies_v1/dataset-clambacteria-*.parquet
-  instanovo_predictions_path: ${output_dir}/${instanovo_run_name}/samples/clambacteria.csv
-  output_path: ${output_dir}/${instanovo_run_name}/${instanovoplus_run_name}/samples/clambacteria.csv
-- result_name: honeybee
-  input_path: ${data_dir}/ninespecies_v1/dataset-honeybee-*.parquet
-  instanovo_predictions_path: ${output_dir}/${instanovo_run_name}/samples/honeybee.csv
-  output_path: ${output_dir}/${instanovo_run_name}/${instanovoplus_run_name}/samples/honeybee.csv
-- result_name: human
-  input_path: ${data_dir}/ninespecies_v1/dataset-human-*.parquet
-  instanovo_predictions_path: ${output_dir}/${instanovo_run_name}/samples/human.csv
-  output_path: ${output_dir}/${instanovo_run_name}/${instanovoplus_run_name}/samples/human.csv
-- result_name: mmazei
-  input_path: ${data_dir}/ninespecies_v1/dataset-mmazei-*.parquet
-  instanovo_predictions_path: ${output_dir}/${instanovo_run_name}/samples/mmazei.csv
-  output_path: ${output_dir}/${instanovo_run_name}/${instanovoplus_run_name}/samples/mmazei.csv
-- result_name: mouse
-  input_path: ${data_dir}/ninespecies_v1/dataset-mouse-*.parquet
-  instanovo_predictions_path: ${output_dir}/${instanovo_run_name}/samples/mouse.csv
-  output_path: ${output_dir}/${instanovo_run_name}/${instanovoplus_run_name}/samples/mouse.csv
-- result_name: ricebean
-  input_path: ${data_dir}/ninespecies_v1/dataset-ricebean-*.parquet
-  instanovo_predictions_path: ${output_dir}/${instanovo_run_name}/samples/ricebean.csv
-  output_path: ${output_dir}/${instanovo_run_name}/${instanovoplus_run_name}/samples/ricebean.csv
-- result_name: tomato
-  input_path: ${data_dir}/ninespecies_v1/dataset-tomato-*.parquet
-  instanovo_predictions_path: ${output_dir}/${instanovo_run_name}/samples/tomato.csv
-  output_path: ${output_dir}/${instanovo_run_name}/${instanovoplus_run_name}/samples/tomato.csv
-- result_name: yeast
-  input_path: ${data_dir}/ninespecies_v1/dataset-yeast-*.parquet
-  instanovo_predictions_path: ${output_dir}/${instanovo_run_name}/samples/yeast.csv
-  output_path: ${output_dir}/${instanovo_run_name}/${instanovoplus_run_name}/samples/yeast.csv
+  # Biological validation datasets
+  - result_name: gluc
+    input_path: ${data_dir}/biological/annotated/dataset-gluc-*.parquet
+    instanovo_predictions_path: ${output_dir}/${instanovo_run_name}/samples/gluc.csv
+    output_path: ${output_dir}/${instanovo_run_name}/${instanovoplus_run_name}/samples/gluc.csv
+  - result_name: hela_qc
+    input_path: ${data_dir}/biological/annotated/dataset-helaqc-*.parquet
+    instanovo_predictions_path: ${output_dir}/${instanovo_run_name}/samples/helaqc.csv
+    output_path: ${output_dir}/${instanovo_run_name}/${instanovoplus_run_name}/samples/helaqc.csv
+  - result_name: herceptin
+    input_path: ${data_dir}/biological/annotated/dataset-herceptin-*.parquet
+    instanovo_predictions_path: ${output_dir}/${instanovo_run_name}/samples/herceptin.csv
+    output_path: ${output_dir}/${instanovo_run_name}/${instanovoplus_run_name}/samples/herceptin.csv
+  - result_name: immuno
+    input_path: ${data_dir}/biological/annotated/dataset-immuno-*.parquet
+    instanovo_predictions_path: ${output_dir}/${instanovo_run_name}/samples/immuno.csv
+    output_path: ${output_dir}/${instanovo_run_name}/${instanovoplus_run_name}/samples/immuno.csv
+  - result_name: s_brodae
+    input_path: ${data_dir}/biological/annotated/dataset-sbrodae-*.parquet
+    instanovo_predictions_path: ${output_dir}/${instanovo_run_name}/samples/sbrodae.csv
+    output_path: ${output_dir}/${instanovo_run_name}/${instanovoplus_run_name}/samples/sbrodae.csv
+  - result_name: snake_venoms
+    input_path: ${data_dir}/biological/annotated/dataset-snakevenoms-*.parquet
+    instanovo_predictions_path: ${output_dir}/${instanovo_run_name}/samples/snakevenoms.csv
+    output_path: ${output_dir}/${instanovo_run_name}/${instanovoplus_run_name}/samples/snakevenoms.csv
+  - result_name: tpl_antibodies
+    input_path: ${data_dir}/biological/annotated/dataset-tplantibodies-*.parquet
+    instanovo_predictions_path: ${output_dir}/${instanovo_run_name}/samples/tplantibodies.csv
+    output_path: ${output_dir}/${instanovo_run_name}/${instanovoplus_run_name}/samples/tplantibodies.csv
+  - result_name: wound_fluids
+    input_path: ${data_dir}/biological/annotated/dataset-woundfluids-*.parquet
+    instanovo_predictions_path: ${output_dir}/${instanovo_run_name}/samples/woundfluids.csv
+    output_path: ${output_dir}/${instanovo_run_name}/${instanovoplus_run_name}/samples/woundfluids.csv
+  # Ninespecies v1
+  - result_name: bacillus
+    input_path: ${data_dir}/ninespecies_v1/dataset-bacillus-*.parquet
+    instanovo_predictions_path: ${output_dir}/${instanovo_run_name}/samples/bacillus.csv
+    output_path: ${output_dir}/${instanovo_run_name}/${instanovoplus_run_name}/samples/bacillus.csv
+  - result_name: clambacteria
+    input_path: ${data_dir}/ninespecies_v1/dataset-clambacteria-*.parquet
+    instanovo_predictions_path: ${output_dir}/${instanovo_run_name}/samples/clambacteria.csv
+    output_path: ${output_dir}/${instanovo_run_name}/${instanovoplus_run_name}/samples/clambacteria.csv
+  - result_name: honeybee
+    input_path: ${data_dir}/ninespecies_v1/dataset-honeybee-*.parquet
+    instanovo_predictions_path: ${output_dir}/${instanovo_run_name}/samples/honeybee.csv
+    output_path: ${output_dir}/${instanovo_run_name}/${instanovoplus_run_name}/samples/honeybee.csv
+  - result_name: human
+    input_path: ${data_dir}/ninespecies_v1/dataset-human-*.parquet
+    instanovo_predictions_path: ${output_dir}/${instanovo_run_name}/samples/human.csv
+    output_path: ${output_dir}/${instanovo_run_name}/${instanovoplus_run_name}/samples/human.csv
+  - result_name: mmazei
+    input_path: ${data_dir}/ninespecies_v1/dataset-mmazei-*.parquet
+    instanovo_predictions_path: ${output_dir}/${instanovo_run_name}/samples/mmazei.csv
+    output_path: ${output_dir}/${instanovo_run_name}/${instanovoplus_run_name}/samples/mmazei.csv
+  - result_name: mouse
+    input_path: ${data_dir}/ninespecies_v1/dataset-mouse-*.parquet
+    instanovo_predictions_path: ${output_dir}/${instanovo_run_name}/samples/mouse.csv
+    output_path: ${output_dir}/${instanovo_run_name}/${instanovoplus_run_name}/samples/mouse.csv
+  - result_name: ricebean
+    input_path: ${data_dir}/ninespecies_v1/dataset-ricebean-*.parquet
+    instanovo_predictions_path: ${output_dir}/${instanovo_run_name}/samples/ricebean.csv
+    output_path: ${output_dir}/${instanovo_run_name}/${instanovoplus_run_name}/samples/ricebean.csv
+  - result_name: tomato
+    input_path: ${data_dir}/ninespecies_v1/dataset-tomato-*.parquet
+    instanovo_predictions_path: ${output_dir}/${instanovo_run_name}/samples/tomato.csv
+    output_path: ${output_dir}/${instanovo_run_name}/${instanovoplus_run_name}/samples/tomato.csv
+  - result_name: yeast
+    input_path: ${data_dir}/ninespecies_v1/dataset-yeast-*.parquet
+    instanovo_predictions_path: ${output_dir}/${instanovo_run_name}/samples/yeast.csv
+    output_path: ${output_dir}/${instanovo_run_name}/${instanovoplus_run_name}/samples/yeast.csv
 
 result_file_path: ${output_dir}/${instanovo_run_name}/${instanovoplus_run_name}/instanovoplus_results.csv
 
@@ -116,8 +116,7 @@ token_log_probs_col: "token_log_probs"
 
 # These two only work in greedy search
 # Residues whose log probability will be set to -inf
-suppressed_residues:
-  ["(+25.98)"] # legacy
+suppressed_residues: ["(+25.98)"] # legacy
 # Stop model from predicting n-terminal modifications anywhere along the sequence
 disable_terminal_residues_anywhere: True
 
