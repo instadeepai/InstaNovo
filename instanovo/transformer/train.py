@@ -26,7 +26,6 @@ from torch import Tensor, nn
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
-import instanovo.utils.s3 as s3
 from instanovo.__init__ import console
 from instanovo.constants import ANNOTATED_COLUMN, ANNOTATION_ERROR
 from instanovo.inference import Decoder, GreedyDecoder, ScoredSequence
@@ -43,6 +42,7 @@ from instanovo.types import (
 from instanovo.utils import Metrics, ResidueSet, SpectrumDataFrame
 from instanovo.utils.colorlogging import ColorLog
 from instanovo.utils.device_handler import check_device
+from instanovo.utils.s3 import PLCheckpointWrapper, S3FileHandler
 
 load_dotenv()
 
@@ -67,6 +67,7 @@ class PTModule(L.LightningModule):
         scheduler: torch.optim.lr_scheduler._LRScheduler,
         disable_compile: bool = False,
         fp16: bool = True,
+        validation_groups: pl.Series | None = None,
     ) -> None:
         super().__init__()
         self.config = config
@@ -76,6 +77,9 @@ class PTModule(L.LightningModule):
         self.sw = sw
         self.optim = optim
         self.scheduler = scheduler
+        self.validation_groups = validation_groups
+        if validation_groups is not None:
+            self.groups = validation_groups.unique()
 
         self.loss_fn = nn.CrossEntropyLoss(ignore_index=0)
 
@@ -240,6 +244,9 @@ class PTModule(L.LightningModule):
         y = [x.sequence if isinstance(x, ScoredSequence) else [] for x in p]
         targets = list(self.model.batch_idx_to_aa(peptides, reverse=True))
 
+        self.valid_predictions += y
+        self.valid_targets += targets
+
         aa_prec, aa_recall, pep_recall, _ = self.metrics.compute_precision_recall(targets, y)
         aa_er = self.metrics.compute_aa_er(targets, y)
 
@@ -289,6 +296,11 @@ class PTModule(L.LightningModule):
         self.train_epoch_start_time = None
         self.train_epoch_step = 0
 
+    def on_validation_epoch_start(self) -> None:
+        """Reset validation predictions at the start of the epoch."""
+        self.valid_predictions: list[list[str]] = []
+        self.valid_targets: list[list[str]] = []
+
     def on_validation_epoch_end(self) -> None:
         """Log the validation metrics at the end of each epoch."""
         epoch = self.trainer.current_epoch
@@ -312,6 +324,28 @@ class PTModule(L.LightningModule):
                 f"[VALIDATION] [Epoch {epoch:02d}/{self.trainer.max_epochs - 1:02d}] - "
                 f"{metric:11s}{val:.3f}"
             )
+
+        # Validation group logging
+        if self.validation_groups is not None:
+            preds = pl.Series(self.valid_predictions)
+            targs = pl.Series(self.valid_targets)
+
+            assert len(preds) == len(self.validation_groups)
+            assert len(targs) == len(self.validation_groups)
+
+            for group in self.groups:
+                idx = self.validation_groups == group
+                aa_prec, aa_recall, pep_recall, _ = self.metrics.compute_precision_recall(
+                    targs.filter(idx), preds.filter(idx)
+                )
+                aa_er = self.metrics.compute_aa_er(targs.filter(idx), preds.filter(idx))
+                self.sw.add_scalar(f"eval/{group}_aa_er", aa_er, epoch)
+                self.sw.add_scalar(f"eval/{group}_aa_prec", aa_prec, epoch)
+                self.sw.add_scalar(f"eval/{group}_aa_recall", aa_recall, epoch)
+                self.sw.add_scalar(f"eval/{group}_pep_recall", pep_recall, epoch)
+
+        self.valid_predictions = []
+        self.valid_targets = []
 
         self.valid_epoch_start_time = None
         self.valid_epoch_step = 0
@@ -352,10 +386,12 @@ def train(
     torch.set_float32_matmul_precision("high")
 
     time_now = datetime.datetime.now().strftime("_%y_%m_%d_%H_%M")
-    if s3.register_tb():
+    if S3FileHandler.register_tb():
         config["tb_summarywriter"] = os.environ["AICHOR_LOGS_PATH"]
     else:
         config["tb_summarywriter"] = config["tb_summarywriter"] + time_now
+
+    s3 = S3FileHandler()
 
     if config.get("report_to", "") == "neptune":
         if "NEPTUNE_API_TOKEN" not in os.environ:
@@ -405,12 +441,13 @@ def train(
     # Transformer vocabulary
     residue_set = ResidueSet(
         residue_masses=config["residues"],
-        residue_remapping=config["residue_remapping"],
+        residue_remapping=config.get("residue_remapping", None),
     )
     logger.info(f"Vocab: {residue_set.index_to_residue}")
 
     logger.info("Loading data")
 
+    validation_group_mapping = None
     try:
         train_sdf = SpectrumDataFrame.load(
             source=config.get("train_path"),
@@ -422,16 +459,31 @@ def train(
             column_mapping=config.get("column_remapping", None),
             max_shard_size=config.get("max_shard_size", 100_000),
             preshuffle_across_shards=config.get("preshuffle_shards", False),
+            force_convert_to_native=config.get("force_convert_to_native", False),
             verbose=config.get("verbose_loading", True),
         )
+
+        valid_path = config.get("valid_path", None)
+        if valid_path is not None:
+            if OmegaConf.is_dict(valid_path):
+                logger.info("Found grouped validation datasets.")
+                validation_group_mapping = _get_filepath_mapping(valid_path)
+                _valid_path = list(valid_path.values())
+            else:
+                _valid_path = valid_path
+        else:
+            _valid_path = config.get("train_path")
+
         valid_sdf = SpectrumDataFrame.load(
-            config.get("valid_path", None) or config.get("train_path"),
+            _valid_path,
             lazy=config.get("lazy_loading", True),
             is_annotated=True,
             shuffle=False,
             partition=config.get("valid_partition", None),
             column_mapping=config.get("column_remapping", None),
             max_shard_size=config.get("max_shard_size", 100_000),
+            force_convert_to_native=config.get("force_convert_to_native", False),
+            add_source_file_column=True,  # used to track validation groups
         )
     except ValueError as e:
         # More descriptive error message in predict mode.
@@ -752,6 +804,23 @@ def train(
     scheduler = WarmupScheduler(optim, config["warmup_iters"])
     strategy = _get_strategy()
 
+    if validation_group_mapping is not None:
+        logger.info("Computing validation groups.")
+        validation_groups = pl.Series(
+            [
+                validation_group_mapping[row["source_file"]]
+                if row.get("source_file", None) in validation_group_mapping
+                else "no_group"
+                for row in iter(valid_sdf)
+            ],
+            dtype=pl.String,
+        )
+        logger.info("Sequences per validation group:")
+        for group in validation_groups.unique():
+            logger.info(f" - {group}: {(validation_groups == group).sum():,d}")
+    else:
+        validation_groups = None
+
     ptmodel = PTModule(
         config,
         model,
@@ -762,22 +831,24 @@ def train(
         scheduler,
         config["compile_model"],
         config["fp16"],
+        validation_groups,
     )
 
     if config["save_model"]:
         logger.info("Model saving enabled")
 
         # returns input if s3 disabled
-        ckpt_path = s3.convert_to_s3_output(config["model_save_folder_path"])
+        s3_ckpt_path = S3FileHandler.convert_to_s3_output(config["model_save_folder_path"])
 
-        if s3._s3_enabled():
+        if S3FileHandler._aichor_enabled():
             callbacks = [
-                s3.PLCheckpointWrapper(
+                PLCheckpointWrapper(
                     dirpath=config["model_save_folder_path"],
                     save_top_k=-1,
                     save_weights_only=config["save_weights_only"],
                     every_n_train_steps=config["ckpt_interval"],
-                    s3_ckpt_path=ckpt_path,
+                    s3_ckpt_path=s3_ckpt_path,
+                    s3=s3,
                     strategy=strategy,
                 )
             ]
@@ -791,7 +862,7 @@ def train(
                 )
             ]
 
-        logger.info(f"Saving every {config['ckpt_interval']} training steps to {ckpt_path}")
+        logger.info(f"Saving every {config['ckpt_interval']} training steps to {s3_ckpt_path}")
     else:
         logger.info("Model saving disabled")
         callbacks = None
@@ -883,6 +954,14 @@ class NeptuneSummaryWriter(SummaryWriter):
 def _format_time(seconds: float) -> str:
     seconds = int(seconds)
     return f"{seconds // 3600:02d}:{(seconds % 3600) // 60:02d}:{seconds % 60:02d}"
+
+
+def _get_filepath_mapping(file_groups: dict[str, str]) -> dict[str, str]:
+    group_mapping = {}
+    for group, path in file_groups.items():
+        for fp in SpectrumDataFrame._convert_file_paths(path):
+            group_mapping[fp] = group
+    return group_mapping
 
 
 class WarmupScheduler(torch.optim.lr_scheduler._LRScheduler):
