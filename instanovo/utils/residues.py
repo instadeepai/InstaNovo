@@ -34,6 +34,7 @@ class ResidueSet:
             SpecialTokens.SOS_TOKEN.value,
             SpecialTokens.EOS_TOKEN.value,
         ]
+
         self.vocab = self.special_tokens + list(self.residue_masses.keys())
 
         # Create mappings
@@ -42,18 +43,24 @@ class ResidueSet:
         # Split on amino acids allowing for modifications eg. AM(ox)Z -> [A, M(ox), Z]
         # Supports brackets or unimod notation
         self.tokenizer_regex = (
-            # First capture group: matches either:
-            # - A UNIMOD annotation like [UNIMOD:123]
-            # - Any text inside parentheses like (ox) or (+.98)
-            r"(\[UNIMOD:\d+\]|\([^)]+\))|"
-            # Second capture group: starts with a valid amino acid letter
-            # (including U for selenocysteine and O for pyrrolysine)
-            r"([A-Z]"
-            # Optionally followed by a UNIMOD annotation
-            r"(?:\[UNIMOD:\d+\]|"
-            # Or optionally followed by text in parentheses
-            r"\([^)]+\))?"
-            # Close second capture group
+            # First capture group: matches standalone modifications
+            # These would represent n-terminal modifications:
+            # - Anything in square brackets, like [UNIMOD:35], [GLY:123456], [+.98]
+            # - Anything in parentheses, like (ox), (-17.02), (+.98), (p)
+            # - Raw numeric modifications with optional sign, like +15.99, -17.02, 0.98, .98
+            r"(\[[^\]]+\]"  # Square-bracketed mod, e.g. [UNIMOD:123]
+            r"|\([^)]+\)"  # Parentheses mod, e.g. (+15.99)
+            r"|[+-]?\d+(?:\.\d+)?"  # Number with optional +/-, e.g. +15.99, -17.02, 42.02
+            r"|[+-]?\.\d+"  # Decimal without leading digit, e.g. .98
+            r")|"
+            # Second capture group: matches amino acids with optional attached modifications
+            # - Starts with a capital letter A-Z (standard amino acid codes)
+            # - Optionally followed by any of the above modification formats
+            r"([A-Z]"  # Amino acid residue, e.g. A, R, C
+            r"(?:\[[^\]]+\]"  # Optional square-bracketed mod
+            r"|\([^)]+\)"  # Optional parentheses mod
+            r"|[+-]?\d+(?:\.\d+)?"  # Optional numeric mod
+            r"|[+-]?\.\d+)?"
             r")"
         )
 
@@ -172,6 +179,7 @@ class ResidueSet:
 
         if add_eos:
             encoded_list.extend([self.EOS_INDEX])
+
         if pad_length:
             encoded_list.extend((pad_length - len(encoded_list)) * [self.PAD_INDEX])
 
