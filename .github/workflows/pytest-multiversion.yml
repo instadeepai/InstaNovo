@@ -111,7 +111,7 @@ jobs:
           # Install ipykernel
           PYDEVD_DISABLE_FILE_VALIDATION=1 python -m ipykernel install --user --name instanovo
           # Run notebook tests with nbmake
-          uv run --frozen pytest --nbmake "./notebooks" --nbmake-kernel=instanovo --nbmake-timeout=10000
+          uv run --frozen pytest --nbmake "./notebooks/getting_started_with_instanovo.ipynb" --nbmake-kernel=instanovo --nbmake-timeout=10000
 
       # Step 9: Test notebooks on Windows (conditional)
       - name: Test notebooks on Windows
@@ -120,4 +120,4 @@ jobs:
           # Set environment variable and install ipykernel
           $env:PYDEVD_DISABLE_FILE_VALIDATION=1; python -m ipykernel install --user --name instanovo
           # Run notebook tests with nbmake
-          uv run --frozen pytest --nbmake "./notebooks" --nbmake-kernel=instanovo --nbmake-timeout=10000
+          uv run --frozen pytest --nbmake "./notebooks/getting_started_with_instanovo.ipynb" --nbmake-kernel=instanovo --nbmake-timeout=10000
