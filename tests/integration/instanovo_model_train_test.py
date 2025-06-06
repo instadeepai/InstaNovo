@@ -15,6 +15,7 @@ from instanovo.transformer.model import InstaNovo
 from instanovo.transformer.predict import get_preds
 from instanovo.transformer.train import train
 from instanovo.utils.colorlogging import ColorLog
+from instanovo.utils.s3 import S3FileHandler
 
 logger = ColorLog(console, __name__).logger
 
@@ -54,13 +55,6 @@ def test_train_model(
         tmp_path
     )  # save the model in a temporary directory
 
-    temp_train_config = copy.deepcopy(instanovo_config)
-    temp_inference_config = copy.deepcopy(instanovo_inference_config)
-
-    temp_train_config["model_save_folder_path"] = str(
-        tmp_path
-    )  # save the model in a temporary directory
-
     logger.info("Training model.")
     train(temp_train_config)
 
@@ -75,10 +69,12 @@ def test_train_model(
         temp_train_config["model_save_folder_path"], "test_sample_preds.csv"
     )
     logger.info("Computing predictions and saving to specified file.")
+    s3 = S3FileHandler()
     get_preds(
         config=temp_inference_config,
         model=model,
         model_config=config,
+        s3=s3,
     )
 
     assert os.path.exists(temp_inference_config["output_path"]), (
