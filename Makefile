@@ -45,8 +45,9 @@ DOCKER_RUN_FLAGS_VOLUME_MOUNT_HOME = $(DOCKER_RUN_FLAGS) --volume $(PWD):$(DOCKE
 DOCKER_RUN_FLAGS_VOLUME_MOUNT_RUNS = $(DOCKER_RUN_FLAGS) --volume $(PWD)/runs:$(DOCKER_RUNS_DIRECTORY)
 DOCKER_RUN = docker run $(DOCKER_RUN_FLAGS) $(IMAGE_NAME)
 
-PYTEST = python -m pytest --alluredir=allure_results --cov-report=html --cov --random-order --verbose .
-COVERAGE = python -m coverage report -m
+PYTEST = uv run -m pytest --alluredir=allure_results --cov-report=html --cov --random-order --verbose .
+
+COVERAGE = uv run -m coverage report -m
 
 #################################################################################
 ## Docker build commands																#
@@ -146,6 +147,7 @@ upgrade:
 ## Run all tests
 tests:
 	uv run instanovo/scripts/get_zenodo_record.py
+	uv sync --extra cu124 --group dev
 	$(PYTEST)
 
 ## Calculate the code coverage

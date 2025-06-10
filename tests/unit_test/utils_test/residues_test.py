@@ -41,7 +41,19 @@ def test_init(residue_set: Any) -> None:
         6: "D",
         7: "E",
     }
-    assert rs.tokenizer_regex == r"(\[UNIMOD:\d+\]|\([^)]+\))|([A-Z](?:\[UNIMOD:\d+\]|\([^)]+\))?)"
+    assert rs.tokenizer_regex == (
+        r"(\[[^\]]+\]"
+        r"|\([^)]+\)"
+        r"|[+-]?\d+(?:\.\d+)?"
+        r"|[+-]?\.\d+"
+        r")|"
+        r"([A-Z]"
+        r"(?:\[[^\]]+\]"
+        r"|\([^)]+\)"
+        r"|[+-]?\d+(?:\.\d+)?"
+        r"|[+-]?\.\d+)?"
+        r")"
+    )
     assert rs.PAD_INDEX == 0
     assert rs.SOS_INDEX == 1
     assert rs.EOS_INDEX == 2
@@ -88,11 +100,80 @@ def test_tokenize(residue_set: Any) -> None:
     tokens = rs.tokenize("BACDE")
     assert tokens == ["B", "A", "C", "D", "E"]
 
-    tokens = rs.tokenize("BA(+57.02)CDE")
-    assert tokens == ["B", "A(+57.02)", "C", "D", "E"]
+    tokens = rs.tokenize("BAC[+57.02]DE")
+    assert tokens == ["B", "A", "C[+57.02]", "D", "E"]
 
-    tokens = rs.tokenize("KA(+57.02)CDE")
-    assert tokens == ["K", "A(+57.02)", "C", "D", "E"]
+    tokens = rs.tokenize("BAC[57.02]DE")
+    assert tokens == ["B", "A", "C[57.02]", "D", "E"]
+
+    tokens = rs.tokenize("BAC[UNIMOD:4]DE")
+    assert tokens == ["B", "A", "C[UNIMOD:4]", "D", "E"]
+
+    tokens = rs.tokenize("BAC[IN:123]DE")
+    assert tokens == ["B", "A", "C[IN:123]", "D", "E"]
+
+    tokens = rs.tokenize("BAC[123]DE")
+    assert tokens == ["B", "A", "C[123]", "D", "E"]
+
+    tokens = rs.tokenize("BAQ(+0.98)DE")
+    assert tokens == ["B", "A", "Q(+0.98)", "D", "E"]
+
+    tokens = rs.tokenize("BAQ(+.98)DE")
+    assert tokens == ["B", "A", "Q(+.98)", "D", "E"]
+
+    tokens = rs.tokenize("BAQ(.98)DE")
+    assert tokens == ["B", "A", "Q(.98)", "D", "E"]
+
+    tokens = rs.tokenize("BAQ[+0.98]DE")
+    assert tokens == ["B", "A", "Q[+0.98]", "D", "E"]
+
+    tokens = rs.tokenize("BAQ[+.98]DE")
+    assert tokens == ["B", "A", "Q[+.98]", "D", "E"]
+
+    tokens = rs.tokenize("BAQ[.98]DE")
+    assert tokens == ["B", "A", "Q[.98]", "D", "E"]
+
+    tokens = rs.tokenize("BAQ+.98DE")
+    assert tokens == ["B", "A", "Q+.98", "D", "E"]
+
+    tokens = rs.tokenize("BAQ.98DE")
+    assert tokens == ["B", "A", "Q.98", "D", "E"]
+
+    tokens = rs.tokenize("BAM(ox)DE")
+    assert tokens == ["B", "A", "M(ox)", "D", "E"]
+
+    tokens = rs.tokenize("BAM[ox]DE")
+    assert tokens == ["B", "A", "M[ox]", "D", "E"]
+
+    tokens = rs.tokenize("(-17.03)BACDE")
+    assert tokens == ["(-17.03)", "B", "A", "C", "D", "E"]
+
+    tokens = rs.tokenize("[-17.03]BACDE")
+    assert tokens == ["[-17.03]", "B", "A", "C", "D", "E"]
+
+    tokens = rs.tokenize("-17.03BACDE")
+    assert tokens == ["-17.03", "B", "A", "C", "D", "E"]
+
+    tokens = rs.tokenize("(+43.01)BACDE")
+    assert tokens == ["(+43.01)", "B", "A", "C", "D", "E"]
+
+    tokens = rs.tokenize("[+43.01]BACDE")
+    assert tokens == ["[+43.01]", "B", "A", "C", "D", "E"]
+
+    tokens = rs.tokenize("[UNIMOD:5]BACDE")
+    assert tokens == ["[UNIMOD:5]", "B", "A", "C", "D", "E"]
+
+    tokens = rs.tokenize("[123]BACDE")
+    assert tokens == ["[123]", "B", "A", "C", "D", "E"]
+
+    tokens = rs.tokenize("+43.01BACDE")
+    assert tokens == ["+43.01", "B", "A", "C", "D", "E"]
+
+    tokens = rs.tokenize("ABCDEM[UNIMOD:35]")
+    assert tokens == ["A", "B", "C", "D", "E", "M[UNIMOD:35]"]
+
+    tokens = rs.tokenize("[UNIMOD:385][UNIMOD:5]BACDE")
+    assert tokens == ["[UNIMOD:385]", "[UNIMOD:5]", "B", "A", "C", "D", "E"]
 
 
 def test_detokenize(residue_set: Any) -> None:

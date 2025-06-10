@@ -108,7 +108,7 @@ def instanovoplus_inference_config() -> DictConfig:
 @pytest.fixture(scope="session")
 def dir_paths() -> tuple[str, str]:
     """A pytest fixture that returns the root and data directories."""
-    root_dir = "./tests/instanovo_test_resources"
+    root_dir = "tests/instanovo_test_resources"
     data_dir = os.path.join(root_dir, "example_data")
     return root_dir, data_dir
 

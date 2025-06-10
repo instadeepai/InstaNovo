@@ -3,13 +3,9 @@ defaults:
   - _self_
 
 # Data paths and output location
-data_path: ./tests/instanovo_test_resources/example_data/test_sample.mgf # type: .ipc
-instanovo_plus_model: ./tests/instanovo_test_resources/instanovoplus
-output_path: ./tests/instanovo_test_resources/instanovoplus/test_sample_preds.csv # type: .csv
-
-instanovo_predictions_path:
-refine: False
-id_col: "scan_number"
+data_path: tests/instanovo_test_resources/example_data/test_sample.mgf # type: .ipc
+instanovo_plus_model: tests/instanovo_test_resources/instanovoplus
+output_path: tests/instanovo_test_resources/instanovoplus/test_sample_preds.csv # type: .csv
 
 max_length: 6
 max_charge: 3
@@ -21,7 +17,13 @@ batch_size: 32
 device: auto
 fp16: True
 
-residue_remapping: ""
-pred_col: preds
-pred_tok_col: preds_tokenised
-log_probs_col: log_probs
+instanovo_predictions_path:
+refine: False
+
+# Prediction columns
+pred_tok_col: "preds_tokenised"
+pred_col: "preds"
+instanovo_id_col: scan_number
+instanovoplus_id_col: scan_number
+log_probs_col: "log_probs"
+token_log_probs_col: "token_log_probs"

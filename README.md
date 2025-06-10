@@ -150,7 +150,7 @@ InstaNovo uses command line arguments for commonly used parameters:
 - `--instanovo-model` - Model to use for InstaNovo. Either a model ID (currently supported:
   `instanovo-v1.1.0`) or a path to an Instanovo checkpoint file (.ckpt format).
 - `--instanovo-plus-model` - Model to use for InstaNovo+. Either a model ID (currently supported:
-  `instanovoplus-v1.1.0-alpha`) or a path to an Instanovo+ checkpoint file (.ckpt format).
+  `instanovoplus-v1.1.0`) or a path to an Instanovo+ checkpoint file (.ckpt format).
 - `--denovo` - Whether to do _de novo_ predictions. If you want to evaluate the model on annotated
   data, use the flag `--evaluation` flag.
 - `--with-refinement` - Whether to use InstaNovo+ for iterative refinement of InstaNovo predictions.
@@ -302,6 +302,37 @@ and then use the predictions as input for InstaNovo+:
 ```bash
 instanovo diffusion predict --data-path ./sample_data/spectra.mgf --output-path instanovo_plus_predictions.csv instanovo_predictions_path=instanovo_predictions.csv
 ```
+
+## Performance
+
+We have benchmarked our latest models InstaNovo v1.1 and InstaNovo+ v1.1 against our previous
+models. For all results below, InstaNovo decoding was performed with knapsack beam search decoding.
+InstaNovo+ then refined these results. We present peptide accuracy as the metric of comparison.
+Peptide accuracy is a measure of precision at full coverage (no filtering).
+
+### Nine-species dataset
+
+| Dataset  | InstaNovo v0.1 | InstaNovo+ v0.1 | InstaNovo v1.1 | InstaNovo+ v1.1 |
+| -------- | -------------- | --------------- | -------------- | --------------- |
+| Bacillus | 0.624          | 0.674           | 0.652          | **0.684**       |
+| Mouse    | 0.466          | 0.490           | 0.524          | **0.542**       |
+| Yeast    | 0.559          | 0.624           | 0.618          | **0.645**       |
+
+InstaNovo and InstaNovo+ v0.1 were fine-tuned on the eight species dataset, excluding the test
+species, whereas InstaNovo and InstaNovo+ v1.1 were evaluated zero-shot on these datasets.
+
+### Biological validation datasets
+
+| Dataset                         | InstaNovo v0.1 | InstaNovo+ v0.1 | InstaNovo v1.1 | InstaNovo+ v1.1 |
+| ------------------------------- | -------------- | --------------- | -------------- | --------------- |
+| HeLa degradome                  | 0.695          | 0.719           | 0.813          | **0.821**       |
+| HeLa single-shot                | 0.503          | 0.517           | 0.642          | **0.647**       |
+| Herceptin                       | 0.494          | 0.562           | 0.710          | **0.720**       |
+| Immunopeptidomics               | 0.581          | 0.697           | 0.707          | **0.748**       |
+| _Candidatus_ "Scalindua brodae" | 0.724          | 0.736           | 0.748          | **0.762**       |
+| Snake venoms                    | 0.196          | 0.198           | 0.221          | **0.238**       |
+| Nanobodies                      | 0.447          | 0.464           | 0.492          | **0.508**       |
+| Wound fluids                    | 0.225          | 0.229           | 0.354          | **0.364**       |
 
 ## Additional features
 
@@ -470,24 +501,18 @@ git clone https://github.com/YOUR-USERNAME/InstaNovo.git
 cd InstaNovo
 ```
 
-Activate the virtual environment:
-
-```bash
-source .venv/bin/activate
-```
-
-And install the dependencies. If you don't have access to a GPU, you can install the CPU-only
-version of PyTorch:
-
-```bash
-uv sync --extra cpu
-uv run pre-commit install
-```
-
-If you do have access to an NVIDIA GPU, you can install the GPU version of PyTorch (recommended):
+And install the dependencies. If you do have access to an NVIDIA GPU, you can install the GPU
+version of PyTorch (recommended):
 
 ```bash
 uv sync --extra cu124
+uv run pre-commit install
+```
+
+If you don't have access to a GPU, you can install the CPU-only version of PyTorch:
+
+```bash
+uv sync --extra cpu
 uv run pre-commit install
 ```
 
@@ -496,6 +521,12 @@ documentation dependencies, you can do so with:
 
 ```bash
 uv sync --extra cu124 --group docs
+```
+
+Activate the virtual environment:
+
+```bash
+source .venv/bin/activate
 ```
 
 To upgrade all packages to the latest versions, you can run:

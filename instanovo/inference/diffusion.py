@@ -1,12 +1,10 @@
 from __future__ import annotations
 
-from typing import Optional
-
 import torch
 from jaxtyping import Bool, Float, Integer
 from torch.distributions import Categorical
 
-from instanovo.constants import DIFFUSION_EVAL_STEPS, DIFFUSION_START_STEP
+from instanovo.constants import DIFFUSION_BASE_STEPS, DIFFUSION_EVAL_STEPS, DIFFUSION_START_STEP
 from instanovo.diffusion.multinomial_diffusion import DiffusionLoss, InstaNovoPlus
 from instanovo.types import Peptide, PrecursorFeatures, Spectrum, SpectrumMask
 
@@ -17,7 +15,7 @@ class DiffusionDecoder:
     def __init__(self, model: InstaNovoPlus) -> None:
         self.model = model
         self.time_steps = model.time_steps
-        self.residues = model.residues
+        self.residue_set = model.residue_set
         self.loss_function = DiffusionLoss(model=self.model)
 
     def decode(
@@ -25,9 +23,9 @@ class DiffusionDecoder:
         spectra: Float[Spectrum, " batch"],
         spectra_padding_mask: Bool[SpectrumMask, " batch"],
         precursors: Float[PrecursorFeatures, " batch"],
-        initial_sequence: Optional[Integer[Peptide, " batch"]] = None,
-        start_step: int = DIFFUSION_START_STEP,
-        eval_steps: tuple[int, ...] = DIFFUSION_EVAL_STEPS,
+        initial_sequence: Integer[Peptide, " batch"] | None = None,
+        start_step: int | None = None,
+        eval_steps: tuple[int, ...] | None = None,
     ) -> tuple[list[list[str]], list[float]]:
         """Decoding predictions from a diffusion model by forward sampling.
 
@@ -46,9 +44,15 @@ class DiffusionDecoder:
                 provided (the value is None), will sample a random sequence from a uniform unigram
                 model. Defaults to None.
 
-            start_step (int):
-                The step at which to insert the initial sequence and start refinement. If
-                `initial_sequence` is not provided, this will be set to `time_steps - 1`.
+            start_step (int | None, optional): The step at which to insert the initial sequence
+                and start refinement.
+                If None, will be set to the correct proportion of the original total time steps.
+                If `initial_sequence` is not provided, this will be set to `time_steps - 1`.
+                Defaults to None.
+
+            eval_steps (tuple[int, ...] | None, optional):
+                The steps at which to evaluate the loss. If None, will sample 4 steps at equal
+                intervals within the start_step interval. Defaults to None.
 
         Returns:
             tuple[list[list[str]], list[float]]:
@@ -56,7 +60,7 @@ class DiffusionDecoder:
         """
         device = spectra.device
         sequence_length = self.model.config.max_length
-        batch_size, num_classes = spectra.size(0), len(self.model.residues)
+        batch_size, num_classes = spectra.size(0), len(self.model.residue_set)
         if initial_sequence is None:
             # Sample uniformly
             initial_distribution = Categorical(
@@ -67,9 +71,12 @@ class DiffusionDecoder:
         else:
             sample = initial_sequence
 
-        peptide_mask = torch.zeros(batch_size, sequence_length).bool().to(device)
+        if start_step is None:
+            start_step = int(DIFFUSION_START_STEP / DIFFUSION_BASE_STEPS * self.time_steps)
 
+        peptide_mask = torch.zeros(batch_size, sequence_length).bool().to(device)
         log_probs = torch.zeros((batch_size, sequence_length)).to(device)
+
         # Sample through reverse process
         for t in range(start_step, -1, -1):
             times = (t * torch.ones((batch_size,))).long().to(spectra.device)
@@ -84,6 +91,12 @@ class DiffusionDecoder:
                 )
             )
             sample = distribution.sample()
+
+        # Calculate evaluation steps if not provided
+        if eval_steps is None:
+            eval_steps = tuple(
+                int(step * self.time_steps / DIFFUSION_BASE_STEPS) for step in DIFFUSION_EVAL_STEPS
+            )
 
         # Calculate log-probabilities as average loss across `eval_steps`
         losses = []
@@ -107,11 +120,11 @@ class DiffusionDecoder:
         output = []
         for sequence in sample:
             tokens = sequence.tolist()
-            if self.residues.EOS_INDEX in sequence:
-                peptide = tokens[: tokens.index(self.residues.EOS_INDEX)]
+            if self.residue_set.EOS_INDEX in sequence:
+                peptide = tokens[: tokens.index(self.residue_set.EOS_INDEX)]
             else:
                 peptide = tokens
             output.append(
-                self.residues.decode(peptide, reverse=False)
+                self.residue_set.decode(peptide, reverse=False)
             )  # we do not reverse peptide for diffusion
         return output

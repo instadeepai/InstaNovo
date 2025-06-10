@@ -319,10 +319,10 @@ def test_transformer_predict(
             "precursor_charge",
             "experiment_name",
             "spectrum_id",
-            "predictions",
-            "predictions_tokenised",
-            "log_probabilities",
-            "token_log_probabilities",
+            "preds",
+            "preds_tokenised",
+            "log_probs",
+            "token_log_probs",
             "delta_mass_ppm",
         ]
         assert len(rows) == 1
@@ -333,12 +333,12 @@ def test_transformer_predict(
         assert data["spectrum_id"] == "test:0"
         if input_file_fixture == "mgf_file":
             assert data["precursor_mz"] == "451.25348"
-            assert data["predictions"] == "LAHYNKK"
-            assert data["predictions_tokenised"] == "L, A, H, Y, N, K, K"
-            assert np.isclose(float(data["log_probabilities"]), -424.5889587402344, atol=0.1)
+            assert data["preds"] == "LAHYNKR"
+            assert data["preds_tokenised"] == "L, A, H, Y, N, K, R"
+            assert np.isclose(float(data["log_probs"]), -424.5889587402344, atol=0.1)
             import json
 
-            token_log_probs = np.array(json.loads(data["token_log_probabilities"]))
+            token_log_probs = np.array(json.loads(data["token_log_probs"]))
             expected_token_log_probs = np.array(
                 [
                     -0.5959059000015259,
@@ -354,12 +354,12 @@ def test_transformer_predict(
             assert np.isclose(float(data["delta_mass_ppm"]), 29919.088934228454, atol=1e-2)
         else:
             assert data["precursor_mz"] == "445.34"
-            assert data["predictions"] == "HPASTGAAK"
-            assert data["predictions_tokenised"] == "H, P, A, S, T, G, A, A, K"
-            assert np.isclose(float(data["log_probabilities"]), -360.1124572753906, atol=0.1)
+            assert data["preds"] == "EELESLR"
+            assert data["preds_tokenised"] == "E, E, L, E, S, L, R"
+            assert np.isclose(float(data["log_probs"]), -360.1124572753906, atol=0.1)
             import json
 
-            token_log_probs = np.array(json.loads(data["token_log_probabilities"]))
+            token_log_probs = np.array(json.loads(data["token_log_probs"]))
             expected_token_log_probs = np.array(
                 [
                     -0.49431324005126953,
@@ -385,7 +385,11 @@ def test_predict_nonexisting_config_name(cli: Typer) -> None:
         match="Cannot find primary config 'nonexisting'. "
         "Check that it's in your config search path.",
     ):
-        runner.invoke(cli, ["predict", "--config-name", "nonexisting"], catch_exceptions=False)
+        runner.invoke(
+            cli,
+            ["predict", "--config-name", "nonexisting", "--output-path", "output.csv"],
+            catch_exceptions=False,
+        )
 
 
 @pytest.mark.parametrize("cli", [combined_cli, instanovo_cli, instanovo_plus_cli])
@@ -394,7 +398,11 @@ def test_predict_nonexisting_config_path(cli: Typer) -> None:
     with pytest.raises(
         hydra.errors.MissingConfigException, match="Primary config directory not found."
     ):
-        runner.invoke(cli, ["predict", "--config-path", "nonexisting"], catch_exceptions=False)
+        runner.invoke(
+            cli,
+            ["predict", "--config-path", "nonexisting", "--output-path", "output.csv"],
+            catch_exceptions=False,
+        )
 
 
 @pytest.mark.parametrize(
@@ -427,18 +435,42 @@ def test_predict_transformer(caplog: pytest.FixtureRequest) -> None:
         )
         assert result.exit_code == 0
         assert (
-            "data_path: ./tests/instanovo_test_resources/example_data/test_sample.mgf"
-            in caplog.text
+            "data_path: tests/instanovo_test_resources/example_data/test_sample.mgf" in caplog.text
         )
         assert "max_charge: 3" in caplog.text
         assert "denovo: false" in caplog.text
 
-        assert "instanovo_model: ./tests/instanovo_test_resources/model.ckpt" in caplog.text
-        assert "output_path: ./tests/instanovo_test_resources/test_sample_preds.csv" in caplog.text
-        assert "knapsack_path: ./tests/instanovo_test_resources/example_knapsack" in caplog.text
+        assert "instanovo_model: tests/instanovo_test_resources/model.ckpt" in caplog.text
+        assert "output_path: tests/instanovo_test_resources/test_sample_preds.csv" in caplog.text
+        assert "knapsack_path: tests/instanovo_test_resources/example_knapsack" in caplog.text
         assert "use_knapsack: false" in caplog.text
         assert "num_beams: 5" in caplog.text
-        assert "max_length: 40" in caplog.text
+        assert "max_length: 6" in caplog.text
+
+
+def test_predict_transformer_pipeline(caplog: pytest.FixtureRequest) -> None:
+    """Test the 'predict' command of the instanovo_cli."""
+    with caplog.at_level("INFO"):
+        result: Result = runner.invoke(
+            combined_cli, ["transformer", "predict", "--config-name", "pipeline_unit_test"]
+        )
+        assert result.exit_code == 0
+        assert "max_charge: 3" in caplog.text
+        assert "denovo: false" in caplog.text
+
+        assert "instanovo_model: tests/instanovo_test_resources/model.ckpt" in caplog.text
+        assert "result_name: test" in caplog.text
+        assert (
+            "input_path: tests/instanovo_test_resources/example_data/test_sample.mgf" in caplog.text
+        )
+        assert "output_path: tests/instanovo_test_resources/test_sample_preds.csv" in caplog.text
+        assert (
+            "result_file_path: tests/instanovo_test_resources/instanovo_results.csv" in caplog.text
+        )
+        assert "knapsack_path: tests/instanovo_test_resources/example_knapsack" in caplog.text
+        assert "use_knapsack: false" in caplog.text
+        assert "num_beams: 1" in caplog.text
+        assert "max_length: 6" in caplog.text
 
 
 # TODO until a diffusion checkpoint is available, skip diffusion tests
@@ -447,7 +479,7 @@ def is_diffusion_checkpoint_available() -> bool:
     with resources.files("instanovo").joinpath("models.json").open("r", encoding="utf-8") as f:
         models_config = json.load(f)
     try:
-        model_info = models_config["diffusion"]["instanovo-plus-v1.1.0"]
+        model_info = models_config["diffusion"]["instanovoplus-v1.1.0"]
         if "local" in model_info:
             instanovo_plus_model = model_info["local"]
             return os.path.isdir(instanovo_plus_model)
@@ -456,9 +488,9 @@ def is_diffusion_checkpoint_available() -> bool:
         return False
 
 
-@pytest.mark.skipif(
-    not is_diffusion_checkpoint_available(), reason="no diffusion checkpoint available"
-)
+# @pytest.mark.skipif(
+#     not is_diffusion_checkpoint_available(), reason="no diffusion checkpoint available"
+# )
 def test_predict_diffusion(caplog: pytest.FixtureRequest) -> None:
     """Test the 'diffusion predict' command of the instanovo_cli."""
     with caplog.at_level("INFO"):
@@ -467,23 +499,22 @@ def test_predict_diffusion(caplog: pytest.FixtureRequest) -> None:
         )
         assert result.exit_code == 0
         assert (
-            "data_path: ./tests/instanovo_test_resources/example_data/test_sample.mgf"
-            in caplog.text
+            "data_path: tests/instanovo_test_resources/example_data/test_sample.mgf" in caplog.text
         )
         assert "max_charge: 3" in caplog.text
         assert "denovo: false" in caplog.text
-        assert "instanovo_plus_model: ./tests/instanovo_test_resources/instanovoplus" in caplog.text
+        assert "instanovo_plus_model: tests/instanovo_test_resources/instanovoplus" in caplog.text
         assert (
-            "output_path: ./tests/instanovo_test_resources/instanovoplus/test_sample_preds.csv"
+            "output_path: tests/instanovo_test_resources/instanovoplus/test_sample_preds.csv"
             in caplog.text
         )
         assert "knapsack_path: null" in caplog.text
         assert "max_length: 6" in caplog.text
 
 
-@pytest.mark.skipif(
-    not is_diffusion_checkpoint_available(), reason="no diffusion checkpoint available"
-)
+# @pytest.mark.skipif(
+#     not is_diffusion_checkpoint_available(), reason="no diffusion checkpoint available"
+# )
 def test_predict(caplog: pytest.FixtureRequest) -> None:
     """Test the 'predict' command of the instanovo_cli."""
     with caplog.at_level("INFO"):
@@ -493,18 +524,17 @@ def test_predict(caplog: pytest.FixtureRequest) -> None:
         )
         assert result.exit_code == 0
         assert (
-            "data_path: ./tests/instanovo_test_resources/example_data/test_sample.mgf"
-            in caplog.text
+            "data_path: tests/instanovo_test_resources/example_data/test_sample.mgf" in caplog.text
         )
         assert "max_charge: 3" in caplog.text
         assert "denovo: false" in caplog.text
 
-        assert "instanovo_model: ./tests/instanovo_test_resources/model.ckpt" in caplog.text
-        assert "output_path: ./tests/instanovo_test_resources/test_sample_preds.csv" in caplog.text
-        assert "knapsack_path: ./tests/instanovo_test_resources/example_knapsack" in caplog.text
+        assert "instanovo_model: tests/instanovo_test_resources/model.ckpt" in caplog.text
+        assert "output_path: tests/instanovo_test_resources/test_sample_preds.csv" in caplog.text
+        assert "knapsack_path: tests/instanovo_test_resources/example_knapsack" in caplog.text
         assert "use_knapsack: false" in caplog.text
         assert "num_beams: 5" in caplog.text
-        assert "max_length: 40" in caplog.text
+        assert "max_length: 6" in caplog.text
 
 
 @pytest.mark.parametrize("input_file_fixture", ["mgf_file", "mzml_file"])
@@ -656,9 +686,9 @@ def test_instanovoplus_model(
 @pytest.mark.parametrize(
     "args",
     [
-        ["predict", "--data-path", "*.mgf"],
-        ["transformer", "predict", "--data-path", "*.mgf"],
-        ["diffusion", "predict", "--data-path", "*.mgf"],
+        ["predict", "--data-path", "*.mgf", "--output-path", "output.csv"],
+        ["transformer", "predict", "--data-path", "*.mgf", "--output-path", "output.csv"],
+        ["diffusion", "predict", "--data-path", "*.mgf", "--output-path", "output.csv"],
     ],
 )
 def test_nonexisting_data_path(args: List[str]) -> None:
@@ -674,9 +704,9 @@ def test_nonexisting_data_path(args: List[str]) -> None:
 @pytest.mark.parametrize(
     "args",
     [
-        ["predict", "--config-name", "default"],
-        ["transformer", "predict", "--config-name", "default"],
-        ["diffusion", "predict", "--config-name", "default"],
+        ["predict", "--config-name", "default", "--output-path", "output.csv"],
+        ["transformer", "predict", "--config-name", "default", "--output-path", "output.csv"],
+        ["diffusion", "predict", "--config-name", "default", "--output-path", "output.csv"],
     ],
 )
 def test_no_data_path(args: List[str]) -> None:
@@ -712,9 +742,10 @@ def test_no_output_path(
         with pytest.raises(
             ValueError,
             match=(
-                r"Expected 'output_path' but found None. Please specify it in the "
-                r"`config/inference/<your_config>.yaml` configuration file or with the cli flag "
-                r"`--output-path=path/to/output_file`."
+                r"Expected 'output_path' but found None (when refining|in denovo mode|"
+                r"in denovo or refine mode). Please specify it in the "
+                r"`config/inference/<your_config>.yaml` configuration "
+                r"file or with the cli flag `--output-path=path/to/output_file`."
             ),
         ):
             runner.invoke(

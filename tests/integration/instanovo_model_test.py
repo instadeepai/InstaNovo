@@ -13,6 +13,7 @@ from torch.utils.data import DataLoader
 from instanovo.transformer.dataset import SpectrumDataset, collate_batch
 from instanovo.transformer.predict import get_preds
 from instanovo.utils.data_handler import SpectrumDataFrame
+from instanovo.utils.s3 import S3FileHandler
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -131,10 +132,12 @@ def test_model(
 
     instanovo_inference_config["device"] = device
 
+    s3 = S3FileHandler()
     get_preds(
         config=instanovo_inference_config,
         model=model,
         model_config=config,
+        s3=s3,
     )
 
     pred_df = pl.read_csv(instanovo_inference_config["output_path"])

@@ -1,5 +1,5 @@
 # general params
-vocab_size: 33 #27
+vocab_size: 33 # For the extended massivekb dataset
 
 layers: 12
 dim: 768

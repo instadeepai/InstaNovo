@@ -119,8 +119,8 @@ class MassSpectrumTransFusion(TransFusion):
             dim_feedforward=cfg.dim_feedforward,
             n_layers=cfg.layers,
             dropout=cfg.dropout,
-            use_flash_attention=cfg.use_flash_attention,
-            conv_peak_encoder=cfg.conv_peak_encoder,
+            use_flash_attention=cfg.get("use_flash_attention", False),
+            conv_peak_encoder=cfg.get("conv_peak_encoder", False),
         )
 
         # precursor embedding

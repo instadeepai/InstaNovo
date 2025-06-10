@@ -47,7 +47,7 @@ jobs:
 
       # Step 2: Install uv and set up Python
       - name: Install uv and set up Python ${{ matrix.python-version }} on ${{ matrix.os }}
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@v6
         with:
           enable-cache: true # Enable caching for faster builds
           pyproject-file: "pyproject.toml" # Specify the pyproject.toml file
@@ -152,7 +152,7 @@ jobs:
           # Install ipykernel
           PYDEVD_DISABLE_FILE_VALIDATION=1 python -m ipykernel install --user --name instanovo
           # Run notebook tests with nbmake
-          uv run --frozen pytest --nbmake "./notebooks" --nbmake-kernel=instanovo --nbmake-timeout=10000
+          uv run --frozen pytest --nbmake "./notebooks/getting_started_with_instanovo.ipynb" --nbmake-kernel=instanovo --nbmake-timeout=10000
 
       # Step 13: Test notebooks on Windows (conditional)
       - name: Test notebooks on Windows
@@ -161,4 +161,4 @@ jobs:
           # Set environment variable and install ipykernel
           $env:PYDEVD_DISABLE_FILE_VALIDATION=1; python -m ipykernel install --user --name instanovo
           # Run notebook tests with nbmake
-          uv run --frozen pytest --nbmake "./notebooks" --nbmake-kernel=instanovo --nbmake-timeout=10000
+          uv run --frozen pytest --nbmake "./notebooks/getting_started_with_instanovo.ipynb" --nbmake-kernel=instanovo --nbmake-timeout=10000

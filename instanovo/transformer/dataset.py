@@ -33,13 +33,13 @@ class SpectrumDataset(Dataset):
         min_intensity: float = 0.01,
         remove_precursor_tol: float = 2.0,
         pad_spectrum_max_length: bool = False,
-        peptide_pad_length: int = 0,
+        peptide_pad_length: int = 30,
         reverse_peptide: bool = True,
         annotated: bool = True,
         return_str: bool = False,
         bin_spectra: bool = False,
         bin_size: float = 0.01,
-        diffusion: bool = False,
+        add_eos: bool = True,
         tokenize_peptide: bool = True,
     ) -> None:
         super().__init__()
@@ -57,7 +57,7 @@ class SpectrumDataset(Dataset):
         self.return_str = return_str
         self.bin_spectra = bin_spectra
         self.bin_size = bin_size
-        self.diffusion = diffusion
+        self.add_eos = add_eos
         self.tokenize_peptide = tokenize_peptide
 
         if self.bin_spectra:
@@ -100,15 +100,23 @@ class SpectrumDataset(Dataset):
                 peptide_tokenized = peptide_tokenized[::-1]
 
             peptide_encoding = self.residue_set.encode(
-                peptide_tokenized, add_eos=not self.diffusion, return_tensor="pt"
+                peptide_tokenized, add_eos=self.add_eos, return_tensor="pt"
             )
-            # Does nothing when peptide_pad_length = 0 (default). This is used for torch.compile
+
+            pad_length = self.peptide_pad_length + 1 if self.add_eos else self.peptide_pad_length
+            peptide_length = min(pad_length, peptide_encoding.shape[0])
+
+            # TODO accommodate torch.compile peptide_pad_length = 0 case
             peptide_padded = torch.zeros(
-                (max(self.peptide_pad_length, peptide_encoding.shape[0]),),
+                (pad_length,),
                 dtype=peptide_encoding.dtype,
                 device=peptide_encoding.device,
             )
-            peptide_padded[: peptide_encoding.shape[0]] = peptide_encoding
+
+            peptide_padded[:peptide_length] = peptide_encoding[
+                :peptide_length
+            ]  # Truncate if necessary
+
             return spectrum, precursor_mz, precursor_charge, peptide_padded
 
         return spectrum, precursor_mz, precursor_charge, peptide
@@ -258,7 +266,11 @@ def load_ipc_shards(
 
 def remove_modifications(x: str) -> str:
     """Remove modifications and map I to L."""
+    # remove [UNIMOD as it will be picked up by the regex
+    x = x.replace("[UNIMOD", "")
+    # use regex to extract only A-Z
     x = re.findall(r"[A-Z]", x)
+    # map L to I
     x = ["L" if y == "I" else y for y in x]
     return "".join(x)
 

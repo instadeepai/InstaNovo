@@ -30,5 +30,5 @@ run_name: instanovo_unit_test
 valid_subset: 1.0
 
 # Checkpointing parameters
-model_save_folder_path: ./tests/instanovo_test_resources/train_test
+model_save_folder_path: tests/instanovo_test_resources/train_test
 ckpt_interval: 480

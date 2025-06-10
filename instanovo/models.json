@@ -11,8 +11,8 @@
     }
   },
   "diffusion": {
-    "instanovoplus-v1.1.0-alpha": {
-      "remote": "https://github.com/instadeepai/InstaNovo/releases/download/1.1.0/instanovoplus-v1.1.0-alpha.ckpt"
+    "instanovoplus-v1.1.0": {
+      "remote": "https://github.com/instadeepai/InstaNovo/releases/download/1.1.3/instanovoplus-v1.1.0.ckpt"
     }
   }
 }
