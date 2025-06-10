@@ -21,7 +21,6 @@ from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
-import instanovo.utils.s3 as s3
 from instanovo.__init__ import console
 from instanovo.constants import ANNOTATED_COLUMN, ANNOTATION_ERROR
 from instanovo.diffusion.multinomial_diffusion import (
@@ -47,6 +46,7 @@ from instanovo.utils.colorlogging import ColorLog
 from instanovo.utils.device_handler import check_device
 from instanovo.utils.metrics import Metrics
 from instanovo.utils.residues import ResidueSet
+from instanovo.utils.s3 import S3FileHandler
 
 logger = ColorLog(console, __name__).logger
 
@@ -61,7 +61,7 @@ def train(config: DictConfig) -> None:
     torch.set_float32_matmul_precision("high")
 
     time_now = datetime.datetime.now().strftime("_%y_%m_%d_%H_%M")
-    if s3.register_tb():  # when on aichor, s3_enabled True so register tb True
+    if S3FileHandler.register_tb():  # when on aichor, s3_enabled is True so set register_tb to True
         config["tb_summarywriter"] = os.environ["AICHOR_LOGS_PATH"]
     else:
         config["tb_summarywriter"] = config["tb_summarywriter"] + time_now
@@ -107,7 +107,7 @@ def train(config: DictConfig) -> None:
     # Transformer vocabulary
     residue_set = ResidueSet(
         residue_masses=config["residues"],
-        residue_remapping=config["residue_remapping"],
+        residue_remapping=config.get("residue_remapping", {}),
     )
     logger.info(f"Vocab: {residue_set.index_to_residue}")
 
@@ -250,7 +250,7 @@ def train(config: DictConfig) -> None:
         pad_spectrum_max_length=config.get("compile_model", False)
         or config.get("use_flash_attention", False),
         bin_spectra=config.get("conv_peak_encoder", False),
-        diffusion=True,
+        add_eos=False,
         reverse_peptide=False,  # we do not reverse peptides for diffusion model
     )
     valid_ds = SpectrumDataset(
@@ -262,7 +262,7 @@ def train(config: DictConfig) -> None:
         pad_spectrum_max_length=config.get("compile_model", False)
         or config.get("use_flash_attention", False),
         bin_spectra=config.get("conv_peak_encoder", False),
-        diffusion=True,
+        add_eos=False,
         reverse_peptide=False,
     )
 
@@ -363,7 +363,7 @@ def train(config: DictConfig) -> None:
         config=config,
         transition_model=transition_model,
         diffusion_schedule=diffusion_schedule,
-        residues=residue_set,
+        residue_set=residue_set,
     )
 
     if not config.get("train_from_scratch", True):
@@ -479,7 +479,7 @@ def train(config: DictConfig) -> None:
     _temp_directory = None
     if config["save_model"]:
         logger.info("Model saving enabled")
-        if s3._s3_enabled():
+        if S3FileHandler._aichor_enabled():
             _temp_directory = tempfile.mkdtemp()
             logger.info("Temporary directory created.")
 
@@ -648,7 +648,7 @@ def train(config: DictConfig) -> None:
                     path=config.get("model_save_folder_path", "./checkpoints"),
                     ckpt_details=ckpt_interval,
                     overwrite=True,
-                    temp_dir=_temp_directory if s3._s3_enabled() else "",  # type: ignore
+                    temp_dir=_temp_directory if S3FileHandler._aichor_enabled() else None,
                 )
 
             global_step += 1

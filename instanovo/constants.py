@@ -33,6 +33,8 @@ class SpecialTokens(Enum):
 PRECURSOR_DIM = 3
 
 INTEGER = torch.int64
+
+DIFFUSION_BASE_STEPS = 20
 DIFFUSION_START_STEP = 15
 DIFFUSION_EVAL_STEPS = (3, 8, 13, 18)
 
@@ -62,7 +64,9 @@ MS_TYPES: dict[MSColumns, pl.DataType] = {
     MSColumns.RETENTION_TIME: pl.Float64,
 }
 
-ANNOTATION_ERROR = "Attempting to load annotated dataset, but no sequence annotations found."
+ANNOTATION_ERROR = (
+    "Attempting to load annotated dataset, but some or all sequence annotations are missing."
+)
 
 LEGACY_PTM_TO_UNIMOD: dict[str, str] = {
     "M(ox)": "M[UNIMOD:35]",

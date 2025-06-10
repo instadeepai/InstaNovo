@@ -10,8 +10,8 @@ tags:
   - extended
   - massivekb
 
-learning_rate: 5e-4 #5e-4 5e-5
-train_batch_size: 256
+learning_rate: 5e-5 #5e-4 5e-5
+train_batch_size: 128
 preshuffle_shards: False # Using already shuffled shards
 
 model_save_folder_path: "checkpoints/instanovo-extended-massivekb"

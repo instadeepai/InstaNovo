@@ -1,0 +1,150 @@
+# Data paths and output location
+
+data_dir: /mnt/instanovo-data-kyber/validation
+output_dir: s3://dtu-denovo-s-2e6da747d6d34f62-outputs/evaluation
+run_name: instanovo_extended_massivekb_knapsack_8cbd543a
+
+data_path: # type: .mgf, .mzml or any other filetype supported by SpectrumDataFrame
+  # Biological validation datasets
+  - result_name: gluc
+    input_path: ${data_dir}/biological/annotated/dataset-gluc-*.parquet
+    output_path: ${output_dir}/${run_name}/samples/gluc.csv
+  - result_name: hela_qc
+    input_path: ${data_dir}/biological/annotated/dataset-helaqc-*.parquet
+    output_path: ${output_dir}/${run_name}/samples/helaqc.csv
+  - result_name: herceptin
+    input_path: ${data_dir}/biological/annotated/dataset-herceptin-*.parquet
+    output_path: ${output_dir}/${run_name}/samples/herceptin.csv
+  - result_name: immuno
+    input_path: ${data_dir}/biological/annotated/dataset-immuno-*.parquet
+    output_path: ${output_dir}/${run_name}/samples/immuno.csv
+  - result_name: s_brodae
+    input_path: ${data_dir}/biological/annotated/dataset-sbrodae-*.parquet
+    output_path: ${output_dir}/${run_name}/samples/sbrodae.csv
+  - result_name: snake_venoms
+    input_path: ${data_dir}/biological/annotated/dataset-snakevenoms-*.parquet
+    output_path: ${output_dir}/${run_name}/samples/snakevenoms.csv
+  - result_name: tpl_antibodies
+    input_path: ${data_dir}/biological/annotated/dataset-tplantibodies-*.parquet
+    output_path: ${output_dir}/${run_name}/samples/tplantibodies.csv
+  - result_name: wound_fluids
+    input_path: ${data_dir}/biological/annotated/dataset-woundfluids-*.parquet
+    output_path: ${output_dir}/${run_name}/samples/woundfluids.csv
+  # Ninespecies v1
+  - result_name: bacillus
+    input_path: ${data_dir}/ninespecies_v1/dataset-bacillus-*.parquet
+    output_path: ${output_dir}/${run_name}/samples/bacillus.csv
+  - result_name: clambacteria
+    input_path: ${data_dir}/ninespecies_v1/dataset-clambacteria-*.parquet
+    output_path: ${output_dir}/${run_name}/samples/clambacteria.csv
+  - result_name: honeybee
+    input_path: ${data_dir}/ninespecies_v1/dataset-honeybee-*.parquet
+    output_path: ${output_dir}/${run_name}/samples/honeybee.csv
+  - result_name: human
+    input_path: ${data_dir}/ninespecies_v1/dataset-human-*.parquet
+    output_path: ${output_dir}/${run_name}/samples/human.csv
+  - result_name: mmazei
+    input_path: ${data_dir}/ninespecies_v1/dataset-mmazei-*.parquet
+    output_path: ${output_dir}/${run_name}/samples/mmazei.csv
+  - result_name: mouse
+    input_path: ${data_dir}/ninespecies_v1/dataset-mouse-*.parquet
+    output_path: ${output_dir}/${run_name}/samples/mouse.csv
+  - result_name: ricebean
+    input_path: ${data_dir}/ninespecies_v1/dataset-ricebean-*.parquet
+    output_path: ${output_dir}/${run_name}/samples/ricebean.csv
+  - result_name: tomato
+    input_path: ${data_dir}/ninespecies_v1/dataset-tomato-*.parquet
+    output_path: ${output_dir}/${run_name}/samples/tomato.csv
+  - result_name: yeast
+    input_path: ${data_dir}/ninespecies_v1/dataset-yeast-*.parquet
+    output_path: ${output_dir}/${run_name}/samples/yeast.csv
+
+result_file_path: ${output_dir}/instanovo_results.csv
+
+instanovo_model: s3://dtu-denovo-s-2e6da747d6d34f62-inputs/models/instanovo_1_0/extended_massivekb_8cbd543a.ckpt # type: model id or path to a *.ckpt file
+instanovo_plus_model: # type: model id or path to a directory with *.ckpt, *.yaml and *.pt files
+instanovo_preds_path: # type: .csv
+output_path: # type: .csv
+knapsack_path: # type: directory
+
+# Data type only used if data_path is a directory.
+data_type: # .csv, .mgf, .mzml, .mzxml
+
+# Inference mode
+denovo: False
+refine: False
+num_beams: 5 # 1 defaults to greedy search with basic filtering
+max_length: 40
+max_charge: 10 # Must be <= model max charge
+isotope_error_range: [0, 1]
+use_knapsack: True
+save_beams: True
+subset: 1.0 # Subset of dataset to perform inference on, useful for debugging. Represented as a float between 0 and 1.
+
+# These two only work in greedy search
+# Residues whose log probability will be set to -inf
+suppressed_residues: ["(+25.98)"] # legacy
+# Stop model from predicting n-terminal modifications anywhere along the sequence
+disable_terminal_residues_anywhere: True
+
+# Run config
+num_workers: 16
+batch_size: 128
+device: cuda
+fp16: True
+
+# Logging
+log_interval: 50
+use_basic_logging: True
+
+# Metrics config, does not affect saved results
+filter_precursor_ppm: 20
+filter_confidence: 1e-4
+filter_fdr_threshold: 0.05
+
+# Dataset specific configs, update everything to use unimod
+residue_remapping:
+  "M(ox)": "M[UNIMOD:35]" # Oxidation or Hydroxylation
+  "M(+15.99)": "M[UNIMOD:35]"
+  "S(p)": "S[UNIMOD:21]" # Phosphorylation
+  "T(p)": "T[UNIMOD:21]"
+  "Y(p)": "Y[UNIMOD:21]"
+  "S(+79.97)": "S[UNIMOD:21]"
+  "T(+79.97)": "T[UNIMOD:21]"
+  "Y(+79.97)": "Y[UNIMOD:21]"
+  "Q(+0.98)": "Q[UNIMOD:7]" # Deamidation
+  "N(+0.98)": "N[UNIMOD:7]"
+  "Q(+.98)": "Q[UNIMOD:7]"
+  "N(+.98)": "N[UNIMOD:7]"
+  "C(+57.02)": "C[UNIMOD:4]" # Carboxyamidomethylation
+  "(+42.01)": "[UNIMOD:1]" # Acetylation
+  "(+43.01)": "[UNIMOD:5]" # Carbamylation
+  "(-17.03)": "[UNIMOD:385]" # Loss of ammonia
+
+column_map:
+  "Modified sequence": "modified_sequence"
+  "MS/MS m/z": "precursor_mz"
+  # "m/z": "precursor_mz"
+  "Mass": "precursor_mass"
+  "Charge": "precursor_charge"
+  "Mass values": "mz_array"
+  "Mass spectrum": "mz_array"
+  "Intensity": "intensity_array"
+  "Raw intensity spectrum": "intensity_array"
+
+# A list of columns that (if found) will be retained in output csv
+index_columns:
+  - "id"
+  - "experiment_name"
+  - "evidence_index"
+  - "scan_number"
+  - "spectrum_id"
+  - "global_index"
+  - "spectrum_index"
+  - "file_index"
+  - "sample"
+  - "file"
+  - "index"
+  - "fileno"
+  - "precursor_mz"
+  - "precursor_charge"

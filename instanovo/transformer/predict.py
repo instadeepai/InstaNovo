@@ -9,7 +9,7 @@ from typing import Any, cast
 import numpy as np
 import pandas as pd
 import torch
-from omegaconf import DictConfig
+from omegaconf import DictConfig, OmegaConf
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
@@ -25,9 +25,10 @@ from instanovo.inference import (
 )
 from instanovo.transformer.dataset import SpectrumDataset, collate_batch
 from instanovo.transformer.model import InstaNovo
-from instanovo.utils import Metrics, SpectrumDataFrame, s3
+from instanovo.utils import Metrics, SpectrumDataFrame
 from instanovo.utils.colorlogging import ColorLog
 from instanovo.utils.device_handler import check_device
+from instanovo.utils.s3 import S3FileHandler
 
 logger = ColorLog(console, __name__).logger
 
@@ -38,6 +39,7 @@ def get_preds(
     config: DictConfig,
     model: InstaNovo,
     model_config: DictConfig,
+    s3: S3FileHandler,
 ) -> None:
     """Get predictions from a trained model."""
     if config.get("denovo", False) and config.get("output_path", None) is None:
@@ -47,6 +49,23 @@ def get_preds(
         )
 
     data_path = config["data_path"]
+
+    if OmegaConf.is_list(data_path):
+        _new_data_paths = []
+        group_mapping = {}
+        group_output = {}
+        for group in data_path:
+            path = group.get("input_path")
+            name = group.get("result_name")
+            for fp in SpectrumDataFrame._convert_file_paths(path):
+                group_mapping[fp] = name
+            _new_data_paths.append(path)
+            group_output[name] = group.get("output_path")
+        data_path = _new_data_paths
+    else:
+        group_mapping = None
+        group_output = None
+
     output_path = config.get("output_path", None)
 
     # Some commomly used config variables
@@ -71,6 +90,8 @@ def get_preds(
             is_annotated=not denovo,
             column_mapping=config.get("column_map", None),
             shuffle=False,
+            add_spectrum_id=True,
+            add_source_file_column=True,
         )
     except ValueError as e:
         # More descriptive error message in predict mode.
@@ -103,12 +124,16 @@ def get_preds(
             "These rows will be skipped."
         )
 
-    sdf.sample_subset(fraction=config.get("subset", 1.0), seed=42)
-    logger.info(
-        f"Data loaded, evaluating {config.get('subset', 1.0) * 100:.1f}%, {len(sdf):,} "
-        "samples in total."
-    )
+    subset = config.get("subset", 1.0)
+    if not 0 < subset <= 1:
+        raise ValueError(
+            f"Invalid subset value: {subset}. Must be a float greater than 0 and less than or equal to 1."  # noqa: E501
+        )
 
+    sdf.sample_subset(fraction=subset, seed=42)
+    logger.info(f"Data loaded, evaluating {subset * 100:.2f}%, {len(sdf):,} samples in total.")
+
+    assert sdf.df is not None
     if sdf.df.is_empty():
         logger.warning("No data found, exiting.")
         sys.exit()
@@ -139,6 +164,23 @@ def get_preds(
             )
             logger.warning(f"{original_size - len(sdf):,d} rows have been dropped.")
             logger.warning("Peptide recall should recalculated accordingly.")
+
+    # Used to group validation outputs
+    if group_mapping is not None:
+        logger.info("Computing validation groups.")
+        sequence_groups = pd.Series(
+            [
+                group_mapping[row["source_file"]]
+                if row.get("source_file", None) in group_mapping
+                else "no_group"
+                for row in iter(sdf)
+            ]
+        )
+        logger.info("Sequences per validation group:")
+        for group in sequence_groups.unique():
+            logger.info(f" - {group}: {(sequence_groups == group).sum():,d}")
+    else:
+        sequence_groups = None
 
     ds = SpectrumDataset(
         sdf,
@@ -392,14 +434,88 @@ def get_preds(
             else:
                 logger.info("No predictions met criteria, skipping metrics.")
 
+    # Evaluate individual result files
+    if sequence_groups is not None and not denovo:
+        _preds = pd.Series(preds[0])
+        _targs = pd.Series(pred_df["targets"])
+        _probs = pd.Series(pred_df[config.get("log_probs_col", "log_probabilities")])
+
+        results = {
+            "run_name": config.get("run_name"),
+            "instanovo_model": config.get("instanovo_model"),
+            "num_beams": num_beams,
+            "use_knapsack": config.get("use_knapsack", False),
+        }
+        for group in sequence_groups.unique():
+            if group == "no_group":
+                continue
+            idx = sequence_groups == group
+            _group_preds = _preds[idx].reset_index(drop=True)
+            _group_targs = _targs[idx].reset_index(drop=True)
+            _group_probs = _probs[idx].reset_index(drop=True)
+            aa_prec, aa_recall, pep_recall, pep_prec = metrics.compute_precision_recall(
+                _group_targs, _group_preds
+            )
+            aa_er = metrics.compute_aa_er(_group_targs, _group_preds)
+            auc = metrics.calc_auc(_group_targs, _group_preds, _group_probs)
+
+            results.update(
+                {
+                    f"{group}_aa_prec": [aa_prec],
+                    f"{group}_aa_recall": [aa_recall],
+                    f"{group}_pep_recall": [pep_recall],
+                    f"{group}_pep_prec": [pep_prec],
+                    f"{group}_aa_er": [aa_er],
+                    f"{group}_auc": [auc],
+                }
+            )
+
+            fdr = config.get("filter_fdr_threshold", None)
+            if fdr:
+                _, threshold = metrics.find_recall_at_fdr(
+                    _group_targs, _group_preds, np.exp(_group_probs), fdr=fdr
+                )
+                _, _, pep_recall_at_fdr, _ = metrics.compute_precision_recall(
+                    _group_targs,
+                    _group_preds,
+                    np.exp(_group_probs),
+                    threshold=threshold,
+                )
+
+                results.update(
+                    {
+                        f"{group}_pep_recall_at_{fdr:.3f}_fdr": [pep_recall_at_fdr],
+                    }
+                )
+
+        result_path = config.get("result_file_path")
+        local_path = s3.get_local_path(result_path, missing_ok=True)
+        if local_path is not None and os.path.exists(local_path):
+            results_df = pd.read_csv(local_path)
+            results_df = pd.concat(
+                [results_df, pd.DataFrame(results)], ignore_index=True, join="outer"
+            )
+        else:
+            results_df = pd.DataFrame(results)
+
+        s3.upload_to_s3_wrapper(results_df.to_csv, config.get("result_file_path"), index=False)
+
+    # Save individual result files per group
+    if sequence_groups is not None and group_output is not None:
+        for group in sequence_groups.unique():
+            idx = sequence_groups == group
+            if group_output[group] is not None:
+                s3.upload_to_s3_wrapper(pred_df[idx].to_csv, group_output[group], index=False)
+
     # Save output
     if output_path is not None:
-        pred_df.to_csv(output_path, index=False)
+        s3.upload_to_s3_wrapper(pred_df.to_csv, output_path, index=False)
+        # pred_df.to_csv(output_path, index=False)
         logger.info(f"Predictions saved to {output_path}")
 
         # Upload to Aichor
-        if s3._s3_enabled():
-            s3.upload(output_path, s3.convert_to_s3_output(output_path))
+        if S3FileHandler._aichor_enabled() and not output_path.startswith("s3://"):
+            s3.upload(output_path, S3FileHandler.convert_to_s3_output(output_path))
 
 
 def _setup_knapsack(model: InstaNovo) -> Knapsack:

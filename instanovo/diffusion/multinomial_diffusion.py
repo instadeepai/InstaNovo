@@ -18,13 +18,13 @@ from torch.distributions import Categorical
 from torch.nn.functional import log_softmax, one_hot
 from tqdm import tqdm
 
-import instanovo.utils.s3 as s3
 from instanovo.__init__ import console
 from instanovo.diffusion.model import MassSpectrumTransFusion
 from instanovo.types import Peptide, ResidueLogProbabilities, TimeStep
 from instanovo.utils.colorlogging import ColorLog
 from instanovo.utils.device_handler import check_device
 from instanovo.utils.residues import ResidueSet
+from instanovo.utils.s3 import S3FileHandler
 
 MODEL_TYPE = "diffusion"
 
@@ -72,7 +72,7 @@ class InstaNovoPlus(nn.Module):
             that `diffusion_schedule[t]` is \alpha_t in
             the paper's terminology, not \beta_t.
 
-        residues (ResidueSet):
+        residue_set (ResidueSet):
             The residue vocabulary. This holds a mapping between
             residues and indices and residue masses.
     """
@@ -86,12 +86,12 @@ class InstaNovoPlus(nn.Module):
         config: DictConfig,
         transition_model: nn.Module,
         diffusion_schedule: Float[torch.Tensor, " time"],
-        residues: ResidueSet,
+        residue_set: ResidueSet,
     ) -> None:
         super().__init__()
         self.config = config
         self.time_steps = config.time_steps
-        self.residues = residues
+        self.residue_set = residue_set
         self.transition_model = transition_model
         self.register_buffer("diffusion_schedule", torch.log(diffusion_schedule))
         self.register_buffer("diffusion_schedule_complement", torch.log(1 - diffusion_schedule))
@@ -106,8 +106,8 @@ class InstaNovoPlus(nn.Module):
         path: str,
         ckpt_details: str,
         overwrite: bool = False,
-        temp_dir: str = "",  # type: ignore
-        use_legacy_format: bool = True,  # TODO default to false post update
+        temp_dir: str | None = None,
+        use_legacy_format: bool = False,
     ) -> None:
         """Save the model to a directory.
 
@@ -124,12 +124,13 @@ class InstaNovoPlus(nn.Module):
                 Whether to overwrite the directory if one already exists
                 for the model. Defaults to False.
 
-            temp_dir (str, optional):
+            temp_dir (str | None, optional):
                 Temporary directory to save intermediate files to.
+                Defaults to None.
 
             use_legacy_format (bool, optional):
                 Whether to save the model in the legacy folder format.
-                If False, saves as a single file. Defaults to True.
+                If False, saves as a single file. Defaults to False.
 
         Raises:
             FileExistsError: If `overwrite` is `False` and a directory already exists
@@ -143,11 +144,13 @@ class InstaNovoPlus(nn.Module):
 
         def save_file_s3(filename: str, content: str) -> None:
             """Upload a file to S3."""
+            # TODO: fix this
+            s3 = S3FileHandler()
             return s3.upload(  # type: ignore
                 content, s3.convert_to_s3_output(model_dir + "/" + filename)
             )
 
-        if not temp_dir:
+        if temp_dir is None:
             if os.path.exists(model_dir) and os.path.isdir(model_dir):
                 if overwrite:
                     shutil.rmtree(model_dir)
@@ -214,9 +217,11 @@ class InstaNovoPlus(nn.Module):
         Args:
             path (str):
                 Path to model checkpoint file or directory where model is saved.
+            device (str, optional):
+                The device to load the model on. Defaults to "auto".
 
         Returns:
-            (InstaNovoPlus): The loaded model.
+            (InstaNovoPlus, DictConfig): The loaded model and config.
 
         """
         if os.path.isdir(path):
@@ -234,26 +239,58 @@ class InstaNovoPlus(nn.Module):
                 cls.checkpoint_path, map_location=torch.device("cpu"), weights_only=True
             )
 
+            residues = config.get("residues")
+            residue_remapping = config.get("residue_remapping", {})
         else:
             # Load model from checkpoint file
-            model_data = torch.load(path, map_location=torch.device("cpu"), weights_only=False)
-            config = OmegaConf.create(model_data["config"])
+            try:
+                model_data = torch.load(path, map_location=torch.device("cpu"), weights_only=False)
+            except Exception as e:
+                raise ValueError(f"Failed to load model from {path}: {str(e)}") from e
 
+            config = OmegaConf.create(model_data["config"])
             diffusion_schedule = torch.tensor(model_data["diffusion_schedule"])
-            transition_model_state = model_data["transition_model"]
+
+            if "transition_model" in model_data:
+                transition_model_state = model_data["transition_model"]
+                residues = config.get("residues")
+                residue_remapping = config.get("residue_remapping", {})
+
+            elif "state_dict" in model_data:
+                transition_model_state = model_data["state_dict"]
+                residues = model_data["residues"]
+                residue_remapping = model_data.get("residue_remapping", {})
+
+            elif "model" in model_data:
+                transition_model_state = model_data["model"]
+                residues = model_data["residues"].get("residues", {})
+                residue_remapping = model_data["residues"].get("residue_remapping", {})
+
+            else:
+                raise ValueError("Model data is missing a key for weights.")
 
         # Load residues
-        residues = ResidueSet(
-            residue_masses=config["residues"],
-            residue_remapping=config["residue_remapping"],
+        residue_set = ResidueSet(
+            residue_masses=residues,
+            residue_remapping=residue_remapping if residue_remapping else None,
         )
 
         # Load transition model
-        transition_model = MassSpectrumTransFusion(
-            config,
-            config.max_length,
-        )
-        transition_model.load_state_dict(transition_model_state)
+        try:
+            transition_model = MassSpectrumTransFusion(
+                config,
+                config.max_length,
+            )
+
+            # Remove transition_model prefix from state dict keys if present
+            if any(k.startswith("transition_model.") for k in transition_model_state.keys()):
+                transition_model_state = {
+                    k.replace("transition_model.", ""): v for k, v in transition_model_state.items()
+                }
+
+            transition_model.load_state_dict(transition_model_state, strict=False)
+        except Exception as e:
+            raise ValueError(f"Failed to load transition model: {str(e)}") from e
 
         device = check_device(device=device)
         logger.info(f"Loading InstaNovoPlus model to device: {device}.")
@@ -264,7 +301,7 @@ class InstaNovoPlus(nn.Module):
             config=config,
             transition_model=transition_model,
             diffusion_schedule=diffusion_schedule,
-            residues=residues,
+            residue_set=residue_set,
         ), config
 
     @staticmethod
@@ -387,16 +424,16 @@ class InstaNovoPlus(nn.Module):
                 f"Model {model_id} does not have a valid 'remote', 'local' entry in models.json"
             )
 
-    def prepare_fine_tuning(self, residues: ResidueSet) -> None:
+    def prepare_fine_tuning(self, residue_set: ResidueSet) -> None:
         """Prepare a model for fine-tuning on a dataset with a new residue vocabulary.
 
         Args:
-            residues (ResidueSet): The residue vocabulary for the new dataset.
+            residue_set (ResidueSet): The residue vocabulary for the new dataset.
         """
         # 1. Update residue set
-        self.residues = residues
+        self.residue_set = residue_set
 
-        num_residues = len(self.residues)
+        num_residues = len(self.residue_set)
         model_dim = self.config.dim
 
         # 2. Update config
@@ -432,7 +469,7 @@ class InstaNovoPlus(nn.Module):
         """
         return torch.logaddexp(
             log_x + log_alpha,
-            log_alpha_complement - math.log(len(self.residues)),
+            log_alpha_complement - math.log(len(self.residue_set)),
         )
 
     def forward(
@@ -497,7 +534,7 @@ class InstaNovoPlus(nn.Module):
         """
         log_x_0 = log_softmax(self.transition_model(x_t, t=time, **kwargs), -1)
         return self.forward(
-            log_x_t=torch.log(one_hot(x_t, len(self.residues))), log_x_0=log_x_0, t=time
+            log_x_t=torch.log(one_hot(x_t, len(self.residue_set))), log_x_0=log_x_0, t=time
         )
 
 
@@ -554,7 +591,7 @@ class DiffusionLoss(nn.Module):
         loss = self._compute_loss(t=t, x_0=x_0, **kwargs).mean()
 
         # 3. Calculate prior KL term
-        log_x_0 = torch.log(one_hot(x_0, num_classes=len(self.model.residues)))
+        log_x_0 = torch.log(one_hot(x_0, num_classes=len(self.model.residue_set)))
         final_log_probs = self.model.mixture_categorical(
             log_x=log_x_0,
             log_alpha=self.model.cumulative_schedule[self.time_steps - 1]
@@ -564,7 +601,9 @@ class DiffusionLoss(nn.Module):
             .unsqueeze(-1)
             .unsqueeze(-1),
         )
-        uniform_log_probs = torch.log(torch.ones_like(final_log_probs) / len(self.model.residues))
+        uniform_log_probs = torch.log(
+            torch.ones_like(final_log_probs) / len(self.model.residue_set)
+        )
         kl_loss = self.kl_divergence(final_log_probs, uniform_log_probs).mean()
         return loss + kl_loss
 
@@ -575,7 +614,7 @@ class DiffusionLoss(nn.Module):
         **kwargs: dict,
     ) -> Float[torch.Tensor, " batch"]:
         # 1. sample x_{t+1}
-        log_x_0 = torch.log(one_hot(x_0, num_classes=len(self.model.residues)))
+        log_x_0 = torch.log(one_hot(x_0, num_classes=len(self.model.residue_set)))
         log_probs = self.model.mixture_categorical(
             log_x=log_x_0,
             log_alpha=self.model.cumulative_schedule[t].unsqueeze(-1).unsqueeze(-1),
@@ -588,7 +627,9 @@ class DiffusionLoss(nn.Module):
         # 2. Calculate loss
         log_dist = self.model.reverse_distribution(x_t=x_next, time=t, **kwargs)
 
-        nll_loss = -(one_hot(x_0, num_classes=len(self.model.residues)) * log_dist).sum(-1).sum(-1)
+        nll_loss = (
+            -(one_hot(x_0, num_classes=len(self.model.residue_set)) * log_dist).sum(-1).sum(-1)
+        )
 
         log_posterior = self.model(
             log_x_0=log_x_0, log_x_t=torch.log(one_hot(x_next, log_probs.size(-1))), t=t

@@ -1,0 +1,183 @@
+# Data paths and output location
+
+data_dir: /mnt/instanovo-data-kyber/validation
+output_dir: s3://dtu-denovo-s-2e6da747d6d34f62-outputs/evaluation
+instanovo_run_name: instanovo_extended_massivekb_knapsack_8cbd543a
+instanovoplus_run_name: instanovoplus_extended_massivekb_fb7f5eea_refine_all_1_pred
+
+data_path: # type: .mgf, .mzml or any other filetype supported by SpectrumDataFrame
+  # Biological validation datasets
+  - result_name: gluc
+    input_path: ${data_dir}/biological/annotated/dataset-gluc-*.parquet
+    instanovo_predictions_path: ${output_dir}/${instanovo_run_name}/samples/gluc.csv
+    output_path: ${output_dir}/${instanovo_run_name}/${instanovoplus_run_name}/samples/gluc.csv
+  - result_name: hela_qc
+    input_path: ${data_dir}/biological/annotated/dataset-helaqc-*.parquet
+    instanovo_predictions_path: ${output_dir}/${instanovo_run_name}/samples/helaqc.csv
+    output_path: ${output_dir}/${instanovo_run_name}/${instanovoplus_run_name}/samples/helaqc.csv
+  - result_name: herceptin
+    input_path: ${data_dir}/biological/annotated/dataset-herceptin-*.parquet
+    instanovo_predictions_path: ${output_dir}/${instanovo_run_name}/samples/herceptin.csv
+    output_path: ${output_dir}/${instanovo_run_name}/${instanovoplus_run_name}/samples/herceptin.csv
+  - result_name: immuno
+    input_path: ${data_dir}/biological/annotated/dataset-immuno-*.parquet
+    instanovo_predictions_path: ${output_dir}/${instanovo_run_name}/samples/immuno.csv
+    output_path: ${output_dir}/${instanovo_run_name}/${instanovoplus_run_name}/samples/immuno.csv
+  - result_name: s_brodae
+    input_path: ${data_dir}/biological/annotated/dataset-sbrodae-*.parquet
+    instanovo_predictions_path: ${output_dir}/${instanovo_run_name}/samples/sbrodae.csv
+    output_path: ${output_dir}/${instanovo_run_name}/${instanovoplus_run_name}/samples/sbrodae.csv
+  - result_name: snake_venoms
+    input_path: ${data_dir}/biological/annotated/dataset-snakevenoms-*.parquet
+    instanovo_predictions_path: ${output_dir}/${instanovo_run_name}/samples/snakevenoms.csv
+    output_path: ${output_dir}/${instanovo_run_name}/${instanovoplus_run_name}/samples/snakevenoms.csv
+  - result_name: tpl_antibodies
+    input_path: ${data_dir}/biological/annotated/dataset-tplantibodies-*.parquet
+    instanovo_predictions_path: ${output_dir}/${instanovo_run_name}/samples/tplantibodies.csv
+    output_path: ${output_dir}/${instanovo_run_name}/${instanovoplus_run_name}/samples/tplantibodies.csv
+  - result_name: wound_fluids
+    input_path: ${data_dir}/biological/annotated/dataset-woundfluids-*.parquet
+    instanovo_predictions_path: ${output_dir}/${instanovo_run_name}/samples/woundfluids.csv
+    output_path: ${output_dir}/${instanovo_run_name}/${instanovoplus_run_name}/samples/woundfluids.csv
+  # Ninespecies v1
+  - result_name: bacillus
+    input_path: ${data_dir}/ninespecies_v1/dataset-bacillus-*.parquet
+    instanovo_predictions_path: ${output_dir}/${instanovo_run_name}/samples/bacillus.csv
+    output_path: ${output_dir}/${instanovo_run_name}/${instanovoplus_run_name}/samples/bacillus.csv
+  - result_name: clambacteria
+    input_path: ${data_dir}/ninespecies_v1/dataset-clambacteria-*.parquet
+    instanovo_predictions_path: ${output_dir}/${instanovo_run_name}/samples/clambacteria.csv
+    output_path: ${output_dir}/${instanovo_run_name}/${instanovoplus_run_name}/samples/clambacteria.csv
+  - result_name: honeybee
+    input_path: ${data_dir}/ninespecies_v1/dataset-honeybee-*.parquet
+    instanovo_predictions_path: ${output_dir}/${instanovo_run_name}/samples/honeybee.csv
+    output_path: ${output_dir}/${instanovo_run_name}/${instanovoplus_run_name}/samples/honeybee.csv
+  - result_name: human
+    input_path: ${data_dir}/ninespecies_v1/dataset-human-*.parquet
+    instanovo_predictions_path: ${output_dir}/${instanovo_run_name}/samples/human.csv
+    output_path: ${output_dir}/${instanovo_run_name}/${instanovoplus_run_name}/samples/human.csv
+  - result_name: mmazei
+    input_path: ${data_dir}/ninespecies_v1/dataset-mmazei-*.parquet
+    instanovo_predictions_path: ${output_dir}/${instanovo_run_name}/samples/mmazei.csv
+    output_path: ${output_dir}/${instanovo_run_name}/${instanovoplus_run_name}/samples/mmazei.csv
+  - result_name: mouse
+    input_path: ${data_dir}/ninespecies_v1/dataset-mouse-*.parquet
+    instanovo_predictions_path: ${output_dir}/${instanovo_run_name}/samples/mouse.csv
+    output_path: ${output_dir}/${instanovo_run_name}/${instanovoplus_run_name}/samples/mouse.csv
+  - result_name: ricebean
+    input_path: ${data_dir}/ninespecies_v1/dataset-ricebean-*.parquet
+    instanovo_predictions_path: ${output_dir}/${instanovo_run_name}/samples/ricebean.csv
+    output_path: ${output_dir}/${instanovo_run_name}/${instanovoplus_run_name}/samples/ricebean.csv
+  - result_name: tomato
+    input_path: ${data_dir}/ninespecies_v1/dataset-tomato-*.parquet
+    instanovo_predictions_path: ${output_dir}/${instanovo_run_name}/samples/tomato.csv
+    output_path: ${output_dir}/${instanovo_run_name}/${instanovoplus_run_name}/samples/tomato.csv
+  - result_name: yeast
+    input_path: ${data_dir}/ninespecies_v1/dataset-yeast-*.parquet
+    instanovo_predictions_path: ${output_dir}/${instanovo_run_name}/samples/yeast.csv
+    output_path: ${output_dir}/${instanovo_run_name}/${instanovoplus_run_name}/samples/yeast.csv
+
+result_file_path: ${output_dir}/${instanovo_run_name}/${instanovoplus_run_name}/instanovoplus_results.csv
+
+instanovo_model:
+instanovo_plus_model: s3://dtu-denovo-s-2e6da747d6d34f62-outputs/output/fb7f5eea-beb5-4bfa-8dab-8a8c7162daf3/checkpoints/instanovoplus-base/model_epoch_04_step_556259.ckpt
+
+output_path: # type: .csv
+knapsack_path: # type: directory
+
+# Data type only used if data_path is a directory.
+data_type: # .csv, .mgf, .mzml, .mzxml
+
+# Inference mode
+denovo: False
+num_beams: 1 # 1 defaults to greedy search with basic filtering
+max_length: 40
+max_charge: 10 # Must be <= model max charge
+isotope_error_range: [0, 1]
+use_knapsack: False
+save_beams: False
+subset: 1.0 # Subset of dataset to perform inference on, useful for debugging. Represented as a float between 0 and 1.
+n_preds: 1 #5 # Number of diffusion predictions to sample per spectrum
+
+# Refine mode
+refine: True
+instanovo_predictions_path: # type: .csv
+pred_refine_col: preds_tokenised
+refine_all: True # If True, all predictions will be refined
+refine_threshold: 0.9 # Only predictions with a confidence score less than this will be refined
+
+# Prediction columns
+pred_tok_col: "preds_tokenised"
+pred_col: "preds"
+instanovo_id_col: "spectrum_id"
+instanovoplus_id_col: "spectrum_id"
+log_probs_col: "log_probs"
+token_log_probs_col: "token_log_probs"
+
+# These two only work in greedy search
+# Residues whose log probability will be set to -inf
+suppressed_residues: ["(+25.98)"] # legacy
+# Stop model from predicting n-terminal modifications anywhere along the sequence
+disable_terminal_residues_anywhere: True
+
+# Run config
+num_workers: 16
+batch_size: 128
+device: cuda
+fp16: True
+
+# Logging
+log_interval: 50
+use_basic_logging: True
+
+# Metrics config, does not affect saved results
+filter_precursor_ppm: 20
+filter_confidence: 1e-4
+filter_fdr_threshold: 0.05
+
+# Dataset specific configs, update everything to use unimod
+residue_remapping:
+  "M(ox)": "M[UNIMOD:35]" # Oxidation or Hydroxylation
+  "M(+15.99)": "M[UNIMOD:35]"
+  "S(p)": "S[UNIMOD:21]" # Phosphorylation
+  "T(p)": "T[UNIMOD:21]"
+  "Y(p)": "Y[UNIMOD:21]"
+  "S(+79.97)": "S[UNIMOD:21]"
+  "T(+79.97)": "T[UNIMOD:21]"
+  "Y(+79.97)": "Y[UNIMOD:21]"
+  "Q(+0.98)": "Q[UNIMOD:7]" # Deamidation
+  "N(+0.98)": "N[UNIMOD:7]"
+  "Q(+.98)": "Q[UNIMOD:7]"
+  "N(+.98)": "N[UNIMOD:7]"
+  "C(+57.02)": "C[UNIMOD:4]" # Carboxyamidomethylation
+  "(+42.01)": "[UNIMOD:1]" # Acetylation
+  "(+43.01)": "[UNIMOD:5]" # Carbamylation
+  "(-17.03)": "[UNIMOD:385]" # Loss of ammonia
+
+column_map:
+  "Modified sequence": "modified_sequence"
+  "MS/MS m/z": "precursor_mz"
+  # "m/z": "precursor_mz"
+  "Mass": "precursor_mass"
+  "Charge": "precursor_charge"
+  "Mass values": "mz_array"
+  "Mass spectrum": "mz_array"
+  "Intensity": "intensity_array"
+  "Raw intensity spectrum": "intensity_array"
+
+# A list of columns that (if found) will be retained in output csv
+index_columns:
+  - "id"
+  - "experiment_name"
+  - "evidence_index"
+  - "scan_number"
+  - "spectrum_id"
+  - "global_index"
+  - "spectrum_index"
+  - "file_index"
+  - "sample"
+  - "file"
+  - "index"
+  - "fileno"
+  - "precursor_mz"
+  - "precursor_charge"

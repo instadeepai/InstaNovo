@@ -48,7 +48,7 @@ def test_train(
 
     # Check training when blacklist is given
     temp_config["train_from_scratch"] = True
-    temp_config["blacklist"] = "./tests/instanovo_test_resources/example_data/blacklist.csv"
+    temp_config["blacklist"] = "tests/instanovo_test_resources/example_data/blacklist.csv"
     train(temp_config)
     assert mock_fit.call_count == 4
 
