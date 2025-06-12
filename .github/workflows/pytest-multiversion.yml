@@ -67,7 +67,7 @@ jobs:
       # Step 5: Run tests with pytest and generate coverage report
       - name: Test with pytest
         run: |
-          # Run a script (example, adjust if needed)
+          # Get test data from Zenodo
           uv run python -m instanovo.scripts.get_zenodo_record
 
           # Run pytest with coverage, allure report, and random order
