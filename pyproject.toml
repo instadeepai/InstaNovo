@@ -98,6 +98,9 @@ cpu = [
 cu124 = [
     "torch>=2.4.1,<2.5",
 ]
+macos-arm64 = [
+    "torch>=2.4.1,<2.5",
+]
 
 
 [tool.uv]
@@ -106,13 +109,15 @@ conflicts = [
   [
     { extra = "cpu" },
     { extra = "cu124" },
+    { extra = "macos-arm64" },
   ],
 ]
 
 [tool.uv.sources]
 torch = [
   { index = "pytorch-cpu", extra = "cpu", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
-  { index = "pytorch-cu124", extra = "cu124", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
+  { index = "pytorch-cu124", extra = "cu124", marker = "(sys_platform == 'linux' or sys_platform == 'win32') and (machine == 'x86_64')" },
+  { index = "pytorch-cpu", extra = "macos-arm64", marker = "sys_platform == 'darwin' and machine == 'arm64'" }
 ]
 
 [[tool.uv.index]]

@@ -34,7 +34,7 @@ jobs:
       matrix:
         # Define the matrix combinations
         python-version: ["3.10", "3.11", "3.12"] # Python versions to test
-        os: [ubuntu-latest] # Operating systems to test on
+        os: [ubuntu-latest, macos-latest] # Operating systems to test on
 
     # Specify the runner environment for the job
     runs-on: ${{ matrix.os }}

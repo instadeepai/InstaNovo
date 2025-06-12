@@ -3,6 +3,31 @@
 # Common variables
 PACKAGE_NAME = instanovo
 
+# Determine PyTorch extra based on OS and architecture
+UNAME_S := $(shell uname -s)
+UNAME_M := $(shell uname -m)
+
+# Default to 'cpu'. Users can override with 'make install EXTRA=cu124' etc.
+# Users can override the auto-detected PyTorch extra by passing EXTRA=<value> to make, e.g. make install EXTRA=cpu
+UV_DEFAULT_EXTRA := cpu
+
+ifeq ($(UNAME_S),Linux)
+    # Assuming Linux users with x86_64 might want CUDA by default if available.
+    # For simplicity, we default to cu124 here. Users can override with EXTRA=cpu.
+    ifeq ($(UNAME_M),x86_64)
+        UV_DEFAULT_EXTRA := cu124
+    endif
+else ifeq ($(UNAME_S),Darwin)
+    ifeq ($(UNAME_M),arm64)
+        UV_DEFAULT_EXTRA := macos-arm64
+    else
+        UV_DEFAULT_EXTRA := cpu # Intel Mac
+    endif
+endif
+
+# Allow user to override the default extra, e.g., make install EXTRA=cpu
+UV_EXTRA_ARGS := $(or $(EXTRA),$(UV_DEFAULT_EXTRA))
+
 # Train variables
 NUM_NODES = 1
 NUM_GPUS:= 1
@@ -126,17 +151,17 @@ PHONY: install install-all upgrade
 
 ## Install required and development packages
 install:
-	uv sync --extra cu124
+	uv sync --extra $(UV_EXTRA_ARGS)
 	uv run pre-commit install
 
 ## Install required, development and documentation packages
 install-all:
-	uv sync --extra cu124 --group docs
+	uv sync --extra $(UV_EXTRA_ARGS) --group docs
 
 # Upgrade all packages
 upgrade:
 	uv lock --upgrade
-	uv sync --extra cu124
+	uv sync --extra $(UV_EXTRA_ARGS)
 
 #################################################################################
 ## Development commands															#
@@ -147,7 +172,7 @@ upgrade:
 ## Run all tests
 tests:
 	uv run instanovo/scripts/get_zenodo_record.py
-	uv sync --extra cu124 --group dev
+	uv sync --extra $(UV_EXTRA_ARGS) --group dev
 	$(PYTEST)
 
 ## Calculate the code coverage
@@ -172,7 +197,7 @@ bash-dev:
 
 ## Serve the documentation site locally
 docs:
-	uv sync --extra cu124 --group docs
+	uv sync --extra $(UV_EXTRA_ARGS) --group docs
 	git config --global --add safe.directory "$(dirname "$(pwd)")"
 	rm -rf docs/reference
 	mkdocs build --verbose --site-dir docs_public

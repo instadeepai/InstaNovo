@@ -66,11 +66,15 @@ If you have access to an NVIDIA GPU, you can install InstaNovo with the GPU vers
 pip install "instanovo[cu124]"
 ```
 
-If you are on macOS, you can install the CPU-only version of PyTorch:
-
-```bash
-pip install "instanovo[cpu]"
-```
+If you are on macOS:
+- For Apple Silicon (M1, M2, M3, M4, etc.) Macs, install with:
+  ```bash
+  pip install "instanovo[macos-arm64]"
+  ```
+- For Intel-based Macs, install with:
+  ```bash
+  pip install "instanovo[cpu]"
+  ```
 
 ### Command line usage
 
@@ -501,27 +505,37 @@ git clone https://github.com/YOUR-USERNAME/InstaNovo.git
 cd InstaNovo
 ```
 
-And install the dependencies. If you do have access to an NVIDIA GPU, you can install the GPU
-version of PyTorch (recommended):
-
-```bash
-uv sync --extra cu124
-uv run pre-commit install
-```
-
-If you don't have access to a GPU, you can install the CPU-only version of PyTorch:
-
-```bash
-uv sync --extra cpu
-uv run pre-commit install
-```
+And install the dependencies.
+- If you have access to an NVIDIA GPU (Linux/Windows):
+  ```bash
+  uv sync --extra cu124
+  uv run pre-commit install
+  ```
+- If you are on an Apple Silicon Mac (M1, M2, M3, M4, etc.):
+  ```bash
+  uv sync --extra macos-arm64
+  uv run pre-commit install
+  ```
+- For other CPU-only environments (e.g., Intel-based Macs, or Linux/Windows without a compatible GPU):
+  ```bash
+  uv sync --extra cpu
+  uv run pre-commit install
+  ```
 
 Both approaches above also install the development dependencies. If you also want to install the
-documentation dependencies, you can do so with:
-
-```bash
-uv sync --extra cu124 --group docs
-```
+documentation dependencies, you can do so by adding `--group docs` to your respective `uv sync` command:
+- For NVIDIA GPU (Linux/Windows):
+  ```bash
+  uv sync --extra cu124 --group docs
+  ```
+- For Apple Silicon Macs:
+  ```bash
+  uv sync --extra macos-arm64 --group docs
+  ```
+- For other CPU-only environments:
+  ```bash
+  uv sync --extra cpu --group docs
+  ```
 
 Activate the virtual environment:
 
@@ -529,12 +543,22 @@ Activate the virtual environment:
 source .venv/bin/activate
 ```
 
-To upgrade all packages to the latest versions, you can run:
-
-```bash
-uv lock --upgrade
-uv sync --extra cu124
-```
+To upgrade all packages to the latest versions, you can run `uv lock --upgrade` followed by the appropriate `uv sync` command for your system:
+- For NVIDIA GPU (Linux/Windows):
+  ```bash
+  uv lock --upgrade
+  uv sync --extra cu124
+  ```
+- For Apple Silicon Macs:
+  ```bash
+  uv lock --upgrade
+  uv sync --extra macos-arm64
+  ```
+- For other CPU-only environments:
+  ```bash
+  uv lock --upgrade
+  uv sync --extra cpu
+  ```
 
 ### Basic development workflows
 
