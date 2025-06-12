@@ -72,7 +72,7 @@ jobs:
           uv run --frozen pytest -v --alluredir=allure_results --cov --cov-report=html --random-order
 
           # Generate coverage summary text file for the badge action
-          coverage report -m --fail-under=0
+          uv run coverage report -m --fail-under=0
         # Note: --fail-under=0 prevents this step from failing due to low coverage,
         # allowing the badge to be generated. Consider adding a separate step
         # later in the workflow to enforce a minimum coverage threshold if desired.
