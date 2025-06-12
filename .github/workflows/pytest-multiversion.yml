@@ -58,6 +58,9 @@ jobs:
         run: uv sync --extra cpu --dev # Install main and dev dependencies, CI runs on 'cpu' only
 
       # Step 4: Lint code with pre-commit
+      - name: Add uv venv to PATH
+        run: echo "$PWD/.venv/bin" >> $GITHUB_PATH
+
       - name: Lint with pre-commit
         run: pre-commit run --all-files -c .pre-commit-config.yaml # Run all pre-commit hooks
 
