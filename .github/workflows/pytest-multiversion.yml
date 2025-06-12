@@ -59,7 +59,7 @@ jobs:
 
       # Step 4: Lint code with pre-commit
       - name: Lint with pre-commit
-        run: pre-commit run --all-files -c .pre-commit-config.yaml # Run all pre-commit hooks
+        run: uv run pre-commit run --all-files -c .pre-commit-config.yaml # Run all pre-commit hooks
 
       # Step 5: Run tests with pytest and generate coverage report
       - name: Test with pytest
