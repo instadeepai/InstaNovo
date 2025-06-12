@@ -59,7 +59,7 @@ jobs:
 
       # Step 4: Lint code with pre-commit
       - name: Lint with pre-commit
-        run: pre-commit run --all-files -c .pre-commit-config.yaml # Run all pre-commit hooks
+        run: uv run pre-commit run --all-files -c .pre-commit-config.yaml # Run all pre-commit hooks
 
       # Step 5: Run tests with pytest and generate coverage report
       - name: Test with pytest
@@ -72,7 +72,7 @@ jobs:
           uv run --frozen pytest -v --alluredir=allure_results --cov --cov-report=html --random-order
 
           # Generate coverage summary text file for the badge action
-          coverage report -m --fail-under=0
+          uv run coverage report -m --fail-under=0
         # Note: --fail-under=0 prevents this step from failing due to low coverage,
         # allowing the badge to be generated. Consider adding a separate step
         # later in the workflow to enforce a minimum coverage threshold if desired.
@@ -109,15 +109,16 @@ jobs:
           # Modify notebook to only run on 10 samples to speedup test
           sed -i 's/test\[:10%\]/test[:10]/g' notebooks/getting_started_with_instanovo.ipynb
           # Install ipykernel
-          PYDEVD_DISABLE_FILE_VALIDATION=1 python -m ipykernel install --user --name instanovo
+          uv run python -m ipykernel install --user --name instanovo
           # Run notebook tests with nbmake
-          uv run --frozen pytest --nbmake "./notebooks/getting_started_with_instanovo.ipynb" --nbmake-kernel=instanovo --nbmake-timeout=10000
+          PYDEVD_DISABLE_FILE_VALIDATION=1 uv run --frozen pytest --nbmake "./notebooks/getting_started_with_instanovo.ipynb" --nbmake-kernel=instanovo --nbmake-timeout=10000
 
       # Step 9: Test notebooks on Windows (conditional)
       - name: Test notebooks on Windows
         if: runner.os == 'Windows' # Only run if the OS is Windows
         run: |
           # Set environment variable and install ipykernel
-          $env:PYDEVD_DISABLE_FILE_VALIDATION=1; python -m ipykernel install --user --name instanovo
+          $env:PYDEVD_DISABLE_FILE_VALIDATION=1
+          uv run python -m ipykernel install --user --name instanovo
           # Run notebook tests with nbmake
           uv run --frozen pytest --nbmake "./notebooks/getting_started_with_instanovo.ipynb" --nbmake-kernel=instanovo --nbmake-timeout=10000
