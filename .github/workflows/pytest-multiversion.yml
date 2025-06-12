@@ -54,8 +54,13 @@ jobs:
           python-version: ${{ matrix.python-version }} # Use Python version from matrix
 
       # Step 3: Install project dependencies
-      - name: Install dependencies
-        run: uv sync --extra cpu --dev # Install main and dev dependencies, CI runs on 'cpu' only
+      - name: Install dependencies (macOS)
+        if: matrix.os == 'macos-latest'
+        run: uv sync --extra macos-arm64 --dev
+
+      - name: Install dependencies (Ubuntu)
+        if: matrix.os == 'ubuntu-latest'
+        run: uv sync --extra cpu --dev
 
       # Step 4: Lint code with pre-commit
       - name: Lint with pre-commit
