@@ -12,7 +12,7 @@ def test_pos_enc() -> None:
     """Test positional encoding default initialisation."""
     pe = PositionalEncoding(d_model=12)
     assert pe.dropout.p == 0.1
-    pe.eval() # Disable dropout
+    pe.eval()  # Disable dropout
 
     x = torch.ones(4, 2, 12)
     y = pe(x)
