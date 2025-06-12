@@ -506,6 +506,39 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#performance" class="md-nav__link">
+    <span class="md-ellipsis">
+      Performance
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Performance">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#nine-species-dataset" class="md-nav__link">
+    <span class="md-ellipsis">
+      Nine-species dataset
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#biological-validation-datasets" class="md-nav__link">
+    <span class="md-ellipsis">
+      Biological validation datasets
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#additional-features" class="md-nav__link">
     <span class="md-ellipsis">
       Additional features
@@ -809,7 +842,7 @@ ground truth peptide sequence. Metrics will be calculated and displayed in the c
 <li><code>--instanovo-model</code> - Model to use for InstaNovo. Either a model ID (currently supported:
   <code>instanovo-v1.1.0</code>) or a path to an Instanovo checkpoint file (.ckpt format).</li>
 <li><code>--instanovo-plus-model</code> - Model to use for InstaNovo+. Either a model ID (currently supported:
-  <code>instanovoplus-v1.1.0-alpha</code>) or a path to an Instanovo+ checkpoint file (.ckpt format).</li>
+  <code>instanovoplus-v1.1.0</code>) or a path to an Instanovo+ checkpoint file (.ckpt format).</li>
 <li><code>--denovo</code> - Whether to do <em>de novo</em> predictions. If you want to evaluate the model on annotated
   data, use the flag <code>--evaluation</code> flag.</li>
 <li><code>--with-refinement</code> - Whether to use InstaNovo+ for iterative refinement of InstaNovo predictions.
@@ -906,8 +939,8 @@ columns.</p>
 </tbody>
 </table>
 <h3 id="models">Models</h3>
-<p>InstaNovo 1.1.0 includes a new model <code>instanovo-v1.1.0.ckpt</code> trained on a larger dataset with more
-PTMs.</p>
+<p>InstaNovo 1.1.0 includes new models <code>instanovo-v1.1.0.ckpt</code>, and <code>instanovoplus-v1.1.0.ckpt</code> trained
+on a larger dataset with more PTMs.</p>
 <blockquote>
 <p>Note: The InstaNovo Extended 1.0.0 training data mis-represented Cysteine as unmodified for the
 majority of the training data. Please update to the latest version of the model.</p>
@@ -1037,6 +1070,118 @@ following command:</p>
 <p>and then use the predictions as input for InstaNovo+:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>instanovo<span class="w"> </span>diffusion<span class="w"> </span>predict<span class="w"> </span>--data-path<span class="w"> </span>./sample_data/spectra.mgf<span class="w"> </span>--output-path<span class="w"> </span>instanovo_plus_predictions.csv<span class="w"> </span><span class="nv">instanovo_predictions_path</span><span class="o">=</span>instanovo_predictions.csv
 </code></pre></div>
+<h2 id="performance">Performance</h2>
+<p>We have benchmarked our latest models InstaNovo v1.1 and InstaNovo+ v1.1 against our previous
+models. For all results below, InstaNovo decoding was performed with knapsack beam search decoding.
+InstaNovo+ then refined these results. We present peptide accuracy as the metric of comparison.
+Peptide accuracy is a measure of precision at full coverage (no filtering).</p>
+<h3 id="nine-species-dataset">Nine-species dataset</h3>
+<table>
+<thead>
+<tr>
+<th>Dataset</th>
+<th>InstaNovo v0.1</th>
+<th>InstaNovo+ v0.1</th>
+<th>InstaNovo v1.1</th>
+<th>InstaNovo+ v1.1</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Bacillus</td>
+<td>0.624</td>
+<td>0.674</td>
+<td>0.652</td>
+<td><strong>0.684</strong></td>
+</tr>
+<tr>
+<td>Mouse</td>
+<td>0.466</td>
+<td>0.490</td>
+<td>0.524</td>
+<td><strong>0.542</strong></td>
+</tr>
+<tr>
+<td>Yeast</td>
+<td>0.559</td>
+<td>0.624</td>
+<td>0.618</td>
+<td><strong>0.645</strong></td>
+</tr>
+</tbody>
+</table>
+<p>InstaNovo and InstaNovo+ v0.1 were fine-tuned on the eight species dataset, excluding the test
+species, whereas InstaNovo and InstaNovo+ v1.1 were evaluated zero-shot on these datasets.</p>
+<h3 id="biological-validation-datasets">Biological validation datasets</h3>
+<table>
+<thead>
+<tr>
+<th>Dataset</th>
+<th>InstaNovo v0.1</th>
+<th>InstaNovo+ v0.1</th>
+<th>InstaNovo v1.1</th>
+<th>InstaNovo+ v1.1</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>HeLa degradome</td>
+<td>0.695</td>
+<td>0.719</td>
+<td>0.813</td>
+<td><strong>0.821</strong></td>
+</tr>
+<tr>
+<td>HeLa single-shot</td>
+<td>0.503</td>
+<td>0.517</td>
+<td>0.642</td>
+<td><strong>0.647</strong></td>
+</tr>
+<tr>
+<td>Herceptin</td>
+<td>0.494</td>
+<td>0.562</td>
+<td>0.710</td>
+<td><strong>0.720</strong></td>
+</tr>
+<tr>
+<td>Immunopeptidomics</td>
+<td>0.581</td>
+<td>0.697</td>
+<td>0.707</td>
+<td><strong>0.748</strong></td>
+</tr>
+<tr>
+<td><em>Candidatus</em> "Scalindua brodae"</td>
+<td>0.724</td>
+<td>0.736</td>
+<td>0.748</td>
+<td><strong>0.762</strong></td>
+</tr>
+<tr>
+<td>Snake venoms</td>
+<td>0.196</td>
+<td>0.198</td>
+<td>0.221</td>
+<td><strong>0.238</strong></td>
+</tr>
+<tr>
+<td>Nanobodies</td>
+<td>0.447</td>
+<td>0.464</td>
+<td>0.492</td>
+<td><strong>0.508</strong></td>
+</tr>
+<tr>
+<td>Wound fluids</td>
+<td>0.225</td>
+<td>0.229</td>
+<td>0.354</td>
+<td><strong>0.364</strong></td>
+</tr>
+</tbody>
+</table>
 <h2 id="additional-features">Additional features</h2>
 <h3 id="spectrum-data-class">Spectrum Data Class</h3>
 <p>InstaNovo introduces a Spectrum Data Class: <a href="./instanovo/utils/data_handler.py">SpectrumDataFrame</a>.
@@ -1207,21 +1352,21 @@ it easier to contribute) and
 <div class="highlight"><pre><span></span><code><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/YOUR-USERNAME/InstaNovo.git
 <a id="__codelineno-25-2" name="__codelineno-25-2" href="#__codelineno-25-2"></a><span class="nb">cd</span><span class="w"> </span>InstaNovo
 </code></pre></div>
-<p>Activate the virtual environment:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a><span class="nb">source</span><span class="w"> </span>.venv/bin/activate
+<p>And install the dependencies. If you do have access to an NVIDIA GPU, you can install the GPU
+version of PyTorch (recommended):</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a>uv<span class="w"> </span>sync<span class="w"> </span>--extra<span class="w"> </span>cu124
+<a id="__codelineno-26-2" name="__codelineno-26-2" href="#__codelineno-26-2"></a>uv<span class="w"> </span>run<span class="w"> </span>pre-commit<span class="w"> </span>install
 </code></pre></div>
-<p>And install the dependencies. If you don't have access to a GPU, you can install the CPU-only
-version of PyTorch:</p>
+<p>If you don't have access to a GPU, you can install the CPU-only version of PyTorch:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a>uv<span class="w"> </span>sync<span class="w"> </span>--extra<span class="w"> </span>cpu
 <a id="__codelineno-27-2" name="__codelineno-27-2" href="#__codelineno-27-2"></a>uv<span class="w"> </span>run<span class="w"> </span>pre-commit<span class="w"> </span>install
 </code></pre></div>
-<p>If you do have access to an NVIDIA GPU, you can install the GPU version of PyTorch (recommended):</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a>uv<span class="w"> </span>sync<span class="w"> </span>--extra<span class="w"> </span>cu124
-<a id="__codelineno-28-2" name="__codelineno-28-2" href="#__codelineno-28-2"></a>uv<span class="w"> </span>run<span class="w"> </span>pre-commit<span class="w"> </span>install
-</code></pre></div>
 <p>Both approaches above also install the development dependencies. If you also want to install the
 documentation dependencies, you can do so with:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-29-1" name="__codelineno-29-1" href="#__codelineno-29-1"></a>uv<span class="w"> </span>sync<span class="w"> </span>--extra<span class="w"> </span>cu124<span class="w"> </span>--group<span class="w"> </span>docs
+<div class="highlight"><pre><span></span><code><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a>uv<span class="w"> </span>sync<span class="w"> </span>--extra<span class="w"> </span>cu124<span class="w"> </span>--group<span class="w"> </span>docs
+</code></pre></div>
+<p>Activate the virtual environment:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-29-1" name="__codelineno-29-1" href="#__codelineno-29-1"></a><span class="nb">source</span><span class="w"> </span>.venv/bin/activate
 </code></pre></div>
 <p>To upgrade all packages to the latest versions, you can run:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-30-1" name="__codelineno-30-1" href="#__codelineno-30-1"></a>uv<span class="w"> </span>lock<span class="w"> </span>--upgrade
