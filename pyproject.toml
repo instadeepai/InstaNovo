@@ -116,8 +116,8 @@ conflicts = [
 [tool.uv.sources]
 torch = [
   { index = "pytorch-cpu", extra = "cpu", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
-  { index = "pytorch-cu124", extra = "cu124", marker = "(sys_platform == 'linux' or sys_platform == 'win32') and (machine == 'x86_64')" },
-  { index = "pytorch-cpu", extra = "macos-arm64", marker = "sys_platform == 'darwin' and machine == 'arm64'" }
+  { index = "pytorch-cu124", extra = "cu124", marker = "(sys_platform == 'linux' or sys_platform == 'win32') and platform_machine == 'x86_64'" },
+  { index = "pytorch-cpu", extra = "macos-arm64", marker = "sys_platform == 'darwin' and platform_machine == 'arm64'" }
 ]
 
 [[tool.uv.index]]
