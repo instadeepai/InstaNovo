@@ -58,16 +58,13 @@ jobs:
         run: uv sync --extra cpu --dev # Install main and dev dependencies, CI runs on 'cpu' only
 
       # Step 4: Lint code with pre-commit
-      - name: Add uv venv to PATH
-        run: echo "$PWD/.venv/bin" >> $GITHUB_PATH
-
       - name: Lint with pre-commit
-        run: pre-commit run --all-files -c .pre-commit-config.yaml # Run all pre-commit hooks
+        run: uv run pre-commit run --all-files -c .pre-commit-config.yaml # Run all pre-commit hooks
 
       # Step 5: Run tests with pytest and generate coverage report
       - name: Test with pytest
         run: |
-          # Get test data from Zenodo
+          # Run a script (example, adjust if needed)
           uv run python -m instanovo.scripts.get_zenodo_record
 
           # Run pytest with coverage, allure report, and random order

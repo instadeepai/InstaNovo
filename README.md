@@ -67,7 +67,6 @@ pip install "instanovo[cu124]"
 ```
 
 If you are on macOS:
-
 - For Apple Silicon (M1, M2, M3, M4, etc.) Macs, install with:
   ```bash
   pip install "instanovo[macos-arm64]"
@@ -507,7 +506,6 @@ cd InstaNovo
 ```
 
 And install the dependencies.
-
 - If you have access to an NVIDIA GPU (Linux/Windows):
   ```bash
   uv sync --extra cu124
@@ -518,17 +516,14 @@ And install the dependencies.
   uv sync --extra macos-arm64
   uv run pre-commit install
   ```
-- For other CPU-only environments (e.g., Intel-based Macs, or Linux/Windows without a compatible
-  GPU):
+- For other CPU-only environments (e.g., Intel-based Macs, or Linux/Windows without a compatible GPU):
   ```bash
   uv sync --extra cpu
   uv run pre-commit install
   ```
 
 Both approaches above also install the development dependencies. If you also want to install the
-documentation dependencies, you can do so by adding `--group docs` to your respective `uv sync`
-command:
-
+documentation dependencies, you can do so by adding `--group docs` to your respective `uv sync` command:
 - For NVIDIA GPU (Linux/Windows):
   ```bash
   uv sync --extra cu124 --group docs
@@ -548,9 +543,7 @@ Activate the virtual environment:
 source .venv/bin/activate
 ```
 
-To upgrade all packages to the latest versions, you can run `uv lock --upgrade` followed by the
-appropriate `uv sync` command for your system:
-
+To upgrade all packages to the latest versions, you can run `uv lock --upgrade` followed by the appropriate `uv sync` command for your system:
 - For NVIDIA GPU (Linux/Windows):
   ```bash
   uv lock --upgrade
