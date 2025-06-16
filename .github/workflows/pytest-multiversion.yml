@@ -91,7 +91,7 @@ jobs:
         if:
           github.event_name == 'push' && matrix.python-version == '3.12' && matrix.os ==
           'ubuntu-latest'
-        uses: stefanzweifel/git-auto-commit-action@v5 # Use the auto-commit action
+        uses: stefanzweifel/git-auto-commit-action@v6 # Use the auto-commit action
         with:
           commit_message: "chore: update coverage badge [skip ci]" # Commit message
           file_pattern: ./docs/assets/coverage.svg # Pattern of files to commit
