@@ -412,8 +412,10 @@ def get_preds(
         "".join(pred) if pred is not None else "" for pred in filtered_preds
     ]
     pred_df["diffusion_log_probabilities"] = filtered_probs
+
     if not denovo:
         pred_df["targets"] = targets
+
     if refine:
         pred_df["transformer_predictions"] = sdf.df[config.get("pred_col", "predictions")]
         pred_df["transformer_predictions_tokenised"] = sdf.df[
@@ -486,6 +488,9 @@ def get_preds(
         if refine:
             results = pred_df["final_prediction_tokenised"].tolist()
             all_log_probs = pred_df["final_log_probabilities"].tolist()
+        else:
+            results = pred_df["diffusion_predictions_tokenised"].tolist()
+            all_log_probs = pred_df["diffusion_log_probabilities"].tolist()
 
         aa_prec, aa_recall, pep_recall, _ = metrics.compute_precision_recall(targets, results)
         aa_er = metrics.compute_aa_er(targets, results)

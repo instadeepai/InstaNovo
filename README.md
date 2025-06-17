@@ -190,8 +190,8 @@ columns.
 
 ### Models
 
-InstaNovo 1.1.0 includes a new model `instanovo-v1.1.0.ckpt` trained on a larger dataset with more
-PTMs.
+InstaNovo 1.1.0 includes new models `instanovo-v1.1.0.ckpt`, and `instanovoplus-v1.1.0.ckpt` trained
+on a larger dataset with more PTMs.
 
 > Note: The InstaNovo Extended 1.0.0 training data mis-represented Cysteine as unmodified for the
 > majority of the training data. Please update to the latest version of the model.

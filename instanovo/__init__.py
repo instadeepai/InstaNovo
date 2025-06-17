@@ -19,4 +19,4 @@ terminal_width = shutil.get_terminal_size(fallback=(175, 24)).columns
 
 console = Console(width=terminal_width)
 
-__version__ = "1.1.3"
+__version__ = "1.1.4"

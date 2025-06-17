@@ -9,20 +9,19 @@ from pathlib import Path
 from typing import Tuple
 from urllib.parse import urlsplit
 
-import requests
 import torch
 from jaxtyping import Float, Integer
 from omegaconf import DictConfig, OmegaConf
 from torch import nn
 from torch.distributions import Categorical
 from torch.nn.functional import log_softmax, one_hot
-from tqdm import tqdm
 
 from instanovo.__init__ import console
 from instanovo.diffusion.model import MassSpectrumTransFusion
 from instanovo.types import Peptide, ResidueLogProbabilities, TimeStep
 from instanovo.utils.colorlogging import ColorLog
 from instanovo.utils.device_handler import check_device
+from instanovo.utils.file_downloader import download_file
 from instanovo.utils.residues import ResidueSet
 from instanovo.utils.s3 import S3FileHandler
 
@@ -363,36 +362,26 @@ class InstaNovoPlus(nn.Module):
 
             # Check if the file is already cached
             if not cached_file.exists():
-                # If not cached, download the file with a progress bar
-                response = requests.get(url, stream=True)
-                total_size = int(response.headers.get("content-length", 0))
-                logger.info(f"Downloading model {model_id} from {url}")
+                download_file(url, cached_file, model_id, file_name)
 
-                with (
-                    open(cached_file, "wb") as file,
-                    tqdm(
-                        desc=file_name,
-                        total=total_size,
-                        unit="iB",
-                        unit_scale=True,
-                        unit_divisor=1024,
-                    ) as progress_bar,
-                ):
-                    for data in response.iter_content(chunk_size=1024):
-                        size = file.write(data)
-                        progress_bar.update(size)
-                if not os.path.getsize(cached_file) == total_size:
-                    raise ValueError(
-                        f"Downloaded file is incomplete. Expected size of {total_size} "
-                        "bytes does not match downloaded size of "
-                        f"{os.path.getsize(cached_file)} bytes."
-                    )
             else:
                 logger.info(f"Model {model_id} already cached at {cached_file}")
 
-            # Load and return the model
-            logger.info(f"Loading model {model_id} (remote)")
-            return cls.load(str(cached_file), device=device)
+            try:
+                # Load and return the model
+                logger.info(f"Loading model {model_id} (remote)")
+                return cls.load(str(cached_file), device=device)
+            except Exception as e:
+                logger.warning(
+                    f"Failed to load cached model {model_id}, it may be corrupted. "
+                    f"Deleting and re-downloading. Error: {e}"
+                )
+                if cached_file.exists():
+                    cached_file.unlink()
+
+                download_file(url, cached_file, model_id, file_name)
+                logger.info(f"Loading newly downloaded model {model_id}")
+                return cls.load(str(cached_file), device=device)
 
         elif "local" in model_info:
             instanovo_plus_model = model_info["local"]

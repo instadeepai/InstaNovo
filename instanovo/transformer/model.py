@@ -7,12 +7,10 @@ from pathlib import Path
 from typing import Optional, Tuple
 from urllib.parse import urlsplit
 
-import requests
 import torch
 from jaxtyping import Bool, Float, Integer
 from omegaconf import DictConfig
 from torch import Tensor, nn
-from tqdm import tqdm
 
 from instanovo.__init__ import console
 from instanovo.constants import LEGACY_PTM_TO_UNIMOD, MAX_SEQUENCE_LENGTH
@@ -35,14 +33,12 @@ from instanovo.types import (
 )
 from instanovo.utils import ResidueSet
 from instanovo.utils.colorlogging import ColorLog
+from instanovo.utils.file_downloader import download_file
 
 MODEL_TYPE = "transformer"
 
 
 logger = ColorLog(console, __name__).logger
-
-MODELS_PATH = Path(__file__).parent.parent / "models.json"
-MODEL_TYPE = "transformer"
 
 
 class InstaNovo(nn.Module, Decodable):
@@ -214,35 +210,26 @@ class InstaNovo(nn.Module, Decodable):
 
         # Check if the file is already cached
         if not cached_file.exists():
-            # If not cached, download the file with a progress bar
-            response = requests.get(url, stream=True)
-            total_size = int(response.headers.get("content-length", 0))
-            logger.info(f"Downloading model {model_id} from {url}")
+            download_file(url, cached_file, model_id, file_name)
 
-            with (
-                open(cached_file, "wb") as file,
-                tqdm(
-                    desc=file_name,
-                    total=total_size,
-                    unit="iB",
-                    unit_scale=True,
-                    unit_divisor=1024,
-                ) as progress_bar,
-            ):
-                for data in response.iter_content(chunk_size=1024):
-                    size = file.write(data)
-                    progress_bar.update(size)
-            if not os.path.getsize(cached_file) == total_size:
-                raise ValueError(
-                    f"Downloaded file is incomplete. Expected size of {total_size} "
-                    "bytes does not match downloaded size of "
-                    f"{os.path.getsize(cached_file)} bytes."
-                )
         else:
             logger.info(f"Model {model_id} already cached at {cached_file}")
 
-        # Load and return the model
-        return cls.load(str(cached_file), update_residues_to_unimod=update_residues_to_unimod)
+        try:
+            # Load and return the model
+            logger.info(f"Loading model {model_id} (remote)")
+            return cls.load(str(cached_file), update_residues_to_unimod=update_residues_to_unimod)
+        except Exception as e:
+            logger.warning(
+                f"Failed to load cached model {model_id}, it may be corrupted. "
+                f"Deleting and re-downloading. Error: {e}"
+            )
+            if cached_file.exists():
+                cached_file.unlink()
+
+            download_file(url, cached_file, model_id, file_name)
+            logger.info(f"Loading newly downloaded model {model_id}")
+            return cls.load(str(cached_file), update_residues_to_unimod=update_residues_to_unimod)
 
     def forward(
         self,
