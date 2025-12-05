@@ -1,0 +1,4 @@
+[12/05/25 13:41:10] INFO     Checking for Neptune API token under A_TEST_EMAIL__NEPTUNE_API_TOKEN.                                                                             
+                    INFO     Neptune credentials for user A_TEST_EMAIL not found.                                                                                              
+                    INFO     Checking for Neptune API token under A_TEST_EMAIL__NEPTUNE_API_TOKEN.                                                                             
+                    INFO     Set token for A_TEST_EMAIL.                                                                                                                       

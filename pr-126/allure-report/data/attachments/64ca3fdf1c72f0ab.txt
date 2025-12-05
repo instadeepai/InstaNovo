@@ -1,0 +1,138 @@
+[12/05/25 13:42:20] INFO     Python version: 3.13.9 (main, Nov 18 2025, 05:57:28) [GCC 12.2.0]                                                                                 
+                    INFO     Torch version: 2.8.0+cpu                                                                                                                          
+                    INFO     CUDA version: None                                                                                                                                
+                    INFO     Predicting with 1 devices                                                                                                                         
+                    INFO     Per-device batch size: 32                                                                                                                         
+                    INFO     Using device: cpu                                                                                                                                 
+                    INFO     Config:                                                                                                                                           
+                             data_path: tests/instanovo_test_resources/example_data/test_sample.mgf                                                                            
+                             instanovo_plus_model: tests/instanovo_test_resources/instanovoplus/model_latest.ckpt                                                              
+                             output_path: tests/instanovo_test_resources/instanovoplus/test_sample_preds.csv                                                                   
+                             knapsack_path: null                                                                                                                               
+                             data_type: null                                                                                                                                   
+                             denovo: false                                                                                                                                     
+                             max_length: 6                                                                                                                                     
+                             max_charge: 3                                                                                                                                     
+                             isotope_error_range:                                                                                                                              
+                             - 0                                                                                                                                               
+                             - 1                                                                                                                                               
+                             subset: 1                                                                                                                                         
+                             refine: true                                                                                                                                      
+                             refinement_path: tests/instanovo_test_resources/instanovoplus/sample_predictions.csv                                                              
+                             prediction_refine_col: predictions_tokenised                                                                                                      
+                             prediction_confidence_col: log_probs                                                                                                              
+                             refinement_id_col: spectrum_id                                                                                                                    
+                             dataset_id_col: spectrum_id                                                                                                                       
+                             refine_all: false                                                                                                                                 
+                             refine_threshold: 0.9                                                                                                                             
+                             prediction_tokenised_col: predictions_tokenised                                                                                                   
+                             prediction_col: predictions                                                                                                                       
+                             log_probs_col: log_probs                                                                                                                          
+                             token_log_probs_col: token_log_probs                                                                                                              
+                             num_workers: 4                                                                                                                                    
+                             batch_size: 32                                                                                                                                    
+                             device: auto                                                                                                                                      
+                             fp16: true                                                                                                                                        
+                             force_cpu: true                                                                                                                                   
+                             mps: false                                                                                                                                        
+                             force_fp32: false                                                                                                                                 
+                             log_interval: 50                                                                                                                                  
+                             use_basic_logging: true                                                                                                                           
+                             filter_precursor_ppm: 20                                                                                                                          
+                             filter_confidence: 0.0001                                                                                                                         
+                             filter_fdr_threshold: 0.05                                                                                                                        
+                             residue_remapping:                                                                                                                                
+                               M(ox): M(+15.99)                                                                                                                                
+                               S(p): S(+79.97)                                                                                                                                 
+                               T(p): T(+79.97)                                                                                                                                 
+                               Y(p): Y(+79.97)                                                                                                                                 
+                               Q(+0.98): Q(+.98)                                                                                                                               
+                               N(+0.98): N(+.98)                                                                                                                               
+                             column_map:                                                                                                                                       
+                               Modified sequence: modified_sequence                                                                                                            
+                               MS/MS m/z: precursor_mz                                                                                                                         
+                               Mass: precursor_mass                                                                                                                            
+                               Charge: precursor_charge                                                                                                                        
+                               Mass values: mz_array                                                                                                                           
+                               Mass spectrum: mz_array                                                                                                                         
+                               Intensity: intensity_array                                                                                                                      
+                               Raw intensity spectrum: intensity_array                                                                                                         
+                             index_columns:                                                                                                                                    
+                             - id                                                                                                                                              
+                             - experiment_name                                                                                                                                 
+                             - evidence_index                                                                                                                                  
+                             - scan_number                                                                                                                                     
+                             - spectrum_id                                                                                                                                     
+                             - global_index                                                                                                                                    
+                             - spectrum_index                                                                                                                                  
+                             - file_index                                                                                                                                      
+                             - sample                                                                                                                                          
+                             - file                                                                                                                                            
+                             - index                                                                                                                                           
+                             - fileno                                                                                                                                          
+                             - precursor_mz                                                                                                                                    
+                             - precursor_charge                                                                                                                                
+                             instanovo_predictions_path: null                                                                                                                  
+                             pred_tok_col: predictions_tokenised                                                                                                               
+                             pred_col: predictions                                                                                                                             
+                             instanovo_id_col: scan_number                                                                                                                     
+                             instanovoplus_id_col: scan_number                                                                                                                 
+                                                                                                                                                                               
+                    INFO     Loading model...                                                                                                                                  
+                    INFO     Loading InstaNovo+ model tests/instanovo_test_resources/instanovoplus/model_latest.ckpt                                                           
+                    INFO     Model loaded.                                                                                                                                     
+                    INFO     Vocab: {0: '[PAD]', 1: '[SOS]', 2: '[EOS]', 3: 'A', 4: 'B', 5: 'C', 6: 'D', 7: 'E'}                                                               
+                    INFO     Loading dataset...                                                                                                                                
+                    INFO     Loading data from tests/instanovo_test_resources/example_data/test_sample.mgf                                                                     
+                    INFO     Reading 1 refinement file(s)                                                                                                                      
+                    INFO     Adding refinement columns to dataset                                                                                                              
+[12/05/25 13:42:21] INFO     Data loaded: 1 test samples.                                                                                                                      
+                    INFO     Data loader built.                                                                                                                                
+                    INFO     Sample batch:                                                                                                                                     
+                    INFO      - spectra: torch.float32, torch.Size([1, 3, 2])                                                                                                  
+                    INFO      - precursors: torch.float32, torch.Size([1, 3])                                                                                                  
+                    INFO      - spectra_mask: torch.bool, torch.Size([1, 3])                                                                                                   
+                    INFO      - peptides: torch.int64, torch.Size([1, 6])                                                                                                      
+                    INFO      - peptides_mask: torch.bool, torch.Size([1, 6])                                                                                                  
+                    INFO      - input_predictions: torch.int64, torch.Size([1, 6])                                                                                             
+                    INFO      - group: <class 'list'>, 1                                                                                                                       
+                    INFO      - input_log_probabilities: <class 'list'>, 1                                                                                                     
+                    INFO      - prediction_id: <class 'list'>, 1                                                                                                               
+                    INFO     Initializing decoder.                                                                                                                             
+                    INFO     Initializing metrics.                                                                                                                             
+                    INFO     Total batches: 1                                                                                                                                  
+                    INFO     Predicting...                                                                                                                                     
+[12/05/25 13:42:22] INFO     Batch 0 shape: 1                                                                                                                                  
+                    INFO     [Batch 00001/00001] [00:00:00/00:00:00] 0.36 s/step:                                                                                              
+                    INFO     Time taken for tests/instanovo_test_resources/example_data/test_sample.mgf is 0.4 seconds                                                         
+                    INFO     Prediction complete.                                                                                                                              
+                    INFO     Calculating metrics...                                                                                                                            
+                    INFO     Performance:                                                                                                                                      
+                    INFO       aa_er       1.00000                                                                                                                             
+                    INFO       aa_prec     0.00000                                                                                                                             
+                    INFO       aa_recall   0.00000                                                                                                                             
+                    INFO       pep_prec    0.00000                                                                                                                             
+                    INFO       pep_recall  0.00000                                                                                                                             
+                    INFO       auc         0.00000                                                                                                                             
+                    INFO     Performance at 5.0% FDR:                                                                                                                          
+                    INFO       aa_prec     1.00000                                                                                                                             
+                    INFO       aa_recall   0.00000                                                                                                                             
+                    INFO       pep_prec    1.00000                                                                                                                             
+                    INFO       pep_recall  0.00000                                                                                                                             
+                    INFO       confidence  1.00000                                                                                                                             
+                    INFO     Performance with filtering at 20 ppm delta mass:                                                                                                  
+                    INFO       aa_prec     0.00000                                                                                                                             
+                    INFO       aa_recall   0.00000                                                                                                                             
+                    INFO       pep_prec    0.00000                                                                                                                             
+                    INFO       pep_recall  0.00000                                                                                                                             
+                    INFO     Rows filtered: 0 (0.00%)                                                                                                                          
+                    INFO     Metrics calculated on a small number of samples (1), interpret with care!                                                                         
+                    INFO     Performance with filtering confidence < 0.0001                                                                                                    
+                    INFO       aa_prec     0.00000                                                                                                                             
+                    INFO       aa_recall   0.00000                                                                                                                             
+                    INFO       pep_prec    0.00000                                                                                                                             
+                    INFO       pep_recall  0.00000                                                                                                                             
+                    INFO     Rows filtered: 0 (0.00%)                                                                                                                          
+                    INFO     Metrics calculated on a small number of samples (1), interpret with care!                                                                         
+                    INFO     Saving predictions to tests/instanovo_test_resources/instanovoplus/test_sample_preds.csv.                                                         
+                    INFO     Predictions saved to tests/instanovo_test_resources/instanovoplus/test_sample_preds.csv                                                           
