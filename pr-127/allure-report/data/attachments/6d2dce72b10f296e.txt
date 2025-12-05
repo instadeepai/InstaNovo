@@ -1,0 +1,2 @@
+INFO     instanovo.utils.s3:s3.py:73 Creating s3fs.core.S3FileSystem, Endpoint: example/end_point
+INFO     instanovo.utils.s3:s3.py:76 Created s3fs.core.S3FileSystem: <MagicMock name='S3FileSystem()' id='140120327364896'>
