@@ -358,11 +358,19 @@ jobs:
       - name: Show Preview URL
         if: github.event_name == 'pull_request'
         run: |
-          echo "=============================================="
+          PR_NUM="${{ github.event.pull_request.number }}"
+          IS_PRIVATE="${{ github.event.repository.private }}"
+          
+          if [ "$IS_PRIVATE" == "true" ]; then
+            # Private Repo URL
+            URL="https://cuddly-adventure-n2v5ryv.pages.github.io/pr-$PR_NUM/"
+          else
+            # Public Repo URL (Standard format)
+            URL="https://instadeepai.github.io/InstaNovo/pr-$PR_NUM/"
+          fi
           echo "Documentation Preview deployed successfully!"
-          echo "URL: https://cuddly-adventure-n2v5ryv.pages.github.io/pr-${{ github.event.pull_request.number }}/"
+          echo "URL: $URL"
           echo "This preview will be deleted after 7 days."
-          echo "=============================================="
       
       - name: Clean up old previews (>7 days)
         if: github.event_name == 'pull_request'
