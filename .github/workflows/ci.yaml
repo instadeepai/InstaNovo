@@ -218,26 +218,8 @@ jobs:
           path: allure_results
           retention-days: 1
 
-  # Job 4: Test Notebook on Linux (in parallel)
-  linux_test_notebook:
-    if: |
-      ((github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch') &&
-      always() &&
-      (needs.docker_build_private.result == 'success' || needs.docker_build_public.result == 'success')
-    needs: [docker_build_private, docker_build_public]
-    runs-on: ${{ github.event.repository.private == true && 'instadeep-ci-8-highmem' || 'ubuntu-latest' }}
-    container:
-      image: ${{ github.event.repository.private == true && 'ghcr.io/instadeepai/instanovo-internal' || 'ghcr.io/instadeepai/instanovo' }}/ci-py3.13:${{ github.event.repository.private == true && 'latest' || github.sha }}
-      credentials:
-        username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v6
-
-      - run: git config --system --add safe.directory $GITHUB_WORKSPACE
-
       - name: Test notebooks
+        if: matrix.python-version == '3.13'
         run: |
           sed -i 's/test\[:1%\]/test[:3]/g' notebooks/getting_started_with_instanovo.ipynb
           sed -i 's/num_beams = 5/num_beams = 1/g' notebooks/getting_started_with_instanovo.ipynb
@@ -257,11 +239,10 @@ jobs:
             --nbmake "./notebooks/getting_started_with_instanovo.ipynb" \
             --nbmake-kernel=instanovo \
             --nbmake-timeout=10000
-
-  # Job 5: Build Docs, Generate Reports, and Deploy
+  # Job 4: Build Docs, Generate Reports, and Deploy
   docs:
     needs: linux_test
-    # Explicitly check for linux_test success to ignore upstream skipped jobs
+    # Check for linux_test success to ignore upstream skipped jobs
     if: always() && needs.linux_test.result == 'success'
     runs-on: ${{ github.event.repository.private == true && 'instadeep-ci-4' || 'ubuntu-latest' }}
     permissions:
@@ -444,7 +425,7 @@ jobs:
           user_name: 'github-actions[bot]'
           user_email: 'github-actions[bot]@users.noreply.github.com'
 
-  # Job 6: Run tests on Windows for public repositories
+  # Job 5: Run tests on Windows for public repositories
   windows_test:
     if: github.event.repository.private == false
     strategy:
@@ -513,7 +494,7 @@ jobs:
             --nbmake-timeout=10000
         shell: pwsh
 
-  # Job 7: Run tests on macOS for public repositories
+  # Job 6: Run tests on macOS for public repositories
   macos_test:
     if: github.event.repository.private == false
     strategy:
@@ -582,7 +563,7 @@ jobs:
             --nbmake-kernel=instanovo \
             --nbmake-timeout=10000
 
-  # Job 8: Run GPU-specific tests on private infrastructure
+  # Job 7: Run GPU-specific tests on private infrastructure
   linux_test_gpu:
     # Run only when PR is merged to main (push to main after merge) or when manually triggered:
     if: github.event.repository.private == true && ((github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch')
