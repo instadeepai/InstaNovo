@@ -23,45 +23,113 @@ env:
   COVERAGE_THRESHOLD: ${{ vars.COVERAGE_THRESHOLD || 60 }}
 
 jobs:
-  # Job 1: Build Docker images for multiple Python versions
-  # These images are used by all Linux jobs.
-  docker_build:
+  # Job 1a: Build Docker images for private repositories (Inlined to fix public repo access)
+  docker_build_private:
+    if: github.event.repository.private == true
     strategy:
       matrix:
         python-version: ["3.10", "3.11", "3.12", "3.13"]
-    uses: instadeepai/mlops-reusable-ci/.github/workflows/docker-build.yaml@main
-    with:
-      # Dynamically set runner based on repository visibility
-      job-runner: ${{ github.event.repository.private == true && 'instadeep-ci' || 'ubuntu-latest' }}
-      display-name: CI image Python ${{ matrix.python-version }}
-      build-path: . # project root
-      # Dynamically set image name based on repository visibility
-      image: ${{ github.event.repository.private == true && 'ghcr.io/instadeepai/instanovo-internal' || 'ghcr.io/instadeepai/instanovo' }}/ci-py${{ matrix.python-version }}
-      cache-image: ${{ github.event.repository.private == true && 'ghcr.io/instadeepai/instanovo-internal' || 'ghcr.io/instadeepai/instanovo' }}/ci-py${{ matrix.python-version }}/cache${{ github.event_name == 'pull_request' && format('-pr-{0}', github.event.pull_request.number) || '' }}
-      main-branch: main
-      filename: "./Dockerfile.ci"
-      registry-host: ghcr.io
-      registry-username: ${{ github.actor }}
-      dockerhub-username: ${{ vars.DOCKERHUB_USERNAME }}
-      instadeep-app-id: ${{ vars.INSTADEEP_APP_ID }}
-      build-args: |
-        PYTHON_VERSION=${{ matrix.python-version }}
-    secrets:
-      pre-script: |
-        echo "Starting Docker image build for Python ${{ matrix.python-version }}..."
-      registry-password: ${{ secrets.GITHUB_TOKEN }}
-      dockerhub-password: ${{ secrets.DOCKERHUB_TOKEN }}
-      instadeep-app-secret-pem: ${{ secrets.INSTADEEP_APP_SECRET_PEM }}
+    runs-on: instadeep-ci
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Log in to Docker Hub
+        if: vars.DOCKERHUB_USERNAME != ''
+        uses: docker/login-action@v3
+        with:
+          username: ${{ vars.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile.ci
+          push: true
+          tags: ghcr.io/instadeepai/instanovo-internal/ci-py${{ matrix.python-version }}:latest
+          build-args: |
+            PYTHON_VERSION=${{ matrix.python-version }}
+            INSTALL_EXTRA=cu126
+          cache-from: type=registry,ref=ghcr.io/instadeepai/instanovo-internal/ci-py${{ matrix.python-version }}/cache${{ github.event_name == 'pull_request' && format('-pr-{0}', github.event.pull_request.number) || '' }}
+          cache-to: type=registry,ref=ghcr.io/instadeepai/instanovo-internal/ci-py${{ matrix.python-version }}/cache${{ github.event_name == 'pull_request' && format('-pr-{0}', github.event.pull_request.number) || '' }},mode=max
+
+  # Job 1b: Build Docker images for public repositories directly
+  docker_build_public:
+    if: github.event.repository.private == false
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/instadeepai/instanovo/ci-py${{ matrix.python-version }}
+          tags: |
+            type=sha,prefix=,format=long
+            type=ref,event=branch
+            type=ref,event=pr
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile.ci
+          push: true
+          tags: |
+            ghcr.io/instadeepai/instanovo/ci-py${{ matrix.python-version }}:${{ github.sha }}
+            ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          # Pass 'cpu' here to save space on ubuntu-latest
+          build-args: |
+            PYTHON_VERSION=${{ matrix.python-version }}
+            INSTALL_EXTRA=cpu
+          cache-from: type=registry,ref=ghcr.io/instadeepai/instanovo/ci-py${{ matrix.python-version }}/cache${{ github.event_name == 'pull_request' && format('-pr-{0}', github.event.pull_request.number) || '' }}
+          cache-to: type=registry,ref=ghcr.io/instadeepai/instanovo/ci-py${{ matrix.python-version }}/cache${{ github.event_name == 'pull_request' && format('-pr-{0}', github.event.pull_request.number) || '' }},mode=max
 
   # Job 2: Run linting on Linux (in parallel)
   linux_lint:
-    needs: docker_build
+    if: |
+      always() &&
+      (needs.docker_build_private.result == 'success' || needs.docker_build_public.result == 'success')
+    needs: [docker_build_private, docker_build_public]
     strategy:
       matrix:
         python-version: ["3.10", "3.11", "3.12", "3.13"]
     runs-on: ${{ github.event.repository.private == true && 'instadeep-ci-8-highmem' || 'ubuntu-latest' }}
     container:
-      image: ${{ github.event.repository.private == true && 'ghcr.io/instadeepai/instanovo-internal' || 'ghcr.io/instadeepai/instanovo' }}/ci-py${{ matrix.python-version }}:${{ github.sha }}
+      image: ${{ github.event.repository.private == true && 'ghcr.io/instadeepai/instanovo-internal' || 'ghcr.io/instadeepai/instanovo' }}/ci-py${{ matrix.python-version }}:${{ github.event.repository.private == true && 'latest' || github.sha }}
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
@@ -82,13 +150,16 @@ jobs:
 
   # Job 3: Run main tests on Linux (in parallel)
   linux_test:
-    needs: docker_build
+    if: |
+      always() &&
+      (needs.docker_build_private.result == 'success' || needs.docker_build_public.result == 'success')
+    needs: [docker_build_private, docker_build_public]
     strategy:
       matrix:
         python-version: ["3.10", "3.11", "3.12", "3.13"]
     runs-on: ${{ github.event.repository.private == true && 'instadeep-ci-8-highmem' || 'ubuntu-latest' }}
     container:
-      image: ${{ github.event.repository.private == true && 'ghcr.io/instadeepai/instanovo-internal' || 'ghcr.io/instadeepai/instanovo' }}/ci-py${{ matrix.python-version }}:${{ github.sha }}
+      image: ${{ github.event.repository.private == true && 'ghcr.io/instadeepai/instanovo-internal' || 'ghcr.io/instadeepai/instanovo' }}/ci-py${{ matrix.python-version }}:${{ github.event.repository.private == true && 'latest' || github.sha }}
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
@@ -131,11 +202,14 @@ jobs:
 
   # Job 4: Test Notebook on Linux (in parallel)
   linux_test_notebook:
-    if: ((github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch')
-    needs: docker_build
+    if: |
+      ((github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch') &&
+      always() &&
+      (needs.docker_build_private.result == 'success' || needs.docker_build_public.result == 'success')
+    needs: [docker_build_private, docker_build_public]
     runs-on: ${{ github.event.repository.private == true && 'instadeep-ci-8-highmem' || 'ubuntu-latest' }}
     container:
-      image: ${{ github.event.repository.private == true && 'ghcr.io/instadeepai/instanovo-internal' || 'ghcr.io/instadeepai/instanovo' }}/ci-py3.13:${{ github.sha }}
+      image: ${{ github.event.repository.private == true && 'ghcr.io/instadeepai/instanovo-internal' || 'ghcr.io/instadeepai/instanovo' }}/ci-py3.13:${{ github.event.repository.private == true && 'latest' || github.sha }}
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
@@ -159,7 +233,7 @@ jobs:
     needs: linux_test
     runs-on: ${{ github.event.repository.private == true && 'instadeep-ci-4' || 'ubuntu-latest' }}
     container:
-      image: ${{ github.event.repository.private == true && 'ghcr.io/instadeepai/instanovo-internal' || 'ghcr.io/instadeepai/instanovo' }}/ci-py3.13:${{ github.sha }}
+      image: ${{ github.event.repository.private == true && 'ghcr.io/instadeepai/instanovo-internal' || 'ghcr.io/instadeepai/instanovo' }}/ci-py3.13:${{ github.event.repository.private == true && 'latest' || github.sha }}
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
@@ -364,27 +438,27 @@ jobs:
 
       - name: Lint with pre-commit
         run: |
-          pre-commit install
-          pre-commit run --all-files -c .pre-commit-config.yaml
+          uv run pre-commit install
+          uv run pre-commit run --all-files -c .pre-commit-config.yaml
 
       - name: Test with pytest
         run: |
-          python -m instanovo.scripts.get_zenodo_record
-          pytest -v `
+          uv run python -m instanovo.scripts.get_zenodo_record
+          uv run pytest -v `
             --cov `
             --cov-report=html `
             --cov-report=term `
             --random-order
-          coverage report -m --fail-under=$env:COVERAGE_THRESHOLD
+          uv run coverage report -m --fail-under=$env:COVERAGE_THRESHOLD
         shell: pwsh
 
       - name: Test notebooks (Python 3.13 only)
         if: matrix.python-version == '3.13'
         run: |
           (Get-Content "notebooks/getting_started_with_instanovo.ipynb") -replace 'test\[:10%\]', 'test[:10]' | Set-Content "notebooks/getting_started_with_instanovo.ipynb"
-          python -m ipykernel install --user --name instanovo
+          uv run python -m ipykernel install --user --name instanovo
           $env:PYDEVD_DISABLE_FILE_VALIDATION = "1"
-          pytest `
+          uv run pytest `
             --nbmake "./notebooks/getting_started_with_instanovo.ipynb" `
             --nbmake-kernel=instanovo `
             --nbmake-timeout=10000
@@ -398,6 +472,9 @@ jobs:
       matrix:
         python-version: ["3.10", "3.11", "3.12", "3.13"]
     runs-on: macos-latest
+    # Environment variable to use the CPU as a fallback for unsupported MPS operations
+    env:
+      PYTORCH_ENABLE_MPS_FALLBACK: "1"
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
@@ -421,25 +498,25 @@ jobs:
 
       - name: Lint with pre-commit
         run: |
-          pre-commit install
-          pre-commit run --all-files -c .pre-commit-config.yaml
+          uv run pre-commit install
+          uv run pre-commit run --all-files -c .pre-commit-config.yaml
 
       - name: Test with pytest
         run: |
-          python -m instanovo.scripts.get_zenodo_record
-          pytest -v \
+          uv run python -m instanovo.scripts.get_zenodo_record
+          uv run pytest -v \
             --cov \
             --cov-report=html \
             --cov-report=term \
             --random-order
-          coverage report -m --fail-under=${COVERAGE_THRESHOLD}
+          uv run coverage report -m --fail-under=${COVERAGE_THRESHOLD}
 
       - name: Test notebooks (Python 3.13 only)
         if: matrix.python-version == '3.13'
         run: |
           sed -i '' 's/test\[:10%\]/test[:10]/g' notebooks/getting_started_with_instanovo.ipynb
-          python -m ipykernel install --user --name instanovo
-          PYDEVD_DISABLE_FILE_VALIDATION=1 pytest \
+          uv run python -m ipykernel install --user --name instanovo
+          PYDEVD_DISABLE_FILE_VALIDATION=1 uv run pytest \
             --nbmake "./notebooks/getting_started_with_instanovo.ipynb" \
             --nbmake-kernel=instanovo \
             --nbmake-timeout=10000
@@ -448,10 +525,10 @@ jobs:
   linux_test_gpu:
     # Run only when PR is merged to main (push to main after merge) or when manually triggered:
     if: github.event.repository.private == true && ((github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch')
-    needs: docker_build
+    needs: docker_build_private
     runs-on: instadeep-ci
     container:
-      image: ghcr.io/instadeepai/instanovo-internal/ci-py3.13:${{ github.sha }}
+      image: ghcr.io/instadeepai/instanovo-internal/ci-py3.13:latest
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}

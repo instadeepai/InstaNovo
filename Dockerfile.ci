@@ -1,8 +1,16 @@
 # Accept Python version as build argument
 ARG PYTHON_VERSION=3.13
 
+# Accept extra installation options as build argument (Default Global Value)
+ARG INSTALL_EXTRA=cu126
+
 # Use a lightweight Python image with uv pre-installed
 FROM ghcr.io/astral-sh/uv:python${PYTHON_VERSION}-bookworm-slim
+
+# Redeclare the ARG inside the build stage so it is visible to RUN commands ---
+# By leaving it value-less here, it inherits the default from the top of the file
+# or uses the value passed by GitHub Actions.
+ARG INSTALL_EXTRA
 
 # Install git, make, Java, and other tools, then clean up in a single layer to reduce image size
 ENV DEBIAN_FRONTEND=noninteractive
@@ -39,7 +47,7 @@ COPY uv.lock pyproject.toml /app/
 # Install all dependencies (but not the project itself)
 # This layer will be cached until uv.lock or pyproject.toml changes
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --locked --no-install-project --extra cu126 --all-groups
+    uv sync --locked --no-install-project --extra ${INSTALL_EXTRA} --all-groups
 
 # Copy the entire project
 # This layer invalidates when source code changes, but dependencies are cached
@@ -52,7 +60,7 @@ RUN python -m instanovo.scripts.get_zenodo_record
 # Install the project itself (fast since deps are already installed)
 # Using --no-editable ensures the project is properly installed, not just linked
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --locked --extra cu126 --all-groups --no-editable
+    uv sync --locked --extra ${INSTALL_EXTRA} --all-groups --no-editable
 
 # Verify installation
 RUN python -c "import instanovo; print(f'InstaNovo version: {instanovo.__version__}')"
