@@ -89,6 +89,8 @@ nav:
   - Tutorials:
       - Quick overview: tutorials/getting_started.md
       - Notebook: notebooks/getting_started_with_instanovo.ipynb
+      - InstaNovo-v1.1: notebooks/introducing_the_next_generation_of_InstaNovo_models.ipynb
+      - InstaNovo-P: notebooks/InstaNovo-P.ipynb
   - How-to guides:
       - Predicting: how-to/predicting.md
       - Using Custom Datasets: how-to/using_custom_datasets.md

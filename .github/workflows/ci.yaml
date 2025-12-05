@@ -15,7 +15,8 @@ on:
 
 # Concurrency control to cancel stale runs
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  # If it's a PR, group by PR number. If it's a push to main, group by branch ref.
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 # Environment variables available to all jobs
@@ -333,7 +334,9 @@ jobs:
           allure generate allure_results -o allure-report --clean
       
       - name: Build the MkDocs site
-        run: mkdocs build
+        run: |
+          python ./docs/gen_ref_nav.py
+          mkdocs build --verbose --site-dir docs_public
       
       - name: Move reports into the built docs_public directory
         run: |
@@ -356,11 +359,19 @@ jobs:
       - name: Show Preview URL
         if: github.event_name == 'pull_request'
         run: |
-          echo "=============================================="
+          PR_NUM="${{ github.event.pull_request.number }}"
+          IS_PRIVATE="${{ github.event.repository.private }}"
+          
+          if [ "$IS_PRIVATE" == "true" ]; then
+            # Private Repo URL
+            URL="https://cuddly-adventure-n2v5ryv.pages.github.io/pr-$PR_NUM/"
+          else
+            # Public Repo URL (Standard format)
+            URL="https://instadeepai.github.io/InstaNovo/pr-$PR_NUM/"
+          fi
           echo "Documentation Preview deployed successfully!"
-          echo "URL: https://cuddly-adventure-n2v5ryv.pages.github.io/pr-${{ github.event.pull_request.number }}/"
+          echo "URL: $URL"
           echo "This preview will be deleted after 7 days."
-          echo "=============================================="
       
       - name: Clean up old previews (>7 days)
         if: github.event_name == 'pull_request'
