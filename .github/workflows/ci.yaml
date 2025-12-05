@@ -18,11 +18,12 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# Environment variables available to all jobs
 env:
   COVERAGE_THRESHOLD: ${{ vars.COVERAGE_THRESHOLD || 60 }}
 
 jobs:
-  # Job 1a: Build Docker images for private repositories (Inlined steps)
+  # Job 1a: Build Docker images for private repositories (Inlined to fix public repo access)
   docker_build_private:
     if: github.event.repository.private == true
     strategy:
@@ -34,7 +35,7 @@ jobs:
       packages: write
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -46,7 +47,6 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # Optional: Log in to DockerHub if needed (derived from your original secrets)
       - name: Log in to Docker Hub
         if: vars.DOCKERHUB_USERNAME != ''
         uses: docker/login-action@v3
@@ -54,17 +54,15 @@ jobs:
           username: ${{ vars.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build and push Docker image (Private)
+      - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
           context: .
           file: ./Dockerfile.ci
           push: true
-          # Replicating the logic from your reusable workflow inputs
           tags: ghcr.io/instadeepai/instanovo-internal/ci-py${{ matrix.python-version }}:latest
           build-args: |
             PYTHON_VERSION=${{ matrix.python-version }}
-          # Replicating the cache logic
           cache-from: type=registry,ref=ghcr.io/instadeepai/instanovo-internal/ci-py${{ matrix.python-version }}/cache${{ github.event_name == 'pull_request' && format('-pr-{0}', github.event.pull_request.number) || '' }}
           cache-to: type=registry,ref=ghcr.io/instadeepai/instanovo-internal/ci-py${{ matrix.python-version }}/cache${{ github.event_name == 'pull_request' && format('-pr-{0}', github.event.pull_request.number) || '' }},mode=max
 
@@ -128,7 +126,6 @@ jobs:
         python-version: ["3.10", "3.11", "3.12", "3.13"]
     runs-on: ${{ github.event.repository.private == true && 'instadeep-ci-8-highmem' || 'ubuntu-latest' }}
     container:
-      # NOTE: Adjusted tags to match what we built above
       image: ${{ github.event.repository.private == true && 'ghcr.io/instadeepai/instanovo-internal' || 'ghcr.io/instadeepai/instanovo' }}/ci-py${{ matrix.python-version }}:${{ github.event.repository.private == true && 'latest' || github.sha }}
       credentials:
         username: ${{ github.actor }}
@@ -241,7 +238,9 @@ jobs:
       - name: Checkout main branch code
         uses: actions/checkout@v5
         with:
+          # Fetch all history for plugins that rely on Git history
           fetch-depth: 0
+          # Enable write access for committing coverage badge
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - run: git config --system --add safe.directory $GITHUB_WORKSPACE
@@ -295,15 +294,17 @@ jobs:
         with:
           ref: gh-pages
           path: gh-pages
-        continue-on-error: true
+        continue-on-error: true # Continue if gh-pages doesn't exist yet
 
       - name: Copy Allure history
         run: |
+          # Copy history from the temporary checkout to the allure_results directory
           if [ -d "gh-pages/allure-report/history" ]; then
               echo "Copying history from previous report on gh-pages..."
               mkdir -p allure_results/history
               cp -r gh-pages/allure-report/history/* allure_results/history/
           fi
+          # Remove the temporary checkout *before* the mkdocs build
           echo "Cleaning up temporary gh-pages directory..."
           rm -rf gh-pages
       
@@ -434,27 +435,27 @@ jobs:
 
       - name: Lint with pre-commit
         run: |
-          pre-commit install
-          pre-commit run --all-files -c .pre-commit-config.yaml
+          uv run pre-commit install
+          uv run pre-commit run --all-files -c .pre-commit-config.yaml
 
       - name: Test with pytest
         run: |
-          python -m instanovo.scripts.get_zenodo_record
-          pytest -v `
+          uv run python -m instanovo.scripts.get_zenodo_record
+          uv run pytest -v `
             --cov `
             --cov-report=html `
             --cov-report=term `
             --random-order
-          coverage report -m --fail-under=$env:COVERAGE_THRESHOLD
+          uv run coverage report -m --fail-under=$env:COVERAGE_THRESHOLD
         shell: pwsh
 
       - name: Test notebooks (Python 3.13 only)
         if: matrix.python-version == '3.13'
         run: |
           (Get-Content "notebooks/getting_started_with_instanovo.ipynb") -replace 'test\[:10%\]', 'test[:10]' | Set-Content "notebooks/getting_started_with_instanovo.ipynb"
-          python -m ipykernel install --user --name instanovo
+          uv run python -m ipykernel install --user --name instanovo
           $env:PYDEVD_DISABLE_FILE_VALIDATION = "1"
-          pytest `
+          uv run pytest `
             --nbmake "./notebooks/getting_started_with_instanovo.ipynb" `
             --nbmake-kernel=instanovo `
             --nbmake-timeout=10000
@@ -491,25 +492,25 @@ jobs:
 
       - name: Lint with pre-commit
         run: |
-          pre-commit install
-          pre-commit run --all-files -c .pre-commit-config.yaml
+          uv run pre-commit install
+          uv run pre-commit run --all-files -c .pre-commit-config.yaml
 
       - name: Test with pytest
         run: |
-          python -m instanovo.scripts.get_zenodo_record
-          pytest -v \
+          uv run python -m instanovo.scripts.get_zenodo_record
+          uv run pytest -v \
             --cov \
             --cov-report=html \
             --cov-report=term \
             --random-order
-          coverage report -m --fail-under=${COVERAGE_THRESHOLD}
+          uv run coverage report -m --fail-under=${COVERAGE_THRESHOLD}
 
       - name: Test notebooks (Python 3.13 only)
         if: matrix.python-version == '3.13'
         run: |
           sed -i '' 's/test\[:10%\]/test[:10]/g' notebooks/getting_started_with_instanovo.ipynb
-          python -m ipykernel install --user --name instanovo
-          PYDEVD_DISABLE_FILE_VALIDATION=1 pytest \
+          uv run python -m ipykernel install --user --name instanovo
+          PYDEVD_DISABLE_FILE_VALIDATION=1 uv run pytest \
             --nbmake "./notebooks/getting_started_with_instanovo.ipynb" \
             --nbmake-kernel=instanovo \
             --nbmake-timeout=10000
@@ -521,7 +522,6 @@ jobs:
     needs: docker_build_private
     runs-on: instadeep-ci
     container:
-      # Adjusted to use the "latest" tag or sha, ensure this matches the build step
       image: ghcr.io/instadeepai/instanovo-internal/ci-py3.13:latest
       credentials:
         username: ${{ github.actor }}
