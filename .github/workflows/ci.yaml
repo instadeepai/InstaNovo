@@ -15,7 +15,8 @@ on:
 
 # Concurrency control to cancel stale runs
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  # If it's a PR, group by PR number. If it's a push to main, group by branch ref.
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 # Environment variables available to all jobs
