@@ -1,1 +1,0 @@
-[12/05/25 19:53:46] INFO     Zip files extracted to /tmp/pytest-of-root/pytest-0/test_unzip_zenodo_success0/extracted                                                          

@@ -1,0 +1,3 @@
+[12/05/25 20:17:22] INFO     Scaling masses.                                                                                                                                   
+                    INFO     Initializing chart.                                                                                                                               
+                    INFO     Performing search.                                                                                                                                

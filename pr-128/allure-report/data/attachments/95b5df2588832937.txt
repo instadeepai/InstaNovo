@@ -1,1 +1,0 @@
-                    INFO     Zip file at url https://zenodo.org/records/17816199/files/test.zip downloaded to /tmp/pytest-of-root/pytest-0/test_get_zenodo_success0/test.zip.  
