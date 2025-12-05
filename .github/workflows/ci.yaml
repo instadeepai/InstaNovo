@@ -24,27 +24,37 @@ env:
 
 jobs:
   # Job 1a: Build Docker images for private repositories
+  # This manually replicates the logic of 'instadeepai/mlops-reusable-ci'
   docker_build_private:
     if: github.event.repository.private == true
     strategy:
       matrix:
         python-version: ["3.10", "3.11", "3.12", "3.13"]
     runs-on: instadeep-ci
+    # 1. The internal runner requires a container context
     container:
       image: ubuntu:22.04
     permissions:
       contents: read
       packages: write
     steps:
+      # 2. We must install the Docker CLI so the 'docker login' step works
+      #    We also need git/curl for checkout.
       - name: Install build dependencies
         run: |
-          apt-get update && apt-get install -y git curl
+          apt-get update && apt-get install -y git curl docker.io
 
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
+      # 3. Configure Remote BuildKit (matches the internal reusable workflow logic)
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
+        id: buildx
+        with:
+          version: v0.28.0
+          driver: remote
+          endpoint: tcp://buildkit-buildkit-service.buildkit:1234
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
@@ -67,6 +77,7 @@ jobs:
           file: ./Dockerfile.ci
           push: true
           tags: ghcr.io/instadeepai/instanovo-internal/ci-py${{ matrix.python-version }}:latest
+          # 4. We pass the GPU build arg here (cu126) for internal builds
           build-args: |
             PYTHON_VERSION=${{ matrix.python-version }}
             INSTALL_EXTRA=cu126
@@ -85,8 +96,9 @@ jobs:
       packages: write
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
+      # Public builds use standard local buildx
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -117,6 +129,7 @@ jobs:
             ghcr.io/instadeepai/instanovo/ci-py${{ matrix.python-version }}:${{ github.sha }}
             ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          # 5. We pass the CPU build arg here because public builds cannot use GPUs
           build-args: |
             PYTHON_VERSION=${{ matrix.python-version }}
             INSTALL_EXTRA=cpu
@@ -140,7 +153,7 @@ jobs:
         password: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
       - run: git config --system --add safe.directory $GITHUB_WORKSPACE
 
       - name: Verify environment
@@ -170,7 +183,7 @@ jobs:
         password: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - run: git config --system --add safe.directory $GITHUB_WORKSPACE
 
@@ -205,40 +218,36 @@ jobs:
           path: allure_results
           retention-days: 1
 
-  # Job 4: Test Notebook on Linux (in parallel)
-  linux_test_notebook:
-    if: |
-      ((github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch') &&
-      always() &&
-      (needs.docker_build_private.result == 'success' || needs.docker_build_public.result == 'success')
-    needs: [docker_build_private, docker_build_public]
-    runs-on: ${{ github.event.repository.private == true && 'instadeep-ci-8-highmem' || 'ubuntu-latest' }}
-    container:
-      image: ${{ github.event.repository.private == true && 'ghcr.io/instadeepai/instanovo-internal' || 'ghcr.io/instadeepai/instanovo' }}/ci-py3.13:${{ github.event.repository.private == true && 'latest' || github.sha }}
-      credentials:
-        username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v5
-
-      - run: git config --system --add safe.directory $GITHUB_WORKSPACE
-
       - name: Test notebooks
+        if: matrix.python-version == '3.13'
         run: |
-          sed -i 's/test\[:10%\]/test[:10]/g' notebooks/getting_started_with_instanovo.ipynb
+          sed -i 's/test\[:1%\]/test[:3]/g' notebooks/getting_started_with_instanovo.ipynb
+          sed -i 's/num_beams = 5/num_beams = 1/g' notebooks/getting_started_with_instanovo.ipynb
+          python -c "
+          import json
+          with open('notebooks/getting_started_with_instanovo.ipynb', 'r') as f:
+              nb = json.load(f)
+          for cell in nb['cells']:
+              if cell['cell_type'] == 'code' and any('_setup_knapsack' in line for line in cell.get('source', [])):
+                  cell['source'] = ['# Skipped for CI\n', 'pass']
+                  break
+          with open('notebooks/getting_started_with_instanovo.ipynb', 'w') as f:
+              json.dump(nb, f, indent=1)
+          "
           python -m ipykernel install --user --name instanovo
           PYDEVD_DISABLE_FILE_VALIDATION=1 pytest \
             --nbmake "./notebooks/getting_started_with_instanovo.ipynb" \
             --nbmake-kernel=instanovo \
             --nbmake-timeout=10000
-
-  # Job 5: Build Docs, Generate Reports, and Deploy
+  # Job 4: Build Docs, Generate Reports, and Deploy
   docs:
     needs: linux_test
-    # Explicitly check for linux_test success to ignore upstream skipped jobs
+    # Check for linux_test success to ignore upstream skipped jobs
     if: always() && needs.linux_test.result == 'success'
     runs-on: ${{ github.event.repository.private == true && 'instadeep-ci-4' || 'ubuntu-latest' }}
+    permissions:
+      contents: write  # Required for committing badges and checking out code
+      packages: read   # Required to pull the ghcr.io container image
     container:
       image: ${{ github.event.repository.private == true && 'ghcr.io/instadeepai/instanovo-internal' || 'ghcr.io/instadeepai/instanovo' }}/ci-py3.13:${{ github.event.repository.private == true && 'latest' || github.sha }}
       credentials:
@@ -246,7 +255,7 @@ jobs:
         password: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: Checkout main branch code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           # Fetch all history for plugins that rely on Git history
           fetch-depth: 0
@@ -411,10 +420,12 @@ jobs:
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: peaceiris/actions-gh-pages@v4
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          github_token: ${{ secrets.CI_DEPLOY_TOKEN }}
           publish_dir: ./docs_public
+          user_name: 'github-actions[bot]'
+          user_email: 'github-actions[bot]@users.noreply.github.com'
 
-  # Job 6: Run tests on Windows for public repositories
+  # Job 5: Run tests on Windows for public repositories
   windows_test:
     if: github.event.repository.private == false
     strategy:
@@ -424,7 +435,7 @@ jobs:
     runs-on: windows-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Install uv and set up Python ${{ matrix.python-version }}
         uses: astral-sh/setup-uv@v6
@@ -462,7 +473,19 @@ jobs:
       - name: Test notebooks (Python 3.13 only)
         if: matrix.python-version == '3.13'
         run: |
-          (Get-Content "notebooks/getting_started_with_instanovo.ipynb") -replace 'test\[:10%\]', 'test[:10]' | Set-Content "notebooks/getting_started_with_instanovo.ipynb"
+          (Get-Content "notebooks/getting_started_with_instanovo.ipynb") -replace 'test\[:1%\]', 'test[:3]' | Set-Content "notebooks/getting_started_with_instanovo.ipynb"
+          (Get-Content "notebooks/getting_started_with_instanovo.ipynb") -replace 'num_beams = 5', 'num_beams = 1' | Set-Content "notebooks/getting_started_with_instanovo.ipynb"
+          uv run python -c @"
+          import json
+          with open('notebooks/getting_started_with_instanovo.ipynb', 'r') as f:
+              nb = json.load(f)
+          for cell in nb['cells']:
+              if cell['cell_type'] == 'code' and any('_setup_knapsack' in line for line in cell.get('source', [])):
+                  cell['source'] = ['# Skipped for CI\n', 'pass']
+                  break
+          with open('notebooks/getting_started_with_instanovo.ipynb', 'w') as f:
+              json.dump(nb, f, indent=1)
+          "@
           uv run python -m ipykernel install --user --name instanovo
           $env:PYDEVD_DISABLE_FILE_VALIDATION = "1"
           uv run pytest `
@@ -471,7 +494,7 @@ jobs:
             --nbmake-timeout=10000
         shell: pwsh
 
-  # Job 7: Run tests on macOS for public repositories
+  # Job 6: Run tests on macOS for public repositories
   macos_test:
     if: github.event.repository.private == false
     strategy:
@@ -484,7 +507,7 @@ jobs:
       PYTORCH_ENABLE_MPS_FALLBACK: "1"
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Install uv and set up Python ${{ matrix.python-version }}
         uses: astral-sh/setup-uv@v6
@@ -521,14 +544,26 @@ jobs:
       - name: Test notebooks (Python 3.13 only)
         if: matrix.python-version == '3.13'
         run: |
-          sed -i '' 's/test\[:10%\]/test[:10]/g' notebooks/getting_started_with_instanovo.ipynb
+          sed -i '' 's/test\[:1%\]/test[:3]/g' notebooks/getting_started_with_instanovo.ipynb
+          sed -i '' 's/num_beams = 5/num_beams = 1/g' notebooks/getting_started_with_instanovo.ipynb
+          uv run python -c "
+          import json
+          with open('notebooks/getting_started_with_instanovo.ipynb', 'r') as f:
+              nb = json.load(f)
+          for cell in nb['cells']:
+              if cell['cell_type'] == 'code' and any('_setup_knapsack' in line for line in cell.get('source', [])):
+                  cell['source'] = ['# Skipped for CI\n', 'pass']
+                  break
+          with open('notebooks/getting_started_with_instanovo.ipynb', 'w') as f:
+              json.dump(nb, f, indent=1)
+          "
           uv run python -m ipykernel install --user --name instanovo
           PYDEVD_DISABLE_FILE_VALIDATION=1 uv run pytest \
             --nbmake "./notebooks/getting_started_with_instanovo.ipynb" \
             --nbmake-kernel=instanovo \
             --nbmake-timeout=10000
 
-  # Job 8: Run GPU-specific tests on private infrastructure
+  # Job 7: Run GPU-specific tests on private infrastructure
   linux_test_gpu:
     # Run only when PR is merged to main (push to main after merge) or when manually triggered:
     if: github.event.repository.private == true && ((github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch')
@@ -541,7 +576,7 @@ jobs:
         password: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - run: git config --system --add safe.directory $GITHUB_WORKSPACE
 

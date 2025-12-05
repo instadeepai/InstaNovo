@@ -198,7 +198,7 @@ directory = "docs/coverage"
 
 [tool.codespell]
 skip = "*.js,*.html,*.css, *.svg, *.csv"
-ignore-words-list = ["abck", "fOf", "te", "woh", "ges", "fpt", "filll", "inro", "nd", "fo", "nd"]
+ignore-words-list = ["abck", "fOf", "fals", "te", "woh", "ges", "fpt", "filll", "inro", "nd", "fo", "nd"]
 
 [tool.mypy]
 python_version = "3.10"
