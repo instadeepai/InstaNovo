@@ -18,10 +18,8 @@ permissions:
 
 jobs:
   deploy:
-    runs-on: instadeep-ci
-    container:
-      image: ubuntu-latest
-
+    runs-on: ${{ github.event.repository.private == true && 'instadeep-ci' || 'ubuntu-latest' }}
+    
     steps:
       - uses: actions/checkout@v5
 
