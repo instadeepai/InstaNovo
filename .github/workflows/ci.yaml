@@ -23,17 +23,23 @@ env:
   COVERAGE_THRESHOLD: ${{ vars.COVERAGE_THRESHOLD || 60 }}
 
 jobs:
-  # Job 1a: Build Docker images for private repositories (Inlined to fix public repo access)
+  # Job 1a: Build Docker images for private repositories
   docker_build_private:
     if: github.event.repository.private == true
     strategy:
       matrix:
         python-version: ["3.10", "3.11", "3.12", "3.13"]
     runs-on: instadeep-ci
+    container:
+      image: ubuntu:22.04
     permissions:
       contents: read
       packages: write
     steps:
+      - name: Install build dependencies
+        run: |
+          apt-get update && apt-get install -y git curl
+
       - name: Checkout repository
         uses: actions/checkout@v5
 
@@ -111,7 +117,6 @@ jobs:
             ghcr.io/instadeepai/instanovo/ci-py${{ matrix.python-version }}:${{ github.sha }}
             ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          # Pass 'cpu' here to save space on ubuntu-latest
           build-args: |
             PYTHON_VERSION=${{ matrix.python-version }}
             INSTALL_EXTRA=cpu
@@ -231,6 +236,8 @@ jobs:
   # Job 5: Build Docs, Generate Reports, and Deploy
   docs:
     needs: linux_test
+    # Explicitly check for linux_test success to ignore upstream skipped jobs
+    if: always() && needs.linux_test.result == 'success'
     runs-on: ${{ github.event.repository.private == true && 'instadeep-ci-4' || 'ubuntu-latest' }}
     container:
       image: ${{ github.event.repository.private == true && 'ghcr.io/instadeepai/instanovo-internal' || 'ghcr.io/instadeepai/instanovo' }}/ci-py3.13:${{ github.event.repository.private == true && 'latest' || github.sha }}
