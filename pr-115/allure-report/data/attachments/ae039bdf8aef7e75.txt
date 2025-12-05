@@ -1,0 +1,1 @@
+                    INFO     Processing /tmp/pytest-of-root/pytest-0/test_update_ipc_format0/source.ipc.                                                                       
