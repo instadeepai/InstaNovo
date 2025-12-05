@@ -63,6 +63,7 @@ jobs:
           tags: ghcr.io/instadeepai/instanovo-internal/ci-py${{ matrix.python-version }}:latest
           build-args: |
             PYTHON_VERSION=${{ matrix.python-version }}
+            INSTALL_EXTRA=cu126
           cache-from: type=registry,ref=ghcr.io/instadeepai/instanovo-internal/ci-py${{ matrix.python-version }}/cache${{ github.event_name == 'pull_request' && format('-pr-{0}', github.event.pull_request.number) || '' }}
           cache-to: type=registry,ref=ghcr.io/instadeepai/instanovo-internal/ci-py${{ matrix.python-version }}/cache${{ github.event_name == 'pull_request' && format('-pr-{0}', github.event.pull_request.number) || '' }},mode=max
 
@@ -110,8 +111,10 @@ jobs:
             ghcr.io/instadeepai/instanovo/ci-py${{ matrix.python-version }}:${{ github.sha }}
             ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          # Pass 'cpu' here to save space on ubuntu-latest
           build-args: |
             PYTHON_VERSION=${{ matrix.python-version }}
+            INSTALL_EXTRA=cpu
           cache-from: type=registry,ref=ghcr.io/instadeepai/instanovo/ci-py${{ matrix.python-version }}/cache${{ github.event_name == 'pull_request' && format('-pr-{0}', github.event.pull_request.number) || '' }}
           cache-to: type=registry,ref=ghcr.io/instadeepai/instanovo/ci-py${{ matrix.python-version }}/cache${{ github.event_name == 'pull_request' && format('-pr-{0}', github.event.pull_request.number) || '' }},mode=max
 
