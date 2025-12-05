@@ -333,7 +333,9 @@ jobs:
           allure generate allure_results -o allure-report --clean
       
       - name: Build the MkDocs site
-        run: mkdocs build
+        run: |
+          python ./docs/gen_ref_nav.py
+          mkdocs build --verbose --site-dir docs_public
       
       - name: Move reports into the built docs_public directory
         run: |
