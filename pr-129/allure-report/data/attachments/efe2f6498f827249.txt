@@ -1,0 +1,1 @@
+[12/05/25 23:03:22] INFO     Downloading bucket/source.txt to /tmp/tmph7k7kid5/source.txt                                                                                      
