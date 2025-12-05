@@ -1,0 +1,2 @@
+INFO     instanovo.cli:cli.py:132 Initializing InstaNovo inference.
+INFO     instanovo.utils.cli_utils:cli_utils.py:28 Reading config from '../configs/inference' with name 'default'.

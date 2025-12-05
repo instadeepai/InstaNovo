@@ -1,0 +1,1 @@
+[12/05/25 22:31:41] INFO     Downloading bucket/source.txt to /tmp/tmp91_ovdr_/source.txt                                                                                      
