@@ -6,7 +6,7 @@ import sys
 
 from rich.console import Console
 
-__version__ = "1.2.1"
+__version__ = "1.2.3"
 
 # Respect memory limits when running in a container
 # The resource module is Unix-specific. We guard this with sys.platform
