@@ -5,19 +5,19 @@ import random
 import sys
 from typing import Any
 
-import lightning as L
 import numpy as np
 import pandas as pd
 import pytest
 import torch
 from hydra import compose, initialize
-from omegaconf import DictConfig, open_dict
+from omegaconf import DictConfig
 
 from instanovo.diffusion.multinomial_diffusion import InstaNovoPlus
 from instanovo.inference.diffusion import DiffusionDecoder
 from instanovo.inference.knapsack_beam_search import KnapsackBeamSearchDecoder
 from instanovo.transformer.model import InstaNovo
 from instanovo.transformer.predict import _setup_knapsack
+from instanovo.utils.device_handler import check_device
 
 # Add the root directory to the PYTHONPATH
 # This allows pytest to find the modules for testing
@@ -33,7 +33,6 @@ def reset_seed(seed: int = 42) -> None:
         torch.cuda.manual_seed_all(seed)
     np.random.seed(seed)
     random.seed(seed)
-    L.seed_everything(seed)
 
 
 @pytest.fixture()
@@ -59,14 +58,6 @@ def instanovo_config() -> DictConfig:
     with initialize(version_base=None, config_path="../instanovo/configs"):
         cfg = compose(config_name="instanovo_unit_test")
 
-    sub_configs_list = ["model", "dataset", "residues"]
-    for sub_name in sub_configs_list:
-        if sub_name in cfg:
-            with open_dict(cfg):
-                temp = cfg[sub_name]
-                del cfg[sub_name]
-                cfg.update(temp)
-
     return cfg
 
 
@@ -84,14 +75,6 @@ def instanovoplus_config() -> DictConfig:
     """A pytest fixture to read in a Hydra config for the Instanovo+ model."""
     with initialize(version_base=None, config_path="../instanovo/configs"):
         cfg = compose(config_name="instanovoplus_unit_test")
-
-    sub_configs_list = ["model", "dataset", "residues"]
-    for sub_name in sub_configs_list:
-        if sub_name in cfg:
-            with open_dict(cfg):
-                temp = cfg[sub_name]
-                del cfg[sub_name]
-                cfg.update(temp)
 
     return cfg
 
@@ -124,7 +107,7 @@ def instanovo_checkpoint(dir_paths: tuple[str, str]) -> str:
 def instanovoplus_checkpoint(dir_paths: tuple[str, str]) -> str:
     """A pytest fixture that returns the InstaNovo+ model checkpoint used."""
     root_dir, _ = dir_paths
-    return os.path.join(root_dir, "instanovoplus")
+    return os.path.join(root_dir, "instanovoplus/model_latest.ckpt")
 
 
 @pytest.fixture(scope="session")
@@ -132,21 +115,26 @@ def instanovo_model(
     instanovo_checkpoint: str,
 ) -> tuple[Any, Any]:
     """A pytest fixture that returns the InstaNovo model and config used."""
-    model, config = InstaNovo.load(path=instanovo_checkpoint)
+    model, config = InstaNovo.load(
+        path=instanovo_checkpoint, override_config={"peak_embedding_dtype": "float32"} if torch.backends.mps.is_available() else None
+    )
+    device = check_device()
+    model = model.to(device).eval()
     return model, config
 
 
 @pytest.fixture(scope="session")
 def instanovoplus_model(
     instanovoplus_checkpoint: str,
-) -> tuple[InstaNovoPlus, DiffusionDecoder]:
+) -> tuple[InstaNovoPlus, DictConfig, DiffusionDecoder]:
     """A pytest fixture to load an InstaNovo+ model from a specified checkpoint."""
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    diffusion_model, _ = InstaNovoPlus.load(instanovoplus_checkpoint)
+    diffusion_model, config = InstaNovoPlus.load(
+        instanovoplus_checkpoint, override_config={"peak_embedding_dtype": "float32"} if torch.backends.mps.is_available() else None
+    )
+    device = check_device()
     diffusion_model = diffusion_model.to(device).eval()
     diffusion_decoder = DiffusionDecoder(model=diffusion_model)
-
-    return diffusion_model, diffusion_decoder
+    return diffusion_model, config, diffusion_decoder
 
 
 @pytest.fixture(scope="session")
@@ -179,9 +167,7 @@ def knapsack_dir(dir_paths: tuple[str, str]) -> str:
 
 
 @pytest.fixture(scope="session")
-def setup_knapsack_decoder(
-    instanovo_model: tuple[Any, Any], knapsack_dir: str
-) -> KnapsackBeamSearchDecoder:
+def setup_knapsack_decoder(instanovo_model: tuple[Any, Any], knapsack_dir: str) -> KnapsackBeamSearchDecoder:
     """A pytest fixture to create a Knapsack object."""
     model, _ = instanovo_model
 

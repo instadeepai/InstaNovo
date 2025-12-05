@@ -42,6 +42,7 @@ class TransformerEncoder(nn.Module):
         dropout: float = 0.0,
         use_flash_attention: bool = False,
         conv_peak_encoder: bool = False,
+        peak_embedding_dtype: torch.dtype | str = torch.float64,
     ) -> None:
         """Initialise a TransformerEncoder."""
         super().__init__()
@@ -57,7 +58,7 @@ class TransformerEncoder(nn.Module):
             self.pad_spectrum = nn.Parameter(torch.randn(1, 1, dim_model))
 
         # Encoder
-        self.peak_encoder = MultiScalePeakEmbedding(dim_model, dropout=dropout)
+        self.peak_encoder = MultiScalePeakEmbedding(dim_model, dropout=dropout, float_dtype=peak_embedding_dtype)
         if self.conv_peak_encoder:
             self.conv_encoder = ConvPeakEmbedding(dim_model, dropout=dropout)
 

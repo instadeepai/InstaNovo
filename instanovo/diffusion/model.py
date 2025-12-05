@@ -117,10 +117,11 @@ class MassSpectrumTransFusion(TransFusion):
             dim_model=cfg.dim,
             n_head=cfg.nheads,
             dim_feedforward=cfg.dim_feedforward,
-            n_layers=cfg.layers,
+            n_layers=cfg.get("encoder_layers", cfg.get("layers", None)),
             dropout=cfg.dropout,
             use_flash_attention=cfg.get("use_flash_attention", False),
             conv_peak_encoder=cfg.get("conv_peak_encoder", False),
+            peak_embedding_dtype=cfg.get("peak_embedding_dtype", torch.float64),
         )
 
         # precursor embedding
@@ -158,14 +159,10 @@ class MassSpectrumTransFusion(TransFusion):
         if self.cfg.pos_encoding == "relative":
             x = self.pos_embedding(x)
         else:
-            pos_emb = self.pos_embedding.weight[None].expand(
-                bs, -1, -1
-            )  # (seq_len, dim) --> (bs, seq_len, dim)
+            pos_emb = self.pos_embedding.weight[None].expand(bs, -1, -1)  # (seq_len, dim) --> (bs, seq_len, dim)
             x = x + pos_emb
 
-        t_emb = timestep_embedding(
-            t, self.cfg.t_emb_dim, self.cfg.t_emb_max_period, dtype=spectra.dtype
-        )  # (bs, t_dim)
+        t_emb = timestep_embedding(t, self.cfg.t_emb_dim, self.cfg.t_emb_max_period, dtype=spectra.dtype)  # (bs, t_dim)
         # 2. Classifier-free guidance: with prob cfg.drop_cond_prob, zero out
         # and drop conditional probability
         if self.training:

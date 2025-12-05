@@ -16,7 +16,6 @@ import typer
 from typing_extensions import Annotated
 
 from instanovo.__init__ import console
-from instanovo.utils import SpectrumDataFrame
 from instanovo.utils.colorlogging import ColorLog
 
 logger = ColorLog(console, __name__).logger
@@ -37,19 +36,18 @@ def convert(
     source: Annotated[str, typer.Argument(help="Source file(s)")],
     target: Annotated[
         Path,
-        typer.Argument(
-            exists=True, file_okay=False, dir_okay=True, help="Target folder to save data shards"
-        ),
+        typer.Argument(exists=True, file_okay=False, dir_okay=True, help="Target folder to save data shards"),
     ],
     name: Annotated[Optional[str], typer.Option(help="Name of saved dataset")],
     partition: Annotated[Partition, typer.Option(help="Partition of saved dataset")],
     max_charge: Annotated[int, typer.Option(help="Maximum charge to filter out")] = 10,
     shard_size: Annotated[int, typer.Option(help="Length of saved data shards")] = 1_000_000,
-    is_annotated: Annotated[
-        bool, typer.Option("--is-annotated", help="whether dataset is annotated")
-    ] = False,
+    is_annotated: Annotated[bool, typer.Option("--is-annotated", help="whether dataset is annotated")] = False,
+    add_spectrum_id: Annotated[bool, typer.Option("--add-spectrum-id", help="Add spectrum id column")] = False,
 ) -> None:
     """Convert data to SpectrumDataFrame and save as *.parquet file(s)."""
+    from instanovo.utils.data_handler import SpectrumDataFrame
+
     logging.basicConfig(level=logging.INFO)
 
     logger.info(f"Loading {source}")
@@ -60,6 +58,7 @@ def convert(
         partition=partition.value,
         max_shard_size=shard_size,
         lazy=True,
+        add_spectrum_id=add_spectrum_id,
     )
     logger.info(f"Loaded {len(sdf):,d} rows")
 

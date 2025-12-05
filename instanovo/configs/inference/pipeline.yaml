@@ -1,8 +1,8 @@
 # Data paths and output location
 
-data_dir: /mnt/instanovo-data-kyber/validation
+data_dir: /mnt/instanovo-ceph/validation
 output_dir: s3://dtu-denovo-s-2e6da747d6d34f62-outputs/evaluation
-run_name: instanovo_extended_massivekb_knapsack_8cbd543a
+run_name: instanovo_contrastive_15523064
 
 data_path: # type: .mgf, .mzml or any other filetype supported by SpectrumDataFrame
   # Biological validation datasets
@@ -61,7 +61,7 @@ data_path: # type: .mgf, .mzml or any other filetype supported by SpectrumDataFr
 
 result_file_path: ${output_dir}/instanovo_results.csv
 
-instanovo_model: s3://dtu-denovo-s-2e6da747d6d34f62-inputs/models/instanovo_1_0/extended_massivekb_8cbd543a.ckpt # type: model id or path to a *.ckpt file
+instanovo_model: instanovo-v1.2.0 # type: model id or path to a *.ckpt file
 instanovo_plus_model: # type: model id or path to a directory with *.ckpt, *.yaml and *.pt files
 instanovo_preds_path: # type: .csv
 output_path: # type: .csv
@@ -73,11 +73,11 @@ data_type: # .csv, .mgf, .mzml, .mzxml
 # Inference mode
 denovo: False
 refine: False
-num_beams: 5 # 1 defaults to greedy search with basic filtering
+num_beams: 1 # 1 defaults to greedy search with basic filtering
 max_length: 40
 max_charge: 10 # Must be <= model max charge
 isotope_error_range: [0, 1]
-use_knapsack: True
+use_knapsack: False
 save_beams: True
 subset: 1.0 # Subset of dataset to perform inference on, useful for debugging. Represented as a float between 0 and 1.
 

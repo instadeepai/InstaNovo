@@ -1,11 +1,14 @@
 # general params
-vocab_size: 33 # Extended massivekb dataset
+vocab_size: 35 # Extended massivekb dataset
 
 layers: 12
 dim: 768
 nheads: 8
 dropout: 0.1
 attention_type: "wavlm" # either 'normal' or 'wavlm'
+
+# Diffusion parameters
+time_steps: 200
 
 # waveform encoder
 wav_encoder: "wavlm" # only 'wavlm' currently supported
@@ -57,3 +60,5 @@ precursor_mass_tol: 50 # ppm
 isotope_error_range: [0, 1]
 
 max_length: 40
+
+peak_embedding_dtype: float64 # Set to float32 for MPS

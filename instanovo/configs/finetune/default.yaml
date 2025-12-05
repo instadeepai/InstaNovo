@@ -1,0 +1,26 @@
+# By default, no parameters are frozen
+# If specified, freeze parameters and
+# unfreeze them after the specified number
+# of steps (duration_steps) or epochs (duration_epochs)
+
+# Format of the unfreeze schedule
+# - "duration_epochs": Duration of each phase in epochs
+# - "duration_steps": Duration of each phase in steps
+# - "start_epoch": Start epoch of each phase
+# - "start_step": Start step of each phase
+unfreeze_format: start_epoch
+
+verbose: True # Print unfreeze schedule and progress
+
+unfreeze_schedule:
+  - start_epoch: 0
+    params:
+      - head.bias
+      - head.weight
+      - aa_embed.weight
+  - start_epoch: 3
+    params:
+      - decoder.*
+  - start_epoch: 10
+    params:
+      - "*" # Unfreeze all parameters

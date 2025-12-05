@@ -11,7 +11,7 @@ from urllib.parse import urlsplit
 
 import torch
 from jaxtyping import Float, Integer
-from omegaconf import DictConfig, OmegaConf
+from omegaconf import DictConfig, OmegaConf, open_dict
 from torch import nn
 from torch.distributions import Categorical
 from torch.nn.functional import log_softmax, one_hot
@@ -20,7 +20,6 @@ from instanovo.__init__ import console
 from instanovo.diffusion.model import MassSpectrumTransFusion
 from instanovo.types import Peptide, ResidueLogProbabilities, TimeStep
 from instanovo.utils.colorlogging import ColorLog
-from instanovo.utils.device_handler import check_device
 from instanovo.utils.file_downloader import download_file
 from instanovo.utils.residues import ResidueSet
 from instanovo.utils.s3 import S3FileHandler
@@ -185,15 +184,9 @@ class InstaNovoPlus(nn.Module):
             transition_model_path = os.path.join(save_path, "transition_model.ckpt")
             torch.save(self.transition_model.state_dict(), transition_model_path)
             save_file("transition_model.ckpt", transition_model_path)
-
-            device = check_device(config=self.config)
-            logger.info(f"Moving transition model to device {device}")
-            self.transition_model.to(device)
         else:
             # Save model as a single file
-            transition_model_state = {
-                k: v.cpu() for k, v in self.transition_model.state_dict().items()
-            }
+            transition_model_state = {k: v.cpu() for k, v in self.transition_model.state_dict().items()}
 
             model_data = {
                 "config": OmegaConf.to_container(self.config),
@@ -210,36 +203,34 @@ class InstaNovoPlus(nn.Module):
                 save_file("instanovo_plus.ckpt", save_path)
 
     @classmethod
-    def load(cls, path: str, device: str = "auto") -> Tuple[InstaNovoPlus, DictConfig]:
+    def load(cls, path: str, override_config: DictConfig | dict | None = None) -> Tuple[InstaNovoPlus, DictConfig]:
         """Load a saved model.
 
         Args:
             path (str):
                 Path to model checkpoint file or directory where model is saved.
-            device (str, optional):
-                The device to load the model on. Defaults to "auto".
+            override_config (DictConfig | dict | None): Optional override config values with a DictConfig or dict, defaults to None.
 
         Returns:
             (InstaNovoPlus, DictConfig): The loaded model and config.
 
         """
+        is_legacy_format = False
         if os.path.isdir(path):
             # Load config
             cls.config_path = os.path.join(path, "config.yaml")
             config = OmegaConf.load(cls.config_path)
+            if override_config is not None:
+                with open_dict(config):
+                    config.update(override_config)
 
             cls.schedule_path = os.path.join(path, "diffusion_schedule.pt")
-            diffusion_schedule = torch.load(
-                cls.schedule_path, map_location=torch.device("cpu"), weights_only=True
-            )
+            diffusion_schedule = torch.load(cls.schedule_path, map_location=torch.device("cpu"), weights_only=True)
 
             cls.checkpoint_path = os.path.join(path, "transition_model.ckpt")
-            transition_model_state = torch.load(
-                cls.checkpoint_path, map_location=torch.device("cpu"), weights_only=True
-            )
+            transition_model_state = torch.load(cls.checkpoint_path, map_location=torch.device("cpu"), weights_only=True)
 
-            residues = config.get("residues")
-            residue_remapping = config.get("residue_remapping", {})
+            is_legacy_format = True
         else:
             # Load model from checkpoint file
             try:
@@ -248,60 +239,56 @@ class InstaNovoPlus(nn.Module):
                 raise ValueError(f"Failed to load model from {path}: {str(e)}") from e
 
             config = OmegaConf.create(model_data["config"])
-            diffusion_schedule = torch.tensor(model_data["diffusion_schedule"])
+            if override_config is not None:
+                with open_dict(config):
+                    config.update(override_config)
 
+            diffusion_schedule = torch.tensor(model_data["diffusion_schedule"])
             if "transition_model" in model_data:
                 transition_model_state = model_data["transition_model"]
-                residues = config.get("residues")
-                residue_remapping = config.get("residue_remapping", {})
-
-            elif "state_dict" in model_data:
-                transition_model_state = model_data["state_dict"]
-                residues = model_data["residues"]
-                residue_remapping = model_data.get("residue_remapping", {})
-
-            elif "model" in model_data:
-                transition_model_state = model_data["model"]
-                residues = model_data["residues"].get("residues", {})
-                residue_remapping = model_data["residues"].get("residue_remapping", {})
-
+                is_legacy_format = True
             else:
-                raise ValueError("Model data is missing a key for weights.")
+                transition_model_state = model_data["state_dict"]
 
-        # Load residues
-        residue_set = ResidueSet(
-            residue_masses=residues,
-            residue_remapping=residue_remapping if residue_remapping else None,
-        )
+        if is_legacy_format:
+            # Load residues
+            residue_set = ResidueSet(
+                residue_masses=config["residues"],
+                residue_remapping=config["residue_remapping"],
+            )
 
-        # Load transition model
-        try:
+            # Load transition model
+            transition_model = MassSpectrumTransFusion(
+                config,
+                config.max_length,
+            )
+            transition_model.load_state_dict(transition_model_state)
+
+            return cls(
+                config=config,
+                transition_model=transition_model,
+                diffusion_schedule=diffusion_schedule,
+                residue_set=residue_set,
+            ), config
+        else:
+            residues = model_data["residues"]
+            residue_set = ResidueSet(
+                residue_masses=residues,
+            )
             transition_model = MassSpectrumTransFusion(
                 config,
                 config.max_length,
             )
 
-            # Remove transition_model prefix from state dict keys if present
-            if any(k.startswith("transition_model.") for k in transition_model_state.keys()):
-                transition_model_state = {
-                    k.replace("transition_model.", ""): v for k, v in transition_model_state.items()
-                }
+            model = cls(
+                config=config,
+                transition_model=transition_model,
+                diffusion_schedule=diffusion_schedule,
+                residue_set=residue_set,
+            )
+            model.load_state_dict(model_data["state_dict"])
 
-            transition_model.load_state_dict(transition_model_state, strict=False)
-        except Exception as e:
-            raise ValueError(f"Failed to load transition model: {str(e)}") from e
-
-        device = check_device(device=device)
-        logger.info(f"Loading InstaNovoPlus model to device: {device}.")
-        transition_model.to(device)
-        diffusion_schedule = diffusion_schedule.to(device)
-
-        return cls(
-            config=config,
-            transition_model=transition_model,
-            diffusion_schedule=diffusion_schedule,
-            residue_set=residue_set,
-        ), config
+            return model, config
 
     @staticmethod
     def get_pretrained() -> list[str]:
@@ -316,25 +303,18 @@ class InstaNovoPlus(nn.Module):
         return list(models_config[MODEL_TYPE].keys())
 
     @classmethod
-    def from_pretrained(
-        cls, model_id: str, device: str = "auto"
-    ) -> Tuple["InstaNovoPlus", "DictConfig"]:
+    def from_pretrained(cls, model_id: str, override_config: DictConfig | dict | None = None) -> Tuple["InstaNovoPlus", "DictConfig"]:
         """Download and load by model id or model path."""
-        # Check if model_id is a local dir
+        # Check if model_id is a local directory
         expected_files = ["config.yaml", "diffusion_schedule.pt", "transition_model.ckpt"]
         if os.path.isdir(model_id):
             if all(os.path.exists(os.path.join(model_id, fn)) for fn in expected_files):
-                return cls.load(model_id, device=device)
+                return cls.load(model_id, override_config=override_config)
             else:
-                missing_files = [
-                    fn for fn in expected_files if not os.path.exists(os.path.join(model_id, fn))
-                ]
-                raise FileNotFoundError(
-                    f"InstaNovo+ model directory {model_id} is missing "
-                    f"the expected file(s): {', '.join(missing_files)}."
-                )
+                missing_files = [fn for fn in expected_files if not os.path.exists(os.path.join(model_id, fn))]
+                raise FileNotFoundError(f"InstaNovo+ model directory {model_id} is missing the expected file(s): {', '.join(missing_files)}.")
         elif os.path.exists(model_id):
-            return cls.load(model_id, device=device)
+            return cls.load(model_id, override_config=override_config)
 
         # Load the models.json file
         with resources.files("instanovo").joinpath("models.json").open("r", encoding="utf-8") as f:
@@ -342,10 +322,7 @@ class InstaNovoPlus(nn.Module):
 
         # Find the model in the config
         if MODEL_TYPE not in models_config or model_id not in models_config[MODEL_TYPE]:
-            raise ValueError(
-                f"Model {model_id} not found in models.json, options are "
-                f"[{', '.join(models_config[MODEL_TYPE].keys())}]"
-            )
+            raise ValueError(f"Model {model_id} not found in models.json, options are [{', '.join(models_config[MODEL_TYPE].keys())}]")
 
         # Create cache directory if it doesn't exist
         cache_dir = Path.home() / ".cache" / "instanovo"
@@ -370,48 +347,35 @@ class InstaNovoPlus(nn.Module):
             try:
                 # Load and return the model
                 logger.info(f"Loading model {model_id} (remote)")
-                return cls.load(str(cached_file), device=device)
+                return cls.load(str(cached_file), override_config=override_config)
             except Exception as e:
-                logger.warning(
-                    f"Failed to load cached model {model_id}, it may be corrupted. "
-                    f"Deleting and re-downloading. Error: {e}"
-                )
+                logger.warning(f"Failed to load cached model {model_id}, it may be corrupted. Deleting and re-downloading. Error: {e}")
                 if cached_file.exists():
                     cached_file.unlink()
 
                 download_file(url, cached_file, model_id, file_name)
                 logger.info(f"Loading newly downloaded model {model_id}")
-                return cls.load(str(cached_file), device=device)
+                return cls.load(str(cached_file), override_config=override_config)
 
         elif "local" in model_info:
             instanovo_plus_model = model_info["local"]
             if os.path.isdir(instanovo_plus_model):
-                if all(
-                    os.path.exists(os.path.join(instanovo_plus_model, fn)) for fn in expected_files
-                ):
+                if all(os.path.exists(os.path.join(instanovo_plus_model, fn)) for fn in expected_files):
                     logger.info(f"Loading model {model_id} (local)")
-                    return cls.load(instanovo_plus_model, device=device)
+                    return cls.load(instanovo_plus_model, override_config=override_config)
                 else:
-                    missing_files = [
-                        fn
-                        for fn in expected_files
-                        if not os.path.exists(os.path.join(instanovo_plus_model, fn))
-                    ]
+                    missing_files = [fn for fn in expected_files if not os.path.exists(os.path.join(instanovo_plus_model, fn))]
                     raise FileNotFoundError(
-                        f"InstaNovo+ model directory {instanovo_plus_model} is missing the "
-                        f"expected file(s): {', '.join(missing_files)}."
+                        f"InstaNovo+ model directory {instanovo_plus_model} is missing the expected file(s): {', '.join(missing_files)}."
                     )
             elif os.path.exists(instanovo_plus_model):
-                return cls.load(instanovo_plus_model, device=device)
+                return cls.load(instanovo_plus_model, override_config=override_config)
             else:
                 raise ValueError(
-                    f"Local model path '{instanovo_plus_model}' must exist, be a directory and "
-                    f"containing the files {', '.join(expected_files)}."
+                    f"Local model path '{instanovo_plus_model}' must exist, be a directory and containing the files {', '.join(expected_files)}."
                 )
         else:
-            raise ValueError(
-                f"Model {model_id} does not have a valid 'remote', 'local' entry in models.json"
-            )
+            raise ValueError(f"Model {model_id} does not have a valid 'remote', 'local' entry in models.json")
 
     def prepare_fine_tuning(self, residue_set: ResidueSet) -> None:
         """Prepare a model for fine-tuning on a dataset with a new residue vocabulary.
@@ -429,9 +393,7 @@ class InstaNovoPlus(nn.Module):
         self.config.vocab_size = num_residues
 
         # 3. Update modules
-        self.transition_model.char_embedding = nn.Embedding(
-            num_embeddings=num_residues, embedding_dim=model_dim
-        )
+        self.transition_model.char_embedding = nn.Embedding(num_embeddings=num_residues, embedding_dim=model_dim)
         self.transition_model.head[1] = nn.Linear(model_dim, num_residues)
 
     def mixture_categorical(
@@ -487,9 +449,7 @@ class InstaNovoPlus(nn.Module):
         log_prior = self.mixture_categorical(
             log_x=log_x_0,
             log_alpha=self.cumulative_schedule[t - 1].unsqueeze(-1).unsqueeze(-1),
-            log_alpha_complement=self.cumulative_schedule_complement[t - 1]
-            .unsqueeze(-1)
-            .unsqueeze(-1),
+            log_alpha_complement=self.cumulative_schedule_complement[t - 1].unsqueeze(-1).unsqueeze(-1),
         )
         log_likelihood = self.mixture_categorical(
             log_x=log_x_t,
@@ -522,9 +482,7 @@ class InstaNovoPlus(nn.Module):
                 values at the `t`-th time step i.e. `log p( x_{t-1} | x_{t} )`.
         """
         log_x_0 = log_softmax(self.transition_model(x_t, t=time, **kwargs), -1)
-        return self.forward(
-            log_x_t=torch.log(one_hot(x_t, len(self.residue_set))), log_x_0=log_x_0, t=time
-        )
+        return self.forward(log_x_t=torch.log(one_hot(x_t, len(self.residue_set))), log_x_0=log_x_0, t=time)
 
 
 class DiffusionLoss(nn.Module):
@@ -537,8 +495,11 @@ class DiffusionLoss(nn.Module):
 
     def __init__(self, model: InstaNovoPlus) -> None:
         super().__init__()
-        self.time_steps = model.time_steps
         self.model = model
+
+        self.base_model = model.module if hasattr(model, "module") else model
+
+        self.time_steps = self.base_model.time_steps
 
     @staticmethod
     def kl_divergence(
@@ -560,9 +521,7 @@ class DiffusionLoss(nn.Module):
         """
         return (torch.exp(log_probs_first) * (log_probs_first - log_probs_second)).sum(-1).sum(-1)
 
-    def forward(
-        self, x_0: Integer[Peptide, "batch token"], **kwargs: dict
-    ) -> Float[torch.Tensor, "1"]:
+    def forward(self, x_0: Integer[Peptide, "batch token"], **kwargs: dict) -> Float[torch.Tensor, "1"]:
         """Calculate a single Monte Carlo estimate of the multinomial diffusion loss (-ELBO).
 
         Args:
@@ -580,19 +539,13 @@ class DiffusionLoss(nn.Module):
         loss = self._compute_loss(t=t, x_0=x_0, **kwargs).mean()
 
         # 3. Calculate prior KL term
-        log_x_0 = torch.log(one_hot(x_0, num_classes=len(self.model.residue_set)))
-        final_log_probs = self.model.mixture_categorical(
+        log_x_0 = torch.log(one_hot(x_0, num_classes=len(self.base_model.residue_set)))
+        final_log_probs = self.base_model.mixture_categorical(
             log_x=log_x_0,
-            log_alpha=self.model.cumulative_schedule[self.time_steps - 1]
-            .unsqueeze(-1)
-            .unsqueeze(-1),
-            log_alpha_complement=self.model.cumulative_schedule_complement[self.time_steps - 1]
-            .unsqueeze(-1)
-            .unsqueeze(-1),
+            log_alpha=self.base_model.cumulative_schedule[self.time_steps - 1].unsqueeze(-1).unsqueeze(-1),
+            log_alpha_complement=self.base_model.cumulative_schedule_complement[self.time_steps - 1].unsqueeze(-1).unsqueeze(-1),
         )
-        uniform_log_probs = torch.log(
-            torch.ones_like(final_log_probs) / len(self.model.residue_set)
-        )
+        uniform_log_probs = torch.log(torch.ones_like(final_log_probs) / len(self.base_model.residue_set))
         kl_loss = self.kl_divergence(final_log_probs, uniform_log_probs).mean()
         return loss + kl_loss
 
@@ -603,26 +556,20 @@ class DiffusionLoss(nn.Module):
         **kwargs: dict,
     ) -> Float[torch.Tensor, " batch"]:
         # 1. sample x_{t+1}
-        log_x_0 = torch.log(one_hot(x_0, num_classes=len(self.model.residue_set)))
-        log_probs = self.model.mixture_categorical(
+        log_x_0 = torch.log(one_hot(x_0, num_classes=len(self.base_model.residue_set)))
+        log_probs = self.base_model.mixture_categorical(
             log_x=log_x_0,
-            log_alpha=self.model.cumulative_schedule[t].unsqueeze(-1).unsqueeze(-1),
-            log_alpha_complement=self.model.cumulative_schedule_complement[t]
-            .unsqueeze(-1)
-            .unsqueeze(-1),
+            log_alpha=self.base_model.cumulative_schedule[t].unsqueeze(-1).unsqueeze(-1),
+            log_alpha_complement=self.base_model.cumulative_schedule_complement[t].unsqueeze(-1).unsqueeze(-1),
         )
         x_next = Categorical(logits=log_probs).sample()
 
         # 2. Calculate loss
-        log_dist = self.model.reverse_distribution(x_t=x_next, time=t, **kwargs)
+        log_dist = self.base_model.reverse_distribution(x_t=x_next, time=t, **kwargs)
 
-        nll_loss = (
-            -(one_hot(x_0, num_classes=len(self.model.residue_set)) * log_dist).sum(-1).sum(-1)
-        )
+        nll_loss = -(one_hot(x_0, num_classes=len(self.base_model.residue_set)) * log_dist).sum(-1).sum(-1)
 
-        log_posterior = self.model(
-            log_x_0=log_x_0, log_x_t=torch.log(one_hot(x_next, log_probs.size(-1))), t=t
-        )
+        log_posterior = self.model(log_x_0=log_x_0, log_x_t=torch.log(one_hot(x_next, log_probs.size(-1))), t=t)
         denoising_loss = self.kl_divergence(log_posterior, log_dist)
         loss = torch.where(t == 0, nll_loss, denoising_loss)
         return loss

@@ -5,7 +5,7 @@ defaults:
 # Data paths and output location
 data_path: tests/instanovo_test_resources/example_data/test_sample.mgf # type: .ipc
 instanovo_model: tests/instanovo_test_resources/model.ckpt # type: .ckpt
-instanovo_plus_model: tests/instanovo_test_resources/instanovoplus # type: directory, model id or path to a *.ckpt file
+instanovo_plus_model: tests/instanovo_test_resources/instanovoplus/model_latest.ckpt # type: directory, model id or path to a *.ckpt file
 output_path: tests/instanovo_test_resources/test_sample_preds.csv # type: .csv
 knapsack_path: tests/instanovo_test_resources/example_knapsack # type: directory
 use_knapsack: False
@@ -17,12 +17,13 @@ denovo: False
 
 subset: 1
 
+num_workers: 4
 batch_size: 32
 device: auto
 fp16: True
 
 residue_remapping: ""
-pred_col: preds
-pred_tok_col: preds_tokenised
+prediction_col: predictions
+prediction_tokenised_col: predictions_tokenised
 log_probs_col: log_probs
 token_log_probs_col: token_log_probs

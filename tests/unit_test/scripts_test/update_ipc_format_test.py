@@ -52,7 +52,7 @@ def test_incorrect_file_error() -> None:
         update_ipc(Path("incorrect_file_type.csv"), Path("target.ipc"))
 
 
-@patch("instanovo.scripts.update_ipc_format.update_ipc")
+@patch("instanovo.scripts.update_ipc_format.update_ipc", autospec=True)
 def test_main(mock_update_ipc: Any) -> None:
     """Test main method call."""
     with patch(

@@ -20,7 +20,6 @@ dim_feedforward: 1280
 # timestep embedding params
 t_emb_dim: 320
 t_emb_max_period: 10000
-T: 20
 
 # conditioning params
 cond_emb_dim: 320

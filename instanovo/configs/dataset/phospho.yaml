@@ -1,0 +1,10 @@
+# Phospho dataset
+
+defaults:
+  - default
+  - _self_
+
+train_path: /mnt/instanovo-ceph/identity_splits_parquet/phospho/*-train-*.parquet # Unshuffled
+valid_path: /mnt/instanovo-ceph/identity_splits_parquet/validation_subsets/dataset-phospho-valid-0000-0001.parquet
+
+preshuffle_across_shards: True

@@ -13,8 +13,8 @@ def read_mgf(file_path: str) -> dict[str, list[Any]]:
         for spectrum in reader:
             data["scan_number"].append(spectrum.get("params", {}).get("title", ""))
             data["sequence"].append(spectrum.get("params", {}).get("seq", ""))
-            data["precursor_mz"].append(spectrum.get("params", {}).get("pepmass", [None])[0])
-            data["precursor_charge"].append(spectrum.get("params", {}).get("charge", [None])[0])
+            data["precursor_mz"].append(spectrum.get("params", {}).get("pepmass", [0])[0])
+            data["precursor_charge"].append(spectrum.get("params", {}).get("charge", [0])[0])
             data["retention_time"].append(spectrum.get("params", {}).get("rtinseconds", 0))
             data["mz_array"].append(spectrum.get("m/z array", []))
             data["intensity_array"].append(spectrum.get("intensity array", []))
@@ -51,9 +51,8 @@ def read_mzml(
                     (key for key in ms_vocab["precursor_mz"] if key in spectrum_dict),
                     "",
                 )
-                data["precursor_mz"].append(spectrum_dict.get(pre_mz_key, ""))
-
-                data["precursor_charge"].append(spectrum_dict.get(ms_vocab["precursor_charge"], ""))
+                data["precursor_mz"].append(spectrum_dict.get(pre_mz_key, 0))
+                data["precursor_charge"].append(spectrum_dict.get(ms_vocab["precursor_charge"], 0))
                 data["retention_time"].append(spectrum_dict.get(ms_vocab["retention_time"]))
                 data["mz_array"].append(list(spectrum_dict.get(ms_vocab["mz_array"])))
                 data["intensity_array"].append(list(spectrum_dict.get(ms_vocab["intensity_array"])))
@@ -71,8 +70,8 @@ def read_mzxml(file_path: str) -> dict[str, list[Any]]:
                 data["scan_number"].append(spectrum.get("num", ""))
                 data["sequence"].append(spectrum.get("peptide", ""))
                 precursor = spectrum.get("precursorMz", [{}])[0]
-                data["precursor_mz"].append(precursor.get("precursorMz"))
-                data["precursor_charge"].append(precursor.get("precursorCharge"))
+                data["precursor_mz"].append(precursor.get("precursorMz", 0))
+                data["precursor_charge"].append(precursor.get("precursorCharge", 0))
                 data["retention_time"].append(spectrum.get("retentionTime"))
                 data["mz_array"].append(list(spectrum.get("m/z array")))
                 data["intensity_array"].append(list(spectrum.get("intensity array")))

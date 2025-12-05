@@ -29,7 +29,7 @@ logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 
-RECORD_ID = "14961323"
+RECORD_ID = "17816199"
 
 
 def get_zenodo(zenodo_url: str, zip_path: str, progress: Progress, task_id: TaskID) -> None:
@@ -79,19 +79,20 @@ def main(
         "./tests/instanovo_test_resources.zip",
         help="Path where the downloaded zip file will be saved",
     ),
-    extract_path: str = typer.Option(
-        "./tests", help="Path where the zip file contents will be extracted"
-    ),
+    extract_path: str = typer.Option("./tests/instanovo_test_resources", help="Path where the zip file contents will be extracted"),
 ) -> None:
     """Downloads and extracts the zenodo record used for unit and integration tests."""
-    if os.path.exists(f"{extract_path}/instanovo_test_resources") and os.listdir(
-        f"{extract_path}/instanovo_test_resources"
-    ):
-        typer.echo(
-            f"Skipping download and extraction. Path '{extract_path}/instanovo_test_resources' "
-            "already exists and is non-empty."
-        )
-        raise typer.Exit()
+    if os.path.exists(f"{extract_path}") and os.listdir(f"{extract_path}"):
+        if os.path.exists(f"{extract_path}/record_id.txt"):
+            with open(f"{extract_path}/record_id.txt", "r") as f:
+                record_id = f.read().strip()
+            if record_id == RECORD_ID:
+                typer.echo(f"Record is up to date, skipping download and extraction. Path '{extract_path}' already exists and is non-empty.")
+                raise typer.Exit()
+            else:
+                typer.echo("Record is outdated, downloading new record.")
+        else:
+            typer.echo("Record ID is not documented, downloading new record.")
 
     console = Console()  # Create a Console instance for Rich
     progress = Progress(
@@ -112,6 +113,9 @@ def main(
         get_zenodo(zenodo_url, zip_path, progress, task_id)
 
     unzip_zenodo(zip_path, extract_path)
+
+    with open(f"{extract_path}/record_id.txt", "w") as f:
+        f.write(RECORD_ID)
 
 
 if __name__ == "__main__":

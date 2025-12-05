@@ -2,7 +2,7 @@ defaults:
   - default
   - _self_
 
-instanovo_model: instanovo-phospho-v0.1.6
+instanovo_model: instanovo-phospho-v1.0.0
 instanovo_plus_model:
 
 # Inference mode

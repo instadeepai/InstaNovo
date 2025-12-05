@@ -3,11 +3,6 @@
 # Common variables
 PACKAGE_NAME = instanovo
 
-# Train variables
-NUM_NODES = 1
-NUM_GPUS:= 1
-
-
 # LAST_COMMIT returns the current HEAD commit
 LAST_COMMIT = $(shell git rev-parse --short HEAD)
 
@@ -29,11 +24,11 @@ endif
 DOCKER_HOME_DIRECTORY = "/app"
 DOCKER_RUNS_DIRECTORY = "/runs"
 
-DOCKERFILE := Dockerfile
+DOCKERFILE := Dockerfile.aichor
 DOCKERFILE_DEV := Dockerfile.dev
 DOCKERFILE_CI := Dockerfile.ci
 
-DOCKER_IMAGE_NAME = registry.gitlab.com/instadeep/dtu-denovo-sequencing
+DOCKER_IMAGE_NAME = ghcr.io/instadeepai/instanovo
 DOCKER_IMAGE_TAG = $(VERSION)
 DOCKER_IMAGE = $(DOCKER_IMAGE_NAME):$(DOCKER_IMAGE_TAG)
 DOCKER_IMAGE_DEV = $(DOCKER_IMAGE_NAME):$(DOCKER_IMAGE_TAG)-dev
@@ -45,12 +40,12 @@ DOCKER_RUN_FLAGS_VOLUME_MOUNT_HOME = $(DOCKER_RUN_FLAGS) --volume $(PWD):$(DOCKE
 DOCKER_RUN_FLAGS_VOLUME_MOUNT_RUNS = $(DOCKER_RUN_FLAGS) --volume $(PWD)/runs:$(DOCKER_RUNS_DIRECTORY)
 DOCKER_RUN = docker run $(DOCKER_RUN_FLAGS) $(IMAGE_NAME)
 
-PYTEST = uv run -m pytest --alluredir=allure_results --cov-report=html --cov --random-order --verbose .
+PYTEST = uv run --extra cu126 --group dev -m pytest --alluredir=allure_results --cov-report=html --cov --random-order --verbose .
 
 COVERAGE = uv run -m coverage report -m
 
 #################################################################################
-## Docker build commands																#
+## Docker build commands														#
 #################################################################################
 
 .PHONY: build build-arm build-dev build-dev-arm build-ci build-ci-dev
@@ -94,7 +89,7 @@ build-dev-arm:
 
 ## Build continuous integration Docker image for InstaNovo
 build-ci:
-	$(call docker_build_ci_template,$(DOCKERFILE),$(DOCKER_IMAGE_CI))
+	$(call docker_build_ci_template,$(DOCKERFILE_CI),$(DOCKER_IMAGE_CI))
 	docker tag $(DOCKER_IMAGE_CI) $(DOCKER_IMAGE)
 
 ## Build development continuous integration Docker image for InstaNovo
@@ -103,7 +98,7 @@ build-ci-dev:
 	docker tag $(DOCKER_IMAGE_CI_DEV) $(DOCKER_IMAGE_DEV)
 
 #################################################################################
-## Docker push commands																#
+## Docker push commands															#
 #################################################################################
 
 .PHONY: push-ci push-ci-dev
@@ -119,35 +114,40 @@ push-ci-dev:
 	docker push $(DOCKER_IMAGE_CI_DEV)
 
 #################################################################################
-## Install packages commands																 	#
+## Install packages commands													#
 #################################################################################
 
-PHONY: install install-all upgrade
+PHONY: install install-all install-cpu upgrade
 
 ## Install required and development packages
 install:
-	uv sync --extra cu124
+	uv sync --extra cu126
 	uv run pre-commit install
 
 ## Install required, development and documentation packages
 install-all:
-	uv sync --extra cu124 --group docs
+	uv sync --extra cu126 --all-groups
+
+## Install required, development and documentation packages on CPU
+install-cpu:
+	uv sync --extra cpu --group docs --group dev
+
 
 # Upgrade all packages
 upgrade:
 	uv lock --upgrade
-	uv sync --extra cu124
+	uv sync --extra cu126
 
 #################################################################################
 ## Development commands															#
 #################################################################################
 
-.PHONY: tests coverage test-docker coverage-docker bash bash-dev docs set-gcp-credentials add-kyber-pvc-data
+.PHONY: tests coverage test-docker coverage-docker bash bash-dev docs set-gcp-credentials add-kyber-pvc-data screenshots
 
 ## Run all tests
 tests:
 	uv run instanovo/scripts/get_zenodo_record.py
-	uv sync --extra cu124 --group dev
+	uv sync --active --extra cu126 --group dev
 	$(PYTEST)
 
 ## Calculate the code coverage
@@ -170,13 +170,40 @@ bash:
 bash-dev:
 	docker run -it $(DOCKER_RUN_FLAGS) $(DOCKER_IMAGE_DEV) /bin/bash
 
+## Open a bash shell in the continuous integration Docker image
+bash-ci:
+	docker run -it $(DOCKER_RUN_FLAGS) $(DOCKER_IMAGE_CI) /bin/bash
+
 ## Serve the documentation site locally
 docs:
-	uv sync --extra cu124 --group docs
+	uv sync --extra cu126 --group docs
 	git config --global --add safe.directory "$(dirname "$(pwd)")"
-	rm -rf docs/reference
+	rm -rf docs/API
+	python ./docs/gen_ref_nav.py
 	mkdocs build --verbose --site-dir docs_public
 	mkdocs serve
+
+## Generate screenshots
+screenshots:
+	uv sync --extra cu126 --group dev
+	uv run rich-codex --search-include "docs/**/*.md" --timeout 30 --terminal-theme MONOKAI --terminal-width 160 --use-pty --no-confirm --min-pct-diff 10
+	uv run pre-commit run trailing-whitespace --all-files || true
+
+## Clean folders locally
+clean:
+	rm -rf .mypy_cache
+	rm -rf .ruff_cache
+	rm -rf .venv
+	rm -rf allure_results
+	rm -rf build
+	rm -rf docs/coverage
+	rm -rf docs/allure-report
+	rm -rf dist
+	rm -rf docs_public
+	rm -rf logs
+	rm -rf outputs
+	rm -rf tests/__pycache__
+	rm  .coverage*
 
 #################################################################################
 # Self Documenting Commands                                                     #

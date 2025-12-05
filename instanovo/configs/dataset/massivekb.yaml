@@ -1,20 +1,11 @@
-# Combination of multiple datasets
-# - ACPT
-# - Pride
-# - Phospho
-# - MassiveKB
+# MassiveKB dataset
 
-use_shards: True
-# train_path: /mnt/instanovo-data-kyber/identity_splits_parquet/massivekb/*-train-*.parquet # Unshuffled
-train_path: /mnt/instanovo-data-kyber/shuffled/massivekb/*.parquet # Shuffled
-valid_path: /mnt/instanovo-data-kyber/identity_splits_parquet/acpt/*-valid-*.parquet
-valid_subset_of_train:
-# If any train sequences overlap with the blacklist, raise a ValueError
-blacklist: /mnt/instanovo-data-kyber/identity_splits_parquet/blacklist.csv
-train_partition:
-valid_partition:
+defaults:
+  - default
+  - _self_
 
-column_remapping:
+# train_path: /mnt/instanovo-ceph/identity_splits_parquet/massivekb/*-train-*.parquet # Unshuffled
+train_path: /mnt/instanovo-ceph/shuffled/massivekb/*.parquet # Shuffled
+valid_path: /mnt/instanovo-ceph/identity_splits_parquet/validation_subsets/dataset-massivekb-valid-0000-0001.parquet
 
-# Left gets remapped to right, right should exist in residue set
-residue_remapping:
+preshuffle_across_shards: False

@@ -29,7 +29,7 @@ def test_knapsack(instanovo_model: tuple[Any, Any], knapsack_dir: str, tmp_path:
         "D": 6,
         "E": 7,
     }
-    assert knapsack.masses.shape == (384853,)
+    assert knapsack.masses.shape == (1154257,)
     assert knapsack.chart.shape == (40000001, 8)
 
     with pytest.raises(FileExistsError):
@@ -47,4 +47,4 @@ def test_knapsack(instanovo_model: tuple[Any, Any], knapsack_dir: str, tmp_path:
     knapsack = knapsack.from_file(trial_str)
 
     feasible_masses = knapsack.get_feasible_masses(target_mass=46.76, tolerance=1.0)
-    assert feasible_masses == [462600, 469300, 470000, 470400, 471800, 474900]
+    assert feasible_masses == [458367, 462600, 464134, 464367, 466634, 469300, 470000, 470400, 471800, 472634, 474167, 474900, 476667]

@@ -166,24 +166,25 @@ allure_results/
 # sample test data
 tests/instanovo_test_resources.zip
 tests/instanovo_test_resources/
+test/sample_files/
 
 # mkdocs stuff
 public/
-docs/reference
+docs_public/
+docs/coverage/
+docs/allure-report
+docs/API/
 
 # Other folders
 coverage/
 checkpoints/
 data/
-docs/
-docs_public/
 logs/
 mlruns/
 notebooks/checkpoints
 notebooks/predictions.csv
 notebooks/diffusion_predictions.csv
 notebooks/predictions_knapsack_beam_search.csv
-notebooks/15174703.zip
 outputs/
 secrets/
 lightning_logs/

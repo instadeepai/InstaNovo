@@ -39,9 +39,7 @@ def test_set_credentials(mock_file: Any) -> None:
         os.environ,
         {
             "GOOGLE_APPLICATION_CREDENTIALS": "path/example_credentials.json",
-            "GS_CREDENTIALS_ENCODED": base64.b64encode(
-                json.dumps({"credential_key": "credential_value"}).encode("ascii")
-            ).decode("ascii"),
+            "GS_CREDENTIALS_ENCODED": base64.b64encode(json.dumps({"credential_key": "credential_value"}).encode("ascii")).decode("ascii"),
         },
         clear=True,
     ):
