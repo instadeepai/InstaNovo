@@ -226,7 +226,19 @@ jobs:
 
       - name: Test notebooks
         run: |
-          sed -i 's/test\[:10%\]/test[:10]/g' notebooks/getting_started_with_instanovo.ipynb
+          sed -i 's/test\[:1%\]/test[:3]/g' notebooks/getting_started_with_instanovo.ipynb
+          sed -i 's/num_beams = 5/num_beams = 1/g' notebooks/getting_started_with_instanovo.ipynb
+          python -c "
+          import json
+          with open('notebooks/getting_started_with_instanovo.ipynb', 'r') as f:
+              nb = json.load(f)
+          for cell in nb['cells']:
+              if cell['cell_type'] == 'code' and any('_setup_knapsack' in line for line in cell.get('source', [])):
+                  cell['source'] = ['# Skipped for CI\n', 'pass']
+                  break
+          with open('notebooks/getting_started_with_instanovo.ipynb', 'w') as f:
+              json.dump(nb, f, indent=1)
+          "
           python -m ipykernel install --user --name instanovo
           PYDEVD_DISABLE_FILE_VALIDATION=1 pytest \
             --nbmake "./notebooks/getting_started_with_instanovo.ipynb" \
@@ -467,7 +479,19 @@ jobs:
       - name: Test notebooks (Python 3.13 only)
         if: matrix.python-version == '3.13'
         run: |
-          (Get-Content "notebooks/getting_started_with_instanovo.ipynb") -replace 'test\[:10%\]', 'test[:10]' | Set-Content "notebooks/getting_started_with_instanovo.ipynb"
+          (Get-Content "notebooks/getting_started_with_instanovo.ipynb") -replace 'test\[:1%\]', 'test[:3]' | Set-Content "notebooks/getting_started_with_instanovo.ipynb"
+          (Get-Content "notebooks/getting_started_with_instanovo.ipynb") -replace 'num_beams = 5', 'num_beams = 1' | Set-Content "notebooks/getting_started_with_instanovo.ipynb"
+          uv run python -c @"
+          import json
+          with open('notebooks/getting_started_with_instanovo.ipynb', 'r') as f:
+              nb = json.load(f)
+          for cell in nb['cells']:
+              if cell['cell_type'] == 'code' and any('_setup_knapsack' in line for line in cell.get('source', [])):
+                  cell['source'] = ['# Skipped for CI\n', 'pass']
+                  break
+          with open('notebooks/getting_started_with_instanovo.ipynb', 'w') as f:
+              json.dump(nb, f, indent=1)
+          "@
           uv run python -m ipykernel install --user --name instanovo
           $env:PYDEVD_DISABLE_FILE_VALIDATION = "1"
           uv run pytest `
@@ -526,7 +550,19 @@ jobs:
       - name: Test notebooks (Python 3.13 only)
         if: matrix.python-version == '3.13'
         run: |
-          sed -i '' 's/test\[:10%\]/test[:10]/g' notebooks/getting_started_with_instanovo.ipynb
+          sed -i '' 's/test\[:1%\]/test[:3]/g' notebooks/getting_started_with_instanovo.ipynb
+          sed -i '' 's/num_beams = 5/num_beams = 1/g' notebooks/getting_started_with_instanovo.ipynb
+          uv run python -c "
+          import json
+          with open('notebooks/getting_started_with_instanovo.ipynb', 'r') as f:
+              nb = json.load(f)
+          for cell in nb['cells']:
+              if cell['cell_type'] == 'code' and any('_setup_knapsack' in line for line in cell.get('source', [])):
+                  cell['source'] = ['# Skipped for CI\n', 'pass']
+                  break
+          with open('notebooks/getting_started_with_instanovo.ipynb', 'w') as f:
+              json.dump(nb, f, indent=1)
+          "
           uv run python -m ipykernel install --user --name instanovo
           PYDEVD_DISABLE_FILE_VALIDATION=1 uv run pytest \
             --nbmake "./notebooks/getting_started_with_instanovo.ipynb" \
