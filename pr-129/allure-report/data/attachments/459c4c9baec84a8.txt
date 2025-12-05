@@ -1,0 +1,244 @@
+INFO     instanovo.common.trainer:trainer.py:322 Python version: 3.13.9 (main, Nov 18 2025, 05:57:28) [GCC 12.2.0]
+INFO     instanovo.common.trainer:trainer.py:323 Torch version: 2.8.0+cpu
+INFO     instanovo.common.trainer:trainer.py:324 CUDA version: None
+INFO     instanovo.common.trainer:trainer.py:325 Training with 1 devices
+INFO     instanovo.common.trainer:trainer.py:326 Per-device batch size: 32
+INFO     instanovo.common.trainer:trainer.py:327 Gradient accumulation steps: 1
+INFO     instanovo.common.trainer:trainer.py:329 Effective batch size: 32
+INFO     instanovo.common.trainer:trainer.py:331 Using device: cpu
+INFO     instanovo.common.trainer:trainer.py:129 Config:
+run_name: instanovo_unit_test
+tags:
+- default
+tb_summarywriter: ./logs/instanovo/instanovo-unit-test
+seed: 101
+warmup_iters: 480
+learning_rate: 0.001
+weight_decay: 0.0
+train_batch_size: 32
+grad_accumulation: 1
+gradient_clip_val: 10.0
+predict_batch_size: 128
+lr_scheduler: cosine
+num_workers: 4
+pin_memory: false
+prefetch_factor: null
+use_shuffle_buffer: true
+shuffle_buffer_size: 100000
+compile_model: true
+force_cpu: true
+fp16: true
+mps: false
+force_fp32: false
+training_steps: 481
+num_sanity_val_steps: 10
+validate_before_training: false
+console_logging_steps: 50
+tensorboard_logging_steps: 500
+use_neptune: false
+enable_verbose_logging: false
+enable_verbose_accelerate: true
+enable_verbose_s3: true
+train_subset: 1.0
+valid_subset: 1.0
+validation_interval: 100000
+save_model: true
+keep_model_every_interval: false
+save_accelerator_state: false
+keep_accelerator_every_interval: null
+model_save_folder_path: tests/instanovo_test_resources/train_test
+checkpoint_interval: 480
+checkpoint_metric: null
+checkpoint_metric_mode: null
+resume_accelerator_state: null
+resume_checkpoint_path: null
+model:
+  dim_model: 320
+  n_head: 20
+  dim_feedforward: 1280
+  encoder_layers: 9
+  decoder_layers: 9
+  dropout: 0.0
+  use_flash_attention: false
+  conv_peak_encoder: false
+  n_peaks: 11
+  min_mz: 1.0
+  max_mz: 1000.0
+  min_intensity: 0.01
+  remove_precursor_tol: 2.0
+  max_charge: 3
+  precursor_mass_tol: 50
+  isotope_error_range:
+  - 0
+  - 1
+  max_length: 6
+  peak_embedding_dtype: float64
+  n_layers: 6
+dataset:
+  train_path: ./tests/instanovo_test_resources/example_data/train.mgf
+  valid_path: null
+  valid_subset_of_train: null
+  residue_remapping: {}
+residues:
+  residues:
+    A: 10.5
+    B: 20.75
+    C: 15.68
+    D: 18.25
+    E: 12.33
+
+INFO     instanovo.common.trainer:trainer.py:135 Vocab: {0: '[PAD]', 1: '[SOS]', 2: '[EOS]', 3: 'A', 4: 'B', 5: 'C', 6: 'D', 7: 'E'}
+INFO     instanovo.common.trainer:trainer.py:479 Loading training dataset...
+INFO     instanovo.utils.data_handler:data_handler.py:394 Loading file 001 of 001: ./tests/instanovo_test_resources/example_data/train.mgf
+INFO     instanovo.utils.data_handler:data_handler.py:487 Saving temporary file to /tmp/tmpeq2kw9qi/temp_c3c08d0e590f4878abaae6dc395f78c9.parquet
+INFO     instanovo.utils.data_handler:data_handler.py:487 Verifying loaded data
+INFO     instanovo.common.trainer:trainer.py:504 Loading validation dataset...
+INFO     instanovo.utils.data_handler:data_handler.py:394 Loading file 001 of 001: ./tests/instanovo_test_resources/example_data/train.mgf
+INFO     instanovo.utils.data_handler:data_handler.py:487 Saving temporary file to /tmp/tmptrhxc0de/temp_1bdb5f0c4a904db89bf6f0aea7fd6420.parquet
+INFO     instanovo.utils.data_handler:data_handler.py:487 Verifying loaded data
+INFO     instanovo.common.trainer:trainer.py:525 Validation path not specified, generating from training set.
+INFO     instanovo.common.trainer:trainer.py:550 Data splits saved to tests/instanovo_test_resources/train_test/splits.csv
+INFO     httpx:_client.py:1025 HTTP Request: HEAD https://s3.amazonaws.com/datasets.huggingface.co/datasets/datasets/parquet/parquet.py "HTTP/1.1 404 Not Found"
+INFO     instanovo.common.trainer:trainer.py:562 Checking for unknown residues in 15,500 rows.
+INFO     instanovo.common.trainer:trainer.py:580 Checking charge values...
+INFO     instanovo.common.trainer:trainer.py:142 Data loaded from 11,625 training samples and 3,875 validation samples (unfiltered values)
+INFO     instanovo.common.trainer:trainer.py:145 Data loaders built
+INFO     instanovo.common.trainer:trainer.py:627 Sample batch:
+INFO     instanovo.common.trainer:trainer.py:636  - spectra: torch.float32, torch.Size([32, 10, 2])
+INFO     instanovo.common.trainer:trainer.py:636  - precursors: torch.float32, torch.Size([32, 3])
+INFO     instanovo.common.trainer:trainer.py:636  - spectra_mask: torch.bool, torch.Size([32, 10])
+INFO     instanovo.common.trainer:trainer.py:636  - peptides: torch.int64, torch.Size([32, 7])
+INFO     instanovo.common.trainer:trainer.py:636  - peptides_mask: torch.bool, torch.Size([32, 7])
+INFO     instanovo.common.trainer:trainer.py:150 Setting up model...
+INFO     instanovo.common.trainer:trainer.py:154 Model has 26,314,568 parameters
+INFO     instanovo.common.trainer:trainer.py:436 TensorBoard logs will be saved to ./logs/instanovo/instanovo-unit-testinstanovo_unit_test_25_12_05_22_57
+INFO     instanovo.common.trainer:trainer.py:215 Training setup complete.
+INFO     instanovo.common.trainer:trainer.py:216  - Steps per validation: 100,000 
+INFO     instanovo.common.trainer:trainer.py:217  - Steps per checkpoint: 480 
+INFO     instanovo.common.trainer:trainer.py:218  - Total training steps: 481
+INFO     instanovo.common.trainer:trainer.py:219 Estimating steps per epoch based on unfiltered training set size:
+INFO     instanovo.common.trainer:trainer.py:220  - Estimated steps per epoch: 363
+INFO     instanovo.common.trainer:trainer.py:221  - Estimated total epochs: 1.3
+INFO     instanovo.common.trainer:trainer.py:322 Python version: 3.13.9 (main, Nov 18 2025, 05:57:28) [GCC 12.2.0]
+INFO     instanovo.common.trainer:trainer.py:323 Torch version: 2.8.0+cpu
+INFO     instanovo.common.trainer:trainer.py:324 CUDA version: None
+INFO     instanovo.common.trainer:trainer.py:325 Training with 1 devices
+INFO     instanovo.common.trainer:trainer.py:326 Per-device batch size: 32
+INFO     instanovo.common.trainer:trainer.py:327 Gradient accumulation steps: 1
+INFO     instanovo.common.trainer:trainer.py:329 Effective batch size: 32
+INFO     instanovo.common.trainer:trainer.py:331 Using device: cpu
+INFO     instanovo.common.trainer:trainer.py:129 Config:
+run_name: instanovo_unit_test
+tags:
+- default
+tb_summarywriter: ./logs/instanovo/instanovo-unit-test
+seed: 101
+warmup_iters: 480
+learning_rate: 0.001
+weight_decay: 0.0
+train_batch_size: 32
+grad_accumulation: 1
+gradient_clip_val: 10.0
+predict_batch_size: 128
+lr_scheduler: cosine
+num_workers: 4
+pin_memory: false
+prefetch_factor: null
+use_shuffle_buffer: true
+shuffle_buffer_size: 100000
+compile_model: true
+force_cpu: true
+fp16: true
+mps: false
+force_fp32: false
+training_steps: 481
+num_sanity_val_steps: 10
+validate_before_training: false
+console_logging_steps: 50
+tensorboard_logging_steps: 500
+use_neptune: false
+enable_verbose_logging: false
+enable_verbose_accelerate: true
+enable_verbose_s3: true
+train_subset: 1.0
+valid_subset: 1.0
+validation_interval: 100000
+save_model: true
+keep_model_every_interval: false
+save_accelerator_state: false
+keep_accelerator_every_interval: null
+model_save_folder_path: tests/instanovo_test_resources/train_test
+checkpoint_interval: 480
+checkpoint_metric: null
+checkpoint_metric_mode: null
+resume_accelerator_state: null
+resume_checkpoint_path: tests/instanovo_test_resources/model.ckpt
+model:
+  dim_model: 320
+  n_head: 20
+  dim_feedforward: 1280
+  encoder_layers: 9
+  decoder_layers: 9
+  dropout: 0.0
+  use_flash_attention: false
+  conv_peak_encoder: false
+  n_peaks: 11
+  min_mz: 1.0
+  max_mz: 1000.0
+  min_intensity: 0.01
+  remove_precursor_tol: 2.0
+  max_charge: 3
+  precursor_mass_tol: 50
+  isotope_error_range:
+  - 0
+  - 1
+  max_length: 6
+  peak_embedding_dtype: float64
+  n_layers: 6
+dataset:
+  train_path: ./tests/instanovo_test_resources/example_data/train.mgf
+  valid_path: null
+  valid_subset_of_train: null
+  residue_remapping: {}
+residues:
+  residues:
+    A: 10.5
+    B: 20.75
+    C: 15.68
+    D: 18.25
+    E: 12.33
+
+INFO     instanovo.common.trainer:trainer.py:135 Vocab: {0: '[PAD]', 1: '[SOS]', 2: '[EOS]', 3: 'A', 4: 'B', 5: 'C', 6: 'D', 7: 'E'}
+INFO     instanovo.common.trainer:trainer.py:479 Loading training dataset...
+INFO     instanovo.utils.data_handler:data_handler.py:394 Loading file 001 of 001: ./tests/instanovo_test_resources/example_data/train.mgf
+INFO     instanovo.utils.data_handler:data_handler.py:487 Saving temporary file to /tmp/tmpjq418gzf/temp_75df0c4a61134003816fc074fe8e3c30.parquet
+INFO     instanovo.utils.data_handler:data_handler.py:487 Verifying loaded data
+INFO     instanovo.common.trainer:trainer.py:504 Loading validation dataset...
+INFO     instanovo.utils.data_handler:data_handler.py:394 Loading file 001 of 001: ./tests/instanovo_test_resources/example_data/train.mgf
+INFO     instanovo.utils.data_handler:data_handler.py:487 Saving temporary file to /tmp/tmpgij6snlt/temp_097997ac643d4a3282665f401814a545.parquet
+INFO     instanovo.utils.data_handler:data_handler.py:487 Verifying loaded data
+INFO     instanovo.common.trainer:trainer.py:525 Validation path not specified, generating from training set.
+INFO     instanovo.common.trainer:trainer.py:550 Data splits saved to tests/instanovo_test_resources/train_test/splits.csv
+INFO     httpx:_client.py:1025 HTTP Request: HEAD https://s3.amazonaws.com/datasets.huggingface.co/datasets/datasets/parquet/parquet.py "HTTP/1.1 404 Not Found"
+INFO     instanovo.common.trainer:trainer.py:562 Checking for unknown residues in 15,500 rows.
+INFO     instanovo.common.trainer:trainer.py:580 Checking charge values...
+INFO     instanovo.common.trainer:trainer.py:142 Data loaded from 11,625 training samples and 3,875 validation samples (unfiltered values)
+INFO     instanovo.common.trainer:trainer.py:145 Data loaders built
+INFO     instanovo.common.trainer:trainer.py:627 Sample batch:
+INFO     instanovo.common.trainer:trainer.py:636  - spectra: torch.float32, torch.Size([32, 10, 2])
+INFO     instanovo.common.trainer:trainer.py:636  - precursors: torch.float32, torch.Size([32, 3])
+INFO     instanovo.common.trainer:trainer.py:636  - spectra_mask: torch.bool, torch.Size([32, 10])
+INFO     instanovo.common.trainer:trainer.py:636  - peptides: torch.int64, torch.Size([32, 7])
+INFO     instanovo.common.trainer:trainer.py:636  - peptides_mask: torch.bool, torch.Size([32, 7])
+INFO     instanovo.common.trainer:trainer.py:150 Setting up model...
+INFO     instanovo.common.trainer:trainer.py:154 Model has 26,314,568 parameters
+INFO     instanovo.common.trainer:trainer.py:760 Resuming model state from tests/instanovo_test_resources/model.ckpt
+INFO     instanovo.common.trainer:trainer.py:794 Loaded model state from tests/instanovo_test_resources/model.ckpt
+INFO     instanovo.common.trainer:trainer.py:436 TensorBoard logs will be saved to ./logs/instanovo/instanovo-unit-testinstanovo_unit_test_25_12_05_22_57
+INFO     instanovo.common.trainer:trainer.py:215 Training setup complete.
+INFO     instanovo.common.trainer:trainer.py:216  - Steps per validation: 100,000 
+INFO     instanovo.common.trainer:trainer.py:217  - Steps per checkpoint: 480 
+INFO     instanovo.common.trainer:trainer.py:218  - Total training steps: 481
+INFO     instanovo.common.trainer:trainer.py:219 Estimating steps per epoch based on unfiltered training set size:
+INFO     instanovo.common.trainer:trainer.py:220  - Estimated steps per epoch: 363
+INFO     instanovo.common.trainer:trainer.py:221  - Estimated total epochs: 1.3
