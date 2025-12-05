@@ -18,7 +18,7 @@
         <link rel="prev" href="../../tutorials/getting_started/">
       
       
-        <link rel="next" href="../../how-to/predicting/">
+        <link rel="next" href="../introducing_the_next_generation_of_InstaNovo_models/">
       
       
       <link rel="icon" href="../../assets/instanovo_logo_square.svg">
@@ -501,6 +501,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -743,6 +747,52 @@
   
 </nav>
       
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../introducing_the_next_generation_of_InstaNovo_models/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Introducing the next generation of InstaNovo models
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../InstaNovo-P/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Introducing InstaNovo-P, a de novo sequencing model for phosphoproteomics
+    
+  </span>
+  
+
+      </a>
     </li>
   
 
@@ -1991,27 +2041,21 @@ Kevin Eloff, Konstantinos Kalogeropoulos, Amandla Mabona, Oliver Morell, Rachel 
 </div>
 </clipboard-copy>
 </div>
-<div class="highlight-ipynb hl-python"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
-
-<span class="k">if</span> <span class="s2">"google.colab"</span> <span class="ow">in</span> <span class="n">sys</span><span class="o">.</span><span class="n">modules</span> <span class="ow">or</span> <span class="s2">"KAGGLE_KERNEL_RUN_TYPE"</span> <span class="ow">in</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">:</span>
-    <span class="c1"># Suppress TensorFlow warnings</span>
-    <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">"TF_CPP_MIN_LOG_LEVEL"</span><span class="p">]</span> <span class="o">=</span> <span class="s2">"1"</span>
-    <span class="c1"># Install torchvision when running on Google Colab to prevent errors</span>
-    <span class="err">!</span><span class="n">uv</span> <span class="n">pip</span> <span class="n">install</span> <span class="o">--</span><span class="n">system</span> <span class="s2">"instanovo[cu126]&gt;=1.2.0"</span> <span class="n">pyopenms</span><span class="o">-</span><span class="n">viz</span> <span class="n">torchvision</span> <span class="n">tf</span><span class="o">-</span><span class="n">nightly</span>
-<span class="k">else</span><span class="p">:</span>
-    <span class="err">!</span><span class="n">uv</span> <span class="n">pip</span> <span class="n">install</span> <span class="s2">"instanovo[cu126]&gt;=1.2.0"</span> <span class="n">pyopenms</span><span class="o">-</span><span class="n">viz</span>
+<div class="highlight-ipynb hl-python"><pre><span></span><span class="k">try</span><span class="p">:</span>
+  <span class="kn">import</span><span class="w"> </span><span class="nn">instanovo</span>
+<span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+  <span class="err">!</span><span class="n">uv</span> <span class="n">pip</span> <span class="n">install</span> <span class="s2">"instanovo[cu126]&gt;=1.2.2"</span> <span class="n">pyopenms</span><span class="o">-</span><span class="n">viz</span>
+  <span class="nb">print</span><span class="p">(</span><span class="s1">'Installation complete. Restarting runtime to apply changes...'</span><span class="p">)</span>
+  <span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+  <span class="n">os</span><span class="o">.</span><span class="n">kill</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">getpid</span><span class="p">(),</span> <span class="mi">9</span><span class="p">)</span>
 </pre></div>
-<div class="clipboard-copy-txt" id="cell-1">import os
-import sys
-
-if "google.colab" in sys.modules or "KAGGLE_KERNEL_RUN_TYPE" in os.environ:
-    # Suppress TensorFlow warnings
-    os.environ["TF_CPP_MIN_LOG_LEVEL"] = "1"
-    # Install torchvision when running on Google Colab to prevent errors
-    !uv pip install --system "instanovo[cu126]&gt;=1.2.0" pyopenms-viz torchvision tf-nightly
-else:
-    !uv pip install "instanovo[cu126]&gt;=1.2.0" pyopenms-viz</div>
+<div class="clipboard-copy-txt" id="cell-1">try:
+  import instanovo
+except ImportError:
+  !uv pip install "instanovo[cu126]&gt;=1.2.2" pyopenms-viz
+  print('Installation complete. Restarting runtime to apply changes...')
+  import os
+  os.kill(os.getpid(), 9)</div>
 </div>
 </div>
 </div>
@@ -2246,10 +2290,10 @@ device</div>
 </div>
 </clipboard-copy>
 </div>
-<div class="highlight-ipynb hl-python"><pre><span></span><span class="n">model</span><span class="p">,</span> <span class="n">config</span> <span class="o">=</span> <span class="n">InstaNovo</span><span class="o">.</span><span class="n">from_pretrained</span><span class="p">(</span><span class="s2">"instanovo-v1.1.0"</span><span class="p">)</span>
+<div class="highlight-ipynb hl-python"><pre><span></span><span class="n">model</span><span class="p">,</span> <span class="n">config</span> <span class="o">=</span> <span class="n">InstaNovo</span><span class="o">.</span><span class="n">from_pretrained</span><span class="p">(</span><span class="s2">"instanovo-v1.2.0"</span><span class="p">)</span>
 <span class="n">model</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
 </pre></div>
-<div class="clipboard-copy-txt" id="cell-7">model, config = InstaNovo.from_pretrained("instanovo-v1.1.0")
+<div class="clipboard-copy-txt" id="cell-7">model, config = InstaNovo.from_pretrained("instanovo-v1.2.0")
 model = model.to(device).eval()</div>
 </div>
 </div>
@@ -2304,7 +2348,7 @@ model = model.to(device).eval()</div>
     <span class="s2">"InstaDeepAI/ms_ninespecies_benchmark"</span><span class="p">,</span>
     <span class="n">is_annotated</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
     <span class="n">shuffle</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
-    <span class="n">split</span><span class="o">=</span><span class="s2">"test[:10%]"</span><span class="p">,</span>  <span class="c1"># Let's only use a subset of the test data for faster inference in this notebook</span>
+    <span class="n">split</span><span class="o">=</span><span class="s2">"test[:1%]"</span><span class="p">,</span>  <span class="c1"># Let's only use a tiny subset of the test data for faster inference in this notebook</span>
 <span class="p">)</span>
 </pre></div>
 <div class="clipboard-copy-txt" id="cell-8">from instanovo.utils.data_handler import SpectrumDataFrame
@@ -2313,7 +2357,7 @@ sdf = SpectrumDataFrame.from_huggingface(
     "InstaDeepAI/ms_ninespecies_benchmark",
     is_annotated=True,
     shuffle=False,
-    split="test[:10%]",  # Let's only use a subset of the test data for faster inference in this notebook
+    split="test[:1%]",  # Let's only use a tiny subset of the test data for faster inference in this notebook
 )</div>
 </div>
 </div>
@@ -2650,7 +2694,7 @@ For fastest results (over 10x speedup), use <strong>Greedy Search</strong>.</p>
 </div>
 <div class="highlight-ipynb hl-python"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">instanovo.inference</span><span class="w"> </span><span class="kn">import</span> <span class="n">BeamSearchDecoder</span><span class="p">,</span> <span class="n">GreedyDecoder</span>
 
-<span class="n">num_beams</span> <span class="o">=</span> <span class="mi">1</span>  <span class="c1"># Change this, defaults are 1 or 5</span>
+<span class="n">num_beams</span> <span class="o">=</span> <span class="mi">5</span>  <span class="c1"># Change this, defaults are 1 or 5</span>
 
 <span class="k">if</span> <span class="n">num_beams</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
     <span class="n">decoder</span> <span class="o">=</span> <span class="n">BeamSearchDecoder</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="n">model</span><span class="p">)</span>
@@ -2659,7 +2703,7 @@ For fastest results (over 10x speedup), use <strong>Greedy Search</strong>.</p>
 </pre></div>
 <div class="clipboard-copy-txt" id="cell-15">from instanovo.inference import BeamSearchDecoder, GreedyDecoder
 
-num_beams = 1  # Change this, defaults are 1 or 5
+num_beams = 5  # Change this, defaults are 1 or 5
 
 if num_beams &gt; 1:
     decoder = BeamSearchDecoder(model=model)
@@ -2705,30 +2749,17 @@ else:
 <span class="kn">from</span><span class="w"> </span><span class="nn">instanovo.inference.knapsack</span><span class="w"> </span><span class="kn">import</span> <span class="n">Knapsack</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">instanovo.inference.knapsack_beam_search</span><span class="w"> </span><span class="kn">import</span> <span class="n">KnapsackBeamSearchDecoder</span>
 
-<span class="n">num_beams</span> <span class="o">=</span> <span class="mi">5</span>
-
-
-<span class="k">def</span><span class="w"> </span><span class="nf">_setup_knapsack</span><span class="p">(</span><span class="n">model</span><span class="p">:</span> <span class="n">InstaNovo</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Knapsack</span><span class="p">:</span>
-    <span class="c1"># Cannot allow negative masses in knapsack graph</span>
-    <span class="k">if</span> <span class="s2">"(-17.03)"</span> <span class="ow">in</span> <span class="n">model</span><span class="o">.</span><span class="n">residue_set</span><span class="o">.</span><span class="n">residue_masses</span><span class="p">:</span>
-        <span class="n">model</span><span class="o">.</span><span class="n">residue_set</span><span class="o">.</span><span class="n">residue_masses</span><span class="p">[</span><span class="s2">"(-17.03)"</span><span class="p">]</span> <span class="o">=</span> <span class="mf">1e3</span>
-    <span class="k">if</span> <span class="s2">"[UNIMOD:385]"</span> <span class="ow">in</span> <span class="n">model</span><span class="o">.</span><span class="n">residue_set</span><span class="o">.</span><span class="n">residue_masses</span><span class="p">:</span>
-        <span class="n">model</span><span class="o">.</span><span class="n">residue_set</span><span class="o">.</span><span class="n">residue_masses</span><span class="p">[</span><span class="s2">"[UNIMOD:385]"</span><span class="p">]</span> <span class="o">=</span> <span class="mf">1e3</span>
-
+<span class="k">def</span><span class="w"> </span><span class="nf">_setup_knapsack</span><span class="p">(</span><span class="n">model</span><span class="p">:</span> <span class="n">InstaNovo</span><span class="p">,</span> <span class="n">max_isotope</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Knapsack</span><span class="p">:</span>
     <span class="n">residue_masses</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">residue_set</span><span class="o">.</span><span class="n">residue_masses</span><span class="o">.</span><span class="n">copy</span><span class="p">())</span>
-    <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">x</span> <span class="o">&lt;</span> <span class="mi">0</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">residue_masses</span><span class="o">.</span><span class="n">values</span><span class="p">()):</span>
-        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
-            <span class="s2">"Negative mass found in residues, this will break the knapsack graph. "</span>
-            <span class="s2">"Either disable knapsack or use strictly positive masses"</span>
-        <span class="p">)</span>
     <span class="k">for</span> <span class="n">special_residue</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">residue_set</span><span class="o">.</span><span class="n">residue_to_index</span><span class="o">.</span><span class="n">keys</span><span class="p">())[:</span><span class="mi">3</span><span class="p">]:</span>
         <span class="n">residue_masses</span><span class="p">[</span><span class="n">special_residue</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
     <span class="n">residue_indices</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">residue_set</span><span class="o">.</span><span class="n">residue_to_index</span>
     <span class="k">return</span> <span class="n">Knapsack</span><span class="o">.</span><span class="n">construct_knapsack</span><span class="p">(</span>
         <span class="n">residue_masses</span><span class="o">=</span><span class="n">residue_masses</span><span class="p">,</span>
         <span class="n">residue_indices</span><span class="o">=</span><span class="n">residue_indices</span><span class="p">,</span>
-        <span class="n">max_mass</span><span class="o">=</span><span class="mf">4000.00</span><span class="p">,</span>
+        <span class="n">max_mass</span><span class="o">=</span><span class="mf">4000.0</span><span class="p">,</span>
         <span class="n">mass_scale</span><span class="o">=</span><span class="n">MASS_SCALE</span><span class="p">,</span>
+        <span class="n">max_isotope</span><span class="o">=</span><span class="n">max_isotope</span><span class="p">,</span>
     <span class="p">)</span>
 
 
@@ -2750,30 +2781,17 @@ from instanovo.constants import MASS_SCALE
 from instanovo.inference.knapsack import Knapsack
 from instanovo.inference.knapsack_beam_search import KnapsackBeamSearchDecoder
 
-num_beams = 5
-
-
-def _setup_knapsack(model: InstaNovo) -&gt; Knapsack:
-    # Cannot allow negative masses in knapsack graph
-    if "(-17.03)" in model.residue_set.residue_masses:
-        model.residue_set.residue_masses["(-17.03)"] = 1e3
-    if "[UNIMOD:385]" in model.residue_set.residue_masses:
-        model.residue_set.residue_masses["[UNIMOD:385]"] = 1e3
-
+def _setup_knapsack(model: InstaNovo, max_isotope: int = 2) -&gt; Knapsack:
     residue_masses = dict(model.residue_set.residue_masses.copy())
-    if any(x &lt; 0 for x in residue_masses.values()):
-        raise NotImplementedError(
-            "Negative mass found in residues, this will break the knapsack graph. "
-            "Either disable knapsack or use strictly positive masses"
-        )
     for special_residue in list(model.residue_set.residue_to_index.keys())[:3]:
         residue_masses[special_residue] = 0
     residue_indices = model.residue_set.residue_to_index
     return Knapsack.construct_knapsack(
         residue_masses=residue_masses,
         residue_indices=residue_indices,
-        max_mass=4000.00,
+        max_mass=4000.0,
         mass_scale=MASS_SCALE,
+        max_isotope=max_isotope,
     )
 
 
@@ -2835,31 +2853,27 @@ else:
 </div>
 </clipboard-copy>
 </div>
-<div class="highlight-ipynb hl-python"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">instanovo.inference</span><span class="w"> </span><span class="kn">import</span> <span class="n">ScoredSequence</span>
-
-<span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
-    <span class="n">p</span> <span class="o">=</span> <span class="n">decoder</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span>
+<div class="highlight-ipynb hl-python"><pre><span></span><span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+    <span class="n">output</span> <span class="o">=</span> <span class="n">decoder</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span>
         <span class="n">spectra</span><span class="o">=</span><span class="n">batch</span><span class="p">[</span><span class="s2">"spectra"</span><span class="p">],</span>
         <span class="n">precursors</span><span class="o">=</span><span class="n">batch</span><span class="p">[</span><span class="s2">"precursors"</span><span class="p">],</span>
         <span class="n">beam_size</span><span class="o">=</span><span class="n">num_beams</span><span class="p">,</span>
         <span class="n">max_length</span><span class="o">=</span><span class="n">config</span><span class="p">[</span><span class="s2">"max_length"</span><span class="p">],</span>
     <span class="p">)</span>
 
-<span class="n">preds</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span><span class="o">.</span><span class="n">sequence</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">ScoredSequence</span><span class="p">)</span> <span class="k">else</span> <span class="p">[]</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">p</span><span class="p">]</span>
-<span class="n">probs</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span><span class="o">.</span><span class="n">sequence_log_probability</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">ScoredSequence</span><span class="p">)</span> <span class="k">else</span> <span class="o">-</span><span class="nb">float</span><span class="p">(</span><span class="s2">"inf"</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">p</span><span class="p">]</span>
+<span class="n">preds</span> <span class="o">=</span> <span class="n">output</span><span class="p">[</span><span class="s2">"predictions"</span><span class="p">]</span>
+<span class="n">probs</span> <span class="o">=</span> <span class="n">output</span><span class="p">[</span><span class="s2">"prediction_log_probability"</span><span class="p">]</span>
 </pre></div>
-<div class="clipboard-copy-txt" id="cell-17">from instanovo.inference import ScoredSequence
-
-with torch.no_grad():
-    p = decoder.decode(
+<div class="clipboard-copy-txt" id="cell-17">with torch.no_grad():
+    output = decoder.decode(
         spectra=batch["spectra"],
         precursors=batch["precursors"],
         beam_size=num_beams,
         max_length=config["max_length"],
     )
 
-preds = [x.sequence if isinstance(x, ScoredSequence) else [] for x in p]
-probs = [x.sequence_log_probability if isinstance(x, ScoredSequence) else -float("inf") for x in p]</div>
+preds = output["predictions"]
+probs = output["prediction_log_probability"]</div>
 </div>
 </div>
 </div>
@@ -2895,21 +2909,19 @@ probs = [x.sequence_log_probability if isinstance(x, ScoredSequence) else -float
 </div>
 </clipboard-copy>
 </div>
-<div class="highlight-ipynb hl-python"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Optional</span>
+<div class="highlight-ipynb hl-python"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Any</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">seaborn</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">sns</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">instanovo.inference.beam_search</span><span class="w"> </span><span class="kn">import</span> <span class="n">ScoredSequence</span>
 
-
-<span class="k">def</span><span class="w"> </span><span class="nf">plot_residue_confidence</span><span class="p">(</span><span class="n">prediction</span><span class="p">:</span> <span class="n">ScoredSequence</span><span class="p">,</span> <span class="n">peptide</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-    <span class="k">if</span> <span class="ow">not</span> <span class="n">prediction</span><span class="p">:</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">plot_residue_confidence</span><span class="p">(</span><span class="n">sequence</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">log_prob</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">token_log_probs</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span> <span class="n">peptide</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">sequence</span><span class="p">:</span>
         <span class="k">return</span>
-    <span class="n">ticks</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">prediction</span><span class="o">.</span><span class="n">sequence</span><span class="p">)))</span>
-    <span class="n">token_probabilities</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">prediction</span><span class="o">.</span><span class="n">token_log_probabilities</span><span class="p">[:</span> <span class="nb">len</span><span class="p">(</span><span class="n">ticks</span><span class="p">)])</span>
-    <span class="n">sequence_confidence</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">prediction</span><span class="o">.</span><span class="n">sequence_log_probability</span><span class="p">)</span>
+    <span class="n">ticks</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">sequence</span><span class="p">)))</span>
+    <span class="n">token_probabilities</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">token_log_probs</span><span class="p">[:</span> <span class="nb">len</span><span class="p">(</span><span class="n">ticks</span><span class="p">)])</span>
+    <span class="n">sequence_confidence</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">log_prob</span><span class="p">)</span>
 
     <span class="n">_</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">()</span>
     <span class="n">bars</span> <span class="o">=</span> <span class="n">sns</span><span class="o">.</span><span class="n">barplot</span><span class="p">(</span><span class="n">x</span><span class="o">=</span><span class="n">ticks</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="n">token_probabilities</span><span class="p">,</span> <span class="n">errorbar</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">)</span>
@@ -2932,10 +2944,10 @@ probs = [x.sequence_log_probability if isinstance(x, ScoredSequence) else -float
         <span class="p">)</span>
 
     <span class="c1"># Check if any residue contains a PTM (e.g., "S(+79.97)")</span>
-    <span class="n">has_ptm</span> <span class="o">=</span> <span class="nb">any</span><span class="p">(</span><span class="s2">"("</span> <span class="ow">in</span> <span class="n">res</span> <span class="ow">and</span> <span class="s2">")"</span> <span class="ow">in</span> <span class="n">res</span> <span class="k">for</span> <span class="n">res</span> <span class="ow">in</span> <span class="n">prediction</span><span class="o">.</span><span class="n">sequence</span><span class="p">)</span>
+    <span class="n">has_ptm</span> <span class="o">=</span> <span class="nb">any</span><span class="p">(</span><span class="s2">"("</span> <span class="ow">in</span> <span class="n">res</span> <span class="ow">and</span> <span class="s2">")"</span> <span class="ow">in</span> <span class="n">res</span> <span class="k">for</span> <span class="n">res</span> <span class="ow">in</span> <span class="n">sequence</span><span class="p">)</span>
 
     <span class="c1"># Set labels</span>
-    <span class="n">x_label</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"    Prediction: </span><span class="si">{</span><span class="s1">''</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">prediction</span><span class="o">.</span><span class="n">sequence</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span>
+    <span class="n">x_label</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"    Prediction: </span><span class="si">{</span><span class="s1">''</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">sequence</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span>
     <span class="k">if</span> <span class="n">peptide</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">x_label</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">"</span><span class="se">\n</span><span class="s2">Ground truth: </span><span class="si">{</span><span class="n">peptide</span><span class="si">}</span><span class="s2">"</span>
     <span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="n">x_label</span><span class="p">)</span>
@@ -2949,28 +2961,26 @@ probs = [x.sequence_log_probability if isinstance(x, ScoredSequence) else -float
     <span class="c1"># Set X-ticks</span>
     <span class="n">ax</span><span class="o">.</span><span class="n">set_xticks</span><span class="p">(</span><span class="n">ticks</span><span class="p">)</span>
     <span class="n">ax</span><span class="o">.</span><span class="n">set_xticklabels</span><span class="p">(</span>
-        <span class="n">prediction</span><span class="o">.</span><span class="n">sequence</span><span class="p">,</span>
+        <span class="n">sequence</span><span class="p">,</span>
         <span class="n">rotation</span><span class="o">=</span><span class="mi">45</span> <span class="k">if</span> <span class="n">has_ptm</span> <span class="k">else</span> <span class="mi">0</span><span class="p">,</span>
         <span class="n">ha</span><span class="o">=</span><span class="s2">"right"</span> <span class="k">if</span> <span class="n">has_ptm</span> <span class="k">else</span> <span class="s2">"center"</span><span class="p">,</span>
     <span class="p">)</span>
 
     <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
 </pre></div>
-<div class="clipboard-copy-txt" id="cell-18">from typing import Optional
+<div class="clipboard-copy-txt" id="cell-18">from typing import Optional, Any
 
 import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
 
-from instanovo.inference.beam_search import ScoredSequence
 
-
-def plot_residue_confidence(prediction: ScoredSequence, peptide: Optional[str] = None) -&gt; None:
-    if not prediction:
+def plot_residue_confidence(sequence: list[str], log_prob: float, token_log_probs: list[float], peptide: Optional[str] = None) -&gt; None:
+    if not sequence:
         return
-    ticks = list(range(len(prediction.sequence)))
-    token_probabilities = np.exp(prediction.token_log_probabilities[: len(ticks)])
-    sequence_confidence = np.exp(prediction.sequence_log_probability)
+    ticks = list(range(len(sequence)))
+    token_probabilities = np.exp(token_log_probs[: len(ticks)])
+    sequence_confidence = np.exp(log_prob)
 
     _, ax = plt.subplots()
     bars = sns.barplot(x=ticks, y=token_probabilities, errorbar=None, ax=ax)
@@ -2993,10 +3003,10 @@ def plot_residue_confidence(prediction: ScoredSequence, peptide: Optional[str] =
         )
 
     # Check if any residue contains a PTM (e.g., "S(+79.97)")
-    has_ptm = any("(" in res and ")" in res for res in prediction.sequence)
+    has_ptm = any("(" in res and ")" in res for res in sequence)
 
     # Set labels
-    x_label = f"    Prediction: {''.join(prediction.sequence)}"
+    x_label = f"    Prediction: {''.join(sequence)}"
     if peptide is not None:
         x_label += f"\nGround truth: {peptide}"
     ax.set_xlabel(x_label)
@@ -3010,7 +3020,7 @@ def plot_residue_confidence(prediction: ScoredSequence, peptide: Optional[str] =
     # Set X-ticks
     ax.set_xticks(ticks)
     ax.set_xticklabels(
-        prediction.sequence,
+        sequence,
         rotation=45 if has_ptm else 0,
         ha="right" if has_ptm else "center",
     )
@@ -3051,9 +3061,19 @@ def plot_residue_confidence(prediction: ScoredSequence, peptide: Optional[str] =
 </div>
 </clipboard-copy>
 </div>
-<div class="highlight-ipynb hl-python"><pre><span></span><span class="n">plot_residue_confidence</span><span class="p">(</span><span class="n">p</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">peptides</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+<div class="highlight-ipynb hl-python"><pre><span></span><span class="n">plot_residue_confidence</span><span class="p">(</span>
+    <span class="n">output</span><span class="p">[</span><span class="s2">"predictions"</span><span class="p">][</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> 
+    <span class="n">output</span><span class="p">[</span><span class="s2">"prediction_log_probability"</span><span class="p">][</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> 
+    <span class="n">output</span><span class="p">[</span><span class="s2">"prediction_token_log_probabilities"</span><span class="p">][</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> 
+    <span class="n">peptides</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+<span class="p">)</span>
 </pre></div>
-<div class="clipboard-copy-txt" id="cell-19">plot_residue_confidence(p[-1], peptides[-1])</div>
+<div class="clipboard-copy-txt" id="cell-19">plot_residue_confidence(
+    output["predictions"][-1], 
+    output["prediction_log_probability"][-1], 
+    output["prediction_token_log_probabilities"][-1], 
+    peptides[-1]
+)</div>
 </div>
 </div>
 </div>
@@ -3089,9 +3109,19 @@ def plot_residue_confidence(prediction: ScoredSequence, peptide: Optional[str] =
 </div>
 </clipboard-copy>
 </div>
-<div class="highlight-ipynb hl-python"><pre><span></span><span class="n">plot_residue_confidence</span><span class="p">(</span><span class="n">p</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">peptides</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+<div class="highlight-ipynb hl-python"><pre><span></span><span class="n">plot_residue_confidence</span><span class="p">(</span>
+    <span class="n">output</span><span class="p">[</span><span class="s2">"predictions"</span><span class="p">][</span><span class="mi">2</span><span class="p">],</span> 
+    <span class="n">output</span><span class="p">[</span><span class="s2">"prediction_log_probability"</span><span class="p">][</span><span class="mi">2</span><span class="p">],</span> 
+    <span class="n">output</span><span class="p">[</span><span class="s2">"prediction_token_log_probabilities"</span><span class="p">][</span><span class="mi">2</span><span class="p">],</span> 
+    <span class="n">peptides</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+<span class="p">)</span>
 </pre></div>
-<div class="clipboard-copy-txt" id="cell-20">plot_residue_confidence(p[0], peptides[0])</div>
+<div class="clipboard-copy-txt" id="cell-20">plot_residue_confidence(
+    output["predictions"][2], 
+    output["prediction_log_probability"][2], 
+    output["prediction_token_log_probabilities"][2], 
+    peptides[2]
+)</div>
 </div>
 </div>
 </div>
@@ -3223,17 +3253,15 @@ peptide_recall</div>
     <span class="n">batch</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">v</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="k">else</span> <span class="n">v</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">batch</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
 
     <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
-        <span class="n">p</span> <span class="o">=</span> <span class="n">decoder</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span>
+        <span class="n">output</span> <span class="o">=</span> <span class="n">decoder</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span>
             <span class="n">spectra</span><span class="o">=</span><span class="n">batch</span><span class="p">[</span><span class="s2">"spectra"</span><span class="p">],</span>
             <span class="n">precursors</span><span class="o">=</span><span class="n">batch</span><span class="p">[</span><span class="s2">"precursors"</span><span class="p">],</span>
-            <span class="n">beam_size</span><span class="o">=</span><span class="n">config</span><span class="p">[</span><span class="s2">"n_beams"</span><span class="p">],</span>
+            <span class="n">beam_size</span><span class="o">=</span><span class="n">num_beams</span><span class="p">,</span>
             <span class="n">max_length</span><span class="o">=</span><span class="n">config</span><span class="p">[</span><span class="s2">"max_length"</span><span class="p">],</span>
         <span class="p">)</span>
 
-    <span class="n">preds</span> <span class="o">+=</span> <span class="p">[</span><span class="n">x</span><span class="o">.</span><span class="n">sequence</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">ScoredSequence</span><span class="p">)</span> <span class="k">else</span> <span class="p">[]</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">p</span><span class="p">]</span>
-    <span class="n">probs</span> <span class="o">+=</span> <span class="p">[</span>
-        <span class="n">x</span><span class="o">.</span><span class="n">sequence_log_probability</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">ScoredSequence</span><span class="p">)</span> <span class="k">else</span> <span class="o">-</span><span class="nb">float</span><span class="p">(</span><span class="s2">"inf"</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">p</span>
-    <span class="p">]</span>
+    <span class="n">preds</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">output</span><span class="p">[</span><span class="s2">"predictions"</span><span class="p">])</span>
+    <span class="n">probs</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">output</span><span class="p">[</span><span class="s2">"prediction_log_probability"</span><span class="p">])</span>
     <span class="n">targs</span> <span class="o">+=</span> <span class="nb">list</span><span class="p">(</span><span class="n">batch</span><span class="p">[</span><span class="s2">"peptides"</span><span class="p">])</span>
 </pre></div>
 <div class="clipboard-copy-txt" id="cell-23">from tqdm.notebook import tqdm
@@ -3246,17 +3274,15 @@ for _, batch in tqdm(enumerate(dl), total=len(dl)):
     batch = {k: v.to(device) if isinstance(v, torch.Tensor) else v for k, v in batch.items()}
 
     with torch.no_grad():
-        p = decoder.decode(
+        output = decoder.decode(
             spectra=batch["spectra"],
             precursors=batch["precursors"],
-            beam_size=config["n_beams"],
+            beam_size=num_beams,
             max_length=config["max_length"],
         )
 
-    preds += [x.sequence if isinstance(x, ScoredSequence) else [] for x in p]
-    probs += [
-        x.sequence_log_probability if isinstance(x, ScoredSequence) else -float("inf") for x in p
-    ]
+    preds.extend(output["predictions"])
+    probs.extend(output["prediction_log_probability"])
     targs += list(batch["peptides"])</div>
 </div>
 </div>
@@ -3710,14 +3736,14 @@ diffusion_dl = DataLoader(
     <span class="n">batch</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">v</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="k">else</span> <span class="n">v</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">batch</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
 
     <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
-        <span class="n">batch_predictions</span><span class="p">,</span> <span class="n">batch_log_probs</span> <span class="o">=</span> <span class="n">diffusion_decoder</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span>
+        <span class="n">output</span> <span class="o">=</span> <span class="n">diffusion_decoder</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span>
             <span class="n">spectra</span><span class="o">=</span><span class="n">batch</span><span class="p">[</span><span class="s2">"spectra"</span><span class="p">],</span>
             <span class="n">spectra_padding_mask</span><span class="o">=</span><span class="n">batch</span><span class="p">[</span><span class="s2">"spectra_mask"</span><span class="p">],</span>
             <span class="n">precursors</span><span class="o">=</span><span class="n">batch</span><span class="p">[</span><span class="s2">"precursors"</span><span class="p">],</span>
             <span class="n">initial_sequence</span><span class="o">=</span><span class="n">batch</span><span class="p">[</span><span class="n">REFINEMENT_COLUMN</span><span class="p">],</span>
         <span class="p">)</span>
-    <span class="n">predictions</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">batch_predictions</span><span class="p">)</span>
-    <span class="n">log_probs</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">batch_log_probs</span><span class="p">)</span>
+    <span class="n">predictions</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">output</span><span class="p">[</span><span class="s2">"predictions"</span><span class="p">])</span>
+    <span class="n">log_probs</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">output</span><span class="p">[</span><span class="s2">"prediction_log_probability"</span><span class="p">])</span>
 </pre></div>
 <div class="clipboard-copy-txt" id="cell-32">predictions = []
 log_probs = []
@@ -3726,14 +3752,14 @@ for batch in tqdm(diffusion_dl, total=len(diffusion_dl)):
     batch = {k: v.to(device) if isinstance(v, torch.Tensor) else v for k, v in batch.items()}
 
     with torch.no_grad():
-        batch_predictions, batch_log_probs = diffusion_decoder.decode(
+        output = diffusion_decoder.decode(
             spectra=batch["spectra"],
             spectra_padding_mask=batch["spectra_mask"],
             precursors=batch["precursors"],
             initial_sequence=batch[REFINEMENT_COLUMN],
         )
-    predictions.extend(batch_predictions)
-    log_probs.extend(batch_log_probs)</div>
+    predictions.extend(output["predictions"])
+    log_probs.extend(output["prediction_log_probability"])</div>
 </div>
 </div>
 </div>

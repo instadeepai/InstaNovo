@@ -1,1 +1,0 @@
-                    INFO     Downloading bucket/source.txt to /tmp/tmpbmvd6cqz/source.txt                                                                                      
