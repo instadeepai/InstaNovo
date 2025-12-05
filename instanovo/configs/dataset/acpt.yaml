@@ -1,7 +1,10 @@
-use_shards: True
-train_path: /mnt/instanovo-data-kyber/ac_pt_shards/train_shard_*.ipc
-valid_path: /mnt/instanovo-data-kyber/ac_pt_shards/valid_shard_*.ipc
-valid_subset_of_train:
+# ACPT dataset
 
-residue_remapping:
-  "M(ox)": "M(+15.99)"
+defaults:
+  - default
+  - _self_
+
+train_path: /mnt/instanovo-ceph/identity_splits_parquet/acpt/*-train-*.parquet # Unshuffled
+valid_path: /mnt/instanovo-ceph/identity_splits_parquet/validation_subsets/dataset-acpt-valid-0000-0001.parquet
+
+preshuffle_across_shards: True

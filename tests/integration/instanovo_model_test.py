@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+import copy
 import logging
 import os
-from typing import Any
 
 import polars as pl
 import pytest
@@ -10,51 +10,58 @@ import torch
 from omegaconf import DictConfig
 from torch.utils.data import DataLoader
 
-from instanovo.transformer.dataset import SpectrumDataset, collate_batch
-from instanovo.transformer.predict import get_preds
+from instanovo.transformer.data import TransformerDataProcessor
+from instanovo.transformer.model import InstaNovo
+from instanovo.transformer.predict import TransformerPredictor
 from instanovo.utils.data_handler import SpectrumDataFrame
-from instanovo.utils.s3 import S3FileHandler
+from instanovo.utils.device_handler import check_device
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 
-def test_model(
-    instanovo_model: tuple[Any, Any],
+def test_transformer_model(
+    instanovo_model: tuple[InstaNovo, DictConfig],
     instanovo_config: DictConfig,
     dir_paths: tuple[str, str],
-    instanovo_inference_config: DictConfig,
 ) -> None:
     """Test loading an InstaNovo model and doing inference end-to-end."""
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+    temp_config = copy.deepcopy(instanovo_config)
+    device = check_device(temp_config)
     model, config = instanovo_model
 
-    assert model.residue_set.residue_masses == instanovo_config["residues"]
-    assert model.residue_set.residue_remapping == instanovo_config["residue_remapping"]
+    assert model.residue_set.residue_masses == temp_config.residues["residues"]
+    assert model.residue_set.residue_remapping == temp_config.residues.get("residue_remapping", {})
     assert model.vocab_size == 8
 
-    assert instanovo_config["n_peaks"] == config["n_peaks"]
-    assert instanovo_config["min_mz"] == config["min_mz"]
-    assert instanovo_config["max_mz"] == config["max_mz"]
-    assert instanovo_config["max_length"] == config["max_length"]
+    assert temp_config.model["n_peaks"] == config["n_peaks"]
+    assert temp_config.model["min_mz"] == config["min_mz"]
+    assert temp_config.model["max_mz"] == config["max_mz"]
+    assert temp_config.model["max_length"] == config["max_length"]
 
     _, data_dir = dir_paths
     df = pl.read_ipc(os.path.join(data_dir, "test.ipc"))
-    sdf = SpectrumDataFrame(df=df)
-    sd = SpectrumDataset(
-        df=sdf,
-        residue_set=model.residue_set,
-        n_peaks=config["n_peaks"],
-        min_mz=config["min_mz"],
-        max_mz=config["max_mz"],
-        peptide_pad_length=config["max_length"],
+    sdf = SpectrumDataFrame(df=df, is_lazy=False)
+    processor = TransformerDataProcessor(
+        model.residue_set,
+        n_peaks=config.get("n_peaks", 200),
+        min_mz=config.get("min_mz", 50.0),
+        max_mz=config.get("max_mz", 2500.0),
+        min_intensity=config.get("min_intensity", 0.01),
+        remove_precursor_tol=config.get("remove_precursor_tol", 2.0),
+        return_str=False,
+        use_spectrum_utils=True,
     )
-    assert len(sd) == 1938
+    ds = sdf.to_dataset(in_memory=True)
+    ds = ds.map(processor.process_row)
+    ds.set_format(type="torch", columns=processor.get_expected_columns())
 
-    spectrum, precursor_mz, precursor_charge, peptide = sd[0]
+    assert len(ds) == 1938
+
+    batch = ds[0]
 
     assert torch.allclose(
-        spectrum,
+        batch["spectra"],
         torch.Tensor(
             [
                 [13.0941, 0.2582],
@@ -71,20 +78,19 @@ def test_model(
         ),
         rtol=1.5e-04,
     )
-    assert precursor_mz == 112.207876
-    assert precursor_charge == 1.0
+    assert batch["precursor_mz"] == 112.207876
+    assert batch["precursor_charge"] == 1.0
     assert torch.allclose(
-        peptide,
+        batch["peptide"],
         torch.tensor([6, 7, 5, 5, 3, 4, 2]),
         rtol=1e-04,
     )
 
-    dl = DataLoader(sd, batch_size=2, shuffle=False, collate_fn=collate_batch)
+    dl = DataLoader(ds, batch_size=2, shuffle=False, collate_fn=processor.collate_fn)
     batch = next(iter(dl))
-    spectra, precursors, spectra_mask, peptides, _ = batch
 
     assert torch.allclose(
-        spectra,
+        batch["spectra"],
         torch.tensor(
             [
                 [
@@ -116,11 +122,11 @@ def test_model(
         rtol=1.5e-04,
     )
     assert torch.allclose(
-        precursors,
+        batch["precursors"],
         torch.tensor([[111.2006, 1.0000, 112.2079], [110.3506, 1.0000, 111.3579]]),
     )
     assert torch.equal(
-        spectra_mask,
+        batch["spectra_mask"],
         torch.tensor(
             [
                 [False, False, False, False, False, False, False, False, False, False],
@@ -128,21 +134,45 @@ def test_model(
             ]
         ),
     )
-    assert torch.allclose(peptides, torch.tensor([[6, 7, 5, 5, 3, 4, 2], [4, 3, 7, 4, 5, 7, 2]]))
+    assert torch.allclose(batch["peptides"], torch.tensor([[6, 7, 5, 5, 3, 4, 2], [4, 3, 7, 4, 5, 7, 2]]))
 
-    instanovo_inference_config["device"] = device
+    with torch.no_grad():
+        output = model(
+            x=batch["spectra"].to(device),
+            p=batch["precursors"].to(device),
+            y=batch["peptides"].to(device),
+            x_mask=batch["spectra_mask"].to(device),
+            y_mask=batch["peptides_mask"].to(device),
+        )
 
-    s3 = S3FileHandler()
-    get_preds(
-        config=instanovo_inference_config,
-        model=model,
-        model_config=config,
-        s3=s3,
-    )
+    predictions = output.argmax(dim=-1).cpu()
+    log_probs = torch.log_softmax(output, dim=-1).cpu()
+    gathered_log_probs = log_probs.gather(-1, predictions.unsqueeze(-1)).squeeze(-1)
+    sequence_log_probs = gathered_log_probs.sum(dim=-1)
 
-    pred_df = pl.read_csv(instanovo_inference_config["output_path"])
+    assert torch.allclose(predictions, torch.tensor([[3, 5, 5, 4, 4, 4, 2, 2], [7, 7, 7, 7, 5, 7, 2, 2]]))
 
-    assert instanovo_inference_config["subset"] == 1
+    pred_str = "".join(model.residue_set.decode(predictions[0], reverse=True))
+    target_str = "".join(model.residue_set.decode(batch["peptides"][0], reverse=True))
+
+    assert pred_str == "BBBCCA"
+    assert target_str == "BACCED"
+    assert sequence_log_probs[0] == pytest.approx(-3.94, rel=1e-1)
+
+
+def test_transformer_model_inference(
+    instanovo_inference_config: DictConfig,
+) -> None:
+    """Test transformer model inference."""
+    temp_config = copy.deepcopy(instanovo_inference_config)
+    check_device(temp_config)
+
+    predictor = TransformerPredictor(temp_config)
+    predictor.predict()
+
+    pred_df = pl.read_csv(temp_config["output_path"])
+
+    assert temp_config["subset"] == 1
     assert pred_df["targets"][0] == "DDCA"
-    assert pred_df["preds"][0] == "CADD"
-    assert pred_df["log_probs"][0] == pytest.approx(-2.01, rel=1e-1)
+    assert pred_df[temp_config["prediction_col"]][0] == "CADD"
+    assert pred_df[temp_config["log_probs_col"]][0] == pytest.approx(-2.01, rel=1e-1)

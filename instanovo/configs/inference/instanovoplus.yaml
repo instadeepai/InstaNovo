@@ -1,3 +1,5 @@
+# TODO: Remove?
+
 # Data paths and output location
 data_path: /mnt/instanovo-data-kyber/ac_pt_shards/valid_shard_*.ipc # type: .mgf, .mzml or any other filetype supported by SpectrumDataFrame
 instanovo_plus_model: instanovoplus-v1.1.0 # type: model id or path to a *.ckpt file
@@ -8,25 +10,25 @@ knapsack_path: # type: directory
 data_type: # .csv, .mgf, .mzml, .mzxml
 
 # Inference mode
-denovo: False
+denovo: True
 max_length: 40
 max_charge: 10 # Must be <= model max charge
 isotope_error_range: [0, 1]
 subset: 1 # Subset of dataset to perform inference on, useful for debugging. Represented as a float between 0 and 1.
-n_preds: 5 # Number of diffusion predictions to sample per spectrum
 
 # Refine mode
 refine: True
-instanovo_predictions_path: # type: .csv
-pred_refine_col: preds_tokenised
+refinement_path: # type: .csv
+prediction_refine_col: predictions_tokenised
+prediction_confidence_col: log_probs
+refinement_id_col: "spectrum_id"
+dataset_id_col: "spectrum_id"
 refine_all: False # If True, all predictions will be refined
 refine_threshold: 0.9 # Only predictions with a confidence score less than this will be refined
 
 # Prediction columns
-pred_tok_col: "preds_tokenised"
-pred_col: "preds"
-instanovo_id_col: "spectrum_id"
-instanovoplus_id_col: "spectrum_id"
+prediction_tokenised_col: "predictions_tokenised"
+prediction_col: "predictions"
 log_probs_col: "log_probs"
 token_log_probs_col: "token_log_probs"
 
@@ -35,6 +37,9 @@ num_workers: 16
 batch_size: 128
 device: auto
 fp16: True
+force_cpu: False
+mps: False
+force_fp32: False
 
 # Logging
 log_interval: 50

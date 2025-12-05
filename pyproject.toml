@@ -19,7 +19,7 @@ keywords = [
     "de novo peptide sequencing"
 ]
 description = "InstaNovo enables diffusion-powered de novo peptide sequencing in large scale proteomics experiments"
-requires-python = " >=3.10,<3.13"
+requires-python = " >=3.10,<3.14"
 license = "Apache-2.0"
 classifiers = [
     "Programming Language :: Python :: 3",
@@ -27,24 +27,26 @@ classifiers = [
 ]
 dynamic = ["version", "readme"]
 dependencies = [
-    "datasets>=3.1.0",
+    "accelerate>=1.6.0",
+    "datasets>=3.5.0",
     "gitpython>=3.1.44",
     "hydra-core>=1.3.2",
     "jaxtyping>=0.2.34",
     "jiwer>=3.0.5",
-    "lightning>=2.5.1",
     "matchms>=0.28.1",
     "neptune>=1.13.0",
     "numpy>=2.0.2",
     "omegaconf>=2.3.0",
     "pandas>=2.2.3",
     "polars>=1.12.0",
+    "pubchempy>=1.0.4",
     "pyteomics>=4.7.5",
     "python-dotenv>=1.0.1",
     "pyyaml>=6.0.2",
     "requests>=2.32.3",
-    "s3fs>=2024.9.0",
+    "s3fs>=2024.12.0",
     "scikit-learn>=1.5.2",
+    "signalrcore",
     "spectrum-utils>=0.4.2",
     "tensorboard>=2.18.0",
     "tqdm>=4.67.0",
@@ -53,20 +55,24 @@ dependencies = [
 ]
 
 [dependency-groups]
+aichor = [
+    "aichor-cli>=2.8.2; python_version >= '3.11'",
+]
 dev = [
     "allure-pytest>=2.13.5",
     "coverage>=7.6.4",
-    "genbadge>=1.1.1",
+    "genbadge[coverage]>=1.1.1",
     "gsutil>=5.31",
     "ipykernel>=6.29.5",
     "ipywidgets>=8.1.5",
     "jupyter>=1.1.1",
     "matplotlib-venn>=1.1.2",
+    "mkdocs-include-markdown-plugin>=7.2.0",
     "nbmake>=1.5.5",
     "pip>=25.0.1",
     "pre-commit>=4.0.1",
     "pyopenms-viz>=0.1.5",
-    "pytest>=8.3.3",
+    "pytest>=8.2.0",
     "pytest-cov>=5.0.0",
     "pytest-html>=4.1.1",
     "pytest-mock>=3.14.0",
@@ -80,6 +86,7 @@ dev = [
 ]
 docs = [
     "mkdocs>=1.6.1",
+    "mkdocs-coverage>=2.0.0",
     "mkdocs-gen-files>=0.5.0",
     "mkdocs-git-revision-date-plugin>=0.3.2",
     "mkdocs-include-markdown-plugin>=7.0.0",
@@ -88,17 +95,22 @@ docs = [
     "mkdocstrings>=0.26.2",
     "mkdocstrings-python>=1.12.2",
     "pymdown-extensions>=10.11.2",
+    "mkdocs-jupyter>=0.24.6",
 ]
 
 # See https://docs.astral.sh/uv/guides/integration/pytorch/
 [project.optional-dependencies]
 cpu = [
-    "torch>=2.4.1,<2.5",
+    "torch>2.5,<2.8; sys_platform == 'darwin'",
+    "torch>2.5,<2.9; sys_platform == 'linux' or sys_platform == 'win32'",
 ]
 cu124 = [
     "torch>=2.4.1,<2.5",
 ]
-
+cu126 = [
+    "torch>=2.5,<2.8; sys_platform == 'darwin'",
+    "torch>=2.5,<2.9; sys_platform == 'linux' or sys_platform == 'win32'",
+]
 
 [tool.uv]
 required-version = ">=0.6.5"
@@ -106,6 +118,7 @@ conflicts = [
   [
     { extra = "cpu" },
     { extra = "cu124" },
+    { extra = "cu126" },
   ],
 ]
 
@@ -113,7 +126,18 @@ conflicts = [
 torch = [
   { index = "pytorch-cpu", extra = "cpu", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
   { index = "pytorch-cu124", extra = "cu124", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
+  { index = "pytorch-cu126", extra = "cu126", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
 ]
+aichor-cli = { index = "aichor" }
+signalrcore = { git = "https://github.com/mandrewcito/signalrcore.git" }
+
+[project.scripts]
+instanovo = "instanovo.cli:instanovo_entrypoint"
+
+[[tool.uv.index]]
+name = "aichor"
+url = "https://client-python-package.aichor.ai/"
+explicit = true
 
 [[tool.uv.index]]
 name = "pytorch-cpu"
@@ -125,11 +149,10 @@ name = "pytorch-cu124"
 url = "https://download.pytorch.org/whl/cu124"
 explicit = true
 
-[project.scripts]
-instanovo = "instanovo.cli:instanovo_entrypoint"
-
-[tool.setuptools]
-include-package-data = true  # To use MANIFEST.in for including extra files
+[[tool.uv.index]]
+name = "pytorch-cu126"
+url = "https://download.pytorch.org/whl/cu126"
+explicit = true
 
 [tool.setuptools.dynamic]
 readme = { file = ["README.md"], content-type = "text/markdown" }
@@ -139,14 +162,28 @@ version = { attr = "instanovo.__version__" }
 include = ["instanovo*"]
 
 [tool.setuptools.package-data]
-instanovo = ["py.typed"]
+instanovo = ["py.typed", "models.json", "configs/*.yaml"]
 
 [tool.coverage.run]
 source = ["instanovo"]
-omit = ["*/__init__.py", "*_test.py"]
+omit = [
+    "*/__init__.py",
+    "*_test.py",
+    "instanovo/reasoning/**",
+    "instanovo/contrastive/**",
+    "instanovo/search/**",
+    "instanovo/insta_glyconovo/**",
+]
 
 [tool.coverage.report]
-omit = ["__init__.py", "*_test.py"]
+omit = [
+    "__init__.py",
+    "*_test.py",
+    "instanovo/reasoning/**",
+    "instanovo/contrastive/**",
+    "instanovo/search/**",
+    "instanovo/insta_glyconovo/**",
+]
 exclude_lines = [
     # Don't complain if tests don't hit defensive assertion code:
     "raise AssertionError",
@@ -157,7 +194,7 @@ exclude_lines = [
     "if __name__ == .__main__.:"]
 
 [tool.coverage.html]
-directory = "coverage"
+directory = "docs/coverage"
 
 [tool.codespell]
 skip = "*.js,*.html,*.css, *.svg, *.csv"
@@ -184,7 +221,7 @@ explicit_package_bases = true
 follow_imports = "skip"
 
 [tool.ruff]
-line-length = 100
+line-length = 150
 
 [tool.ruff.lint]
 extend-select = ["A", "B", "C", "D", "E", "F", "G", "I", "N", "T", "W"]
@@ -197,6 +234,24 @@ convention = "google"  # Accepts: "google", "numpy", or "pep257"
 # Ignore `D104` (missing docstring) in all `__init__.py` files
 "__init__.py" = ["D104"]
 "*.ipynb" = ["T201"]  # Ignore T201 (`print` found) in Jupyter Notebooks
+
+[tool.pytest.ini_options]
+filterwarnings = [
+    # Suppress fork() deprecation warning in Python 3.13+ when using multiprocessing in multi-threaded contexts
+    # This is safe to ignore as we're not experiencing deadlocks, and using 'spawn' would significantly slow down tests
+    "ignore::DeprecationWarning:multiprocessing.popen_fork",
+    "ignore:This process.*is multi-threaded.*use of fork.*may lead to deadlocks:DeprecationWarning",
+    # Suppress jsonschema.RefResolver deprecation warnings from third-party packages
+    "ignore:jsonschema.RefResolver is deprecated:DeprecationWarning",
+    # Suppress PyTorch nested tensors prototype API warning
+    "ignore:The PyTorch API of nested tensors is in prototype stage:UserWarning",
+    # Suppress asyncio.get_event_loop() deprecation warning
+    "ignore:There is no current event loop:DeprecationWarning",
+    # Suppress PyTorch weight_norm deprecation warning (from transfusion-asr dependency)
+    "ignore:`torch.nn.utils.weight_norm` is deprecated:FutureWarning",
+    # Suppress PyTorch mask type mismatch warning (from PyTorch's internal handling, also transfusion-asr)
+    "ignore:Support for mismatched key_padding_mask and attn_mask is deprecated:UserWarning",
+]
 
 [project.urls]
 Homepage = "https://github.com/instadeepai/InstaNovo"

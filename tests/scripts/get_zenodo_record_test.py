@@ -117,32 +117,35 @@ class TestMainCommand:
             with patch("instanovo.scripts.get_zenodo_record.unzip_zenodo") as mock_unzip:
                 with patch("os.path.exists", return_value=False):
                     with patch("os.listdir", return_value=[]):
-                        # Execute CLI command
-                        result = runner.invoke(
-                            app,
-                            [
-                                "--zenodo-url",
-                                f"https://zenodo.org/records/{RECORD_ID}/files/test.zip",
-                                "--zip-path",
-                                zip_path,
-                                "--extract-path",
-                                extract_path,
-                            ],
-                        )
+                        with patch("builtins.open", create=True) as mock_open:
+                            # Execute CLI command
+                            result = runner.invoke(
+                                app,
+                                [
+                                    "--zenodo-url",
+                                    f"https://zenodo.org/records/{RECORD_ID}/files/test.zip",
+                                    "--zip-path",
+                                    zip_path,
+                                    "--extract-path",
+                                    extract_path,
+                                ],
+                            )
 
         # Assert
         assert result.exit_code == 0
         mock_get.assert_called_once()
         mock_unzip.assert_called_once()
+        mock_open.assert_called_with(f"{extract_path}/record_id.txt", "w")
 
     def test_cli_skips_when_directory_exists(self, runner: CliRunner, tmp_path: Any) -> None:
-        """Test CLI skips download when target directory exists."""
-        # Setup - create directory and a file
-        extract_path: str = str(tmp_path)
-        resource_dir: str = os.path.join(extract_path, "instanovo_test_resources")
-        os.makedirs(resource_dir, exist_ok=True)
-        with open(os.path.join(resource_dir, "dummy.txt"), "w") as f:
+        """Test CLI skips download when target directory exists with matching record ID."""
+        # Setup - create directory with a file and the record_id.txt file
+        extract_path: str = str(tmp_path / "extracted")
+        os.makedirs(extract_path, exist_ok=True)
+        with open(os.path.join(extract_path, "dummy.txt"), "w") as f:
             f.write("test")
+        with open(os.path.join(extract_path, "record_id.txt"), "w") as f:
+            f.write(RECORD_ID)
 
         # Execute CLI command
         result = runner.invoke(
@@ -159,7 +162,7 @@ class TestMainCommand:
 
         # Assert
         assert result.exit_code == 0
-        assert "Skipping download" in result.stdout
+        assert "Record is up to date" in result.stdout or "skipping download" in result.stdout
 
     def test_main_with_parameters(self) -> None:
         """Test main function with different parameters."""
@@ -167,16 +170,15 @@ class TestMainCommand:
             with patch("instanovo.scripts.get_zenodo_record.unzip_zenodo") as mock_unzip:
                 with patch("os.path.exists", return_value=False):
                     with patch("os.listdir", return_value=[]):
-                        # We need to patch the Progress creation and usage
-                        with patch("rich.progress.Progress"):
-                            # Test parameters
-                            zenodo_url: str = "https://zenodo.org/records/12345/files/test.zip"
-                            zip_path: str = "custom.zip"
-                            extract_path: str = "./custom"
+                        with patch("builtins.open", create=True) as mock_open:
+                            # We need to patch the Progress creation and usage
+                            with patch("rich.progress.Progress"):
+                                # Test parameters
+                                zenodo_url: str = "https://zenodo.org/records/12345/files/test.zip"
+                                zip_path: str = "custom.zip"
+                                extract_path: str = "./custom"
 
-                            main(
-                                zenodo_url=zenodo_url, zip_path=zip_path, extract_path=extract_path
-                            )
+                                main(zenodo_url=zenodo_url, zip_path=zip_path, extract_path=extract_path)
 
         # Verify that the functions were called with correct parameters
         mock_get.assert_called_once()
@@ -187,6 +189,8 @@ class TestMainCommand:
         assert mock_unzip.call_args[0][0] == zip_path
         assert mock_unzip.call_args[0][1] == extract_path
 
+        mock_open.assert_called_with(f"{extract_path}/record_id.txt", "w")
+
 
 @pytest.mark.parametrize(
     "zenodo_url,zip_path,extract_path",
@@ -195,28 +199,28 @@ class TestMainCommand:
         ("https://zenodo.org/records/12345/files/test.zip", "other.zip", "./other"),
     ],
 )
-def test_cli_with_different_parameters(
-    runner: CliRunner, zenodo_url: str, zip_path: str, extract_path: str
-) -> None:
+def test_cli_with_different_parameters(runner: CliRunner, zenodo_url: str, zip_path: str, extract_path: str) -> None:
     """Test CLI with different parameters."""
     with patch("instanovo.scripts.get_zenodo_record.get_zenodo") as mock_get:
         with patch("instanovo.scripts.get_zenodo_record.unzip_zenodo") as mock_unzip:
             with patch("os.path.exists", return_value=False):
                 with patch("os.listdir", return_value=[]):
-                    # Execute CLI command with different parameters
-                    result = runner.invoke(
-                        app,
-                        [
-                            "--zenodo-url",
-                            zenodo_url,
-                            "--zip-path",
-                            zip_path,
-                            "--extract-path",
-                            extract_path,
-                        ],
-                    )
+                    with patch("builtins.open", create=True) as mock_open:
+                        # Execute CLI command with different parameters
+                        result = runner.invoke(
+                            app,
+                            [
+                                "--zenodo-url",
+                                zenodo_url,
+                                "--zip-path",
+                                zip_path,
+                                "--extract-path",
+                                extract_path,
+                            ],
+                        )
 
     # Assert
     assert result.exit_code == 0
     mock_get.assert_called_once()
     mock_unzip.assert_called_once()
+    mock_open.assert_called_with(f"{extract_path}/record_id.txt", "w")

@@ -22,12 +22,13 @@ denovo: False
 
 subset: 1
 
+num_workers: 4
 batch_size: 32
 device: auto
 fp16: True
 
 residue_remapping: ""
-pred_col: preds
-pred_tok_col: preds_tokenised
+pred_col: predictions
+pred_tok_col: predictions_tokenised
 log_probs_col: log_probs
 token_log_probs_col: token_log_probs

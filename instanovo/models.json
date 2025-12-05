@@ -1,5 +1,8 @@
 {
   "transformer": {
+    "instanovo-v1.2.0": {
+      "remote": "https://github.com/instadeepai/InstaNovo/releases/download/1.2.0/instanovo-v1.2.0.ckpt"
+    },
     "instanovo-v1.1.0": {
       "remote": "https://github.com/instadeepai/InstaNovo/releases/download/1.1.0/instanovo-v1.1.0.ckpt"
     },

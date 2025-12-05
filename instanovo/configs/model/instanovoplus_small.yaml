@@ -1,0 +1,9 @@
+defaults:
+  - instanovoplus_base
+  - _self_
+
+encoder_layers: 9
+layers: 1 # Decoder layers
+
+cond_cross_attn_layers:
+  - 0

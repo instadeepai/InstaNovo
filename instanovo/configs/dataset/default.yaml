@@ -1,0 +1,52 @@
+# Combination of multiple datasets
+# - ACPT
+# - Pride
+# - Phospho
+# - MassiveKB
+
+# train_path: /mnt/instanovo-data-kyber/identity_splits_parquet/*/*-train-*.parquet # Unshuffled
+train_path:
+  - /mnt/instanovo-ceph/shuffled/extended_massivekb_combined/*.parquet # Shuffled
+  - /mnt/instanovo-ceph/mcfm_splits/train_*.parquet
+# train_path:
+# - /mnt/instanovo-ceph/shuffled/extended_massivekb_combined/temp_ff8a5bdca81f493395a5ab683b26ea4f.parquet
+# - /mnt/instanovo-ceph/shuffled/extended_massivekb_combined/temp_fe9625ad04164ca68b90f944df7b3617.parquet
+# - /mnt/instanovo-ceph/shuffled/extended_massivekb_combined/temp_fd175992ac7d485f98df7c0de2e31a5e.parquet
+# - /mnt/instanovo-ceph/shuffled/extended_massivekb_combined/temp_fb8be5b618bd4edfb7cd0eae66e6f012.parquet
+valid_path:
+  "acpt": /mnt/instanovo-ceph/identity_splits_parquet/validation_subsets/dataset-acpt-valid-0000-0001.parquet
+  "phospho": /mnt/instanovo-ceph/identity_splits_parquet/validation_subsets/dataset-phospho-valid-0000-0001.parquet
+  "pride": /mnt/instanovo-ceph/identity_splits_parquet/validation_subsets/dataset-pride-valid-0000-0001.parquet
+  "massivekb": /mnt/instanovo-ceph/identity_splits_parquet/validation_subsets/dataset-massivekb-valid-0000-0001.parquet
+  "lcfm": /mnt/instanovo-ceph/identity_splits_parquet/validation_subsets/dataset-lcfm-valid-0000-0001.parquet
+
+# Perform a preshuffle across shards to ensure shards are homogeneous in lazy mode
+preshuffle_across_shards: False
+# Check residues, check precursor masses, etc.
+perform_data_checks: True
+# Slow for large datasets
+validate_precursor_mass: False
+# Use lazy loading mode
+lazy_loading: True
+# Verbose SDF logs when loading the dataset
+verbose_loading: True
+# Max data shard size for lazy loading, may influence shuffling mechanics
+max_shard_size: 1_000_000
+# If no validation set is provided, use the train set as the validation set
+valid_subset_of_train:
+# If any train sequences overlap with the blacklist, raise a ValueError
+blacklist: /mnt/instanovo-ceph/identity_splits_parquet/blacklist.csv
+# Partition to load when in native mode (unnecessary when using globs or shuffled data)
+train_partition:
+valid_partition:
+
+# Column remapping when loading from non-native parquet, csv, or ipc files
+column_remapping:
+
+# Remap residues from a dataset to the correct format of the model
+# Keys remapped to values, values should exist in residue set
+
+# Residues not yet updated to UNIMOD in the dataset
+residue_remapping:
+  "R(+0.984016)": "R[UNIMOD:7]" # Arginine citrullination
+  "P(+15.994915)": "P[UNIMOD:35]" # Proline hydroxylation

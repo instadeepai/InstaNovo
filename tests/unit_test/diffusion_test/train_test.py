@@ -1,25 +1,17 @@
+import copy
 from typing import Any
 from unittest.mock import patch
 
-import pytest
 from omegaconf import DictConfig
 
-from instanovo.diffusion.train import (
-    main,
-)
+from instanovo.diffusion.train import DiffusionTrainer
+from instanovo.utils.device_handler import check_device
 
 
-@patch("instanovo.diffusion.train._set_author_neptune_api_token")
-@patch("instanovo.diffusion.train.train")
-def test_main(mock_train: Any, mock_set_api_token: Any) -> None:
+@patch("instanovo.diffusion.train.DiffusionTrainer.train", autospec=True)
+def test_main(mock_train: Any, instanovoplus_config: DictConfig) -> None:
     """Test the main function call of train."""
-    mock_config = DictConfig({})
-    mock_config["n_gpu"] = 1
-
-    main(mock_config)
-    mock_set_api_token.assert_called_once()
-    mock_train.assert_called_once_with(mock_config)
-
-    mock_config["n_gpu"] = 2
-    with pytest.raises(ValueError, match="n_gpu > 1 currently not supported."):
-        main(mock_config)
+    temp_config = copy.deepcopy(instanovoplus_config)
+    check_device(config=temp_config)
+    DiffusionTrainer(temp_config).train()
+    mock_train.assert_called_once()

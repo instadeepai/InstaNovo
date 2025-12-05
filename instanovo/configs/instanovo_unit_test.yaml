@@ -5,30 +5,35 @@ defaults:
   - override dataset: unit_test
   - override residues: unit_test
 
+run_name: instanovo_unit_test
+
 # Overwritten when using Aichor
 tb_summarywriter: "./logs/instanovo/instanovo-unit-test"
 
 # Training parameters
+num_workers: 4
 warmup_iters: 480
-max_iters: 3_000_000
 learning_rate: 1e-3
 train_batch_size: 32
 grad_accumulation: 1
 
-device: auto
-fp16: True
-
 # Logging parameters
-epochs: 1
+training_steps: 481
 num_sanity_val_steps: 10
+validate_before_training: False
 console_logging_steps: 50
 tensorboard_logging_steps: 500
-report_to:
-run_name: instanovo_unit_test
+use_neptune: False
 
 # Training data parameters
 valid_subset: 1.0
 
 # Checkpointing parameters
+save_model: True
+keep_model_every_interval: False
+save_accelerator_state: False
+keep_accelerator_every_interval:
 model_save_folder_path: tests/instanovo_test_resources/train_test
-ckpt_interval: 480
+checkpoint_metric:
+checkpoint_metric_mode:
+checkpoint_interval: 480

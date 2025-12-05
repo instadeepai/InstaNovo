@@ -1,5 +1,8 @@
+from __future__ import annotations
+
 import copy
 import logging
+import os
 
 import polars as pl
 import pytest
@@ -7,12 +10,12 @@ import torch
 from omegaconf import DictConfig
 from torch.utils.data import DataLoader
 
+from instanovo.diffusion.data import DiffusionDataProcessor
 from instanovo.diffusion.multinomial_diffusion import InstaNovoPlus
-from instanovo.diffusion.predict import get_preds
+from instanovo.diffusion.predict import DiffusionPredictor
 from instanovo.inference.diffusion import DiffusionDecoder
-from instanovo.transformer.dataset import SpectrumDataset, collate_batch
 from instanovo.utils.data_handler import SpectrumDataFrame
-from instanovo.utils.s3 import S3FileHandler
+from instanovo.utils.device_handler import check_device
 from tests.conftest import reset_seed
 
 logger = logging.getLogger()
@@ -21,46 +24,54 @@ logger.setLevel(logging.INFO)
 
 @pytest.mark.usefixtures("_reset_seed")
 def test_model(
-    instanovoplus_model: tuple[InstaNovoPlus, DiffusionDecoder],
+    instanovoplus_model: tuple[InstaNovoPlus, DictConfig, DiffusionDecoder],
     instanovoplus_config: DictConfig,
     dir_paths: tuple[str, str],
-    instanovoplus_inference_config: DictConfig,
-    instanovo_output_path: str,
 ) -> None:
     """Test loading an InstaNovo+ model and doing inference end-to-end."""
-    temp_inference_config = copy.deepcopy(instanovoplus_inference_config)
+    temp_config = copy.deepcopy(instanovoplus_config)
+    device = check_device(config=temp_config)
 
-    diffusion_model, _ = instanovoplus_model
+    diffusion_model, config, diffusion_decoder = instanovoplus_model
 
-    assert diffusion_model.residue_set.residue_masses == instanovoplus_config["residues"]
-    assert (
-        diffusion_model.residue_set.residue_remapping == instanovoplus_config["residue_remapping"]
-    )
+    assert diffusion_model.residue_set.residue_masses == temp_config.residues["residues"]
+    assert diffusion_model.residue_set.residue_remapping == temp_config.residues.get("residue_remapping", {})
     assert diffusion_model.config["vocab_size"] == 8
 
-    assert instanovoplus_config["n_peaks"] == diffusion_model.config["n_peaks"]
-    assert instanovoplus_config["min_mz"] == diffusion_model.config["min_mz"]
-    assert instanovoplus_config["max_mz"] == diffusion_model.config["max_mz"]
-    assert instanovoplus_config["max_length"] == diffusion_model.config["max_length"]
+    assert temp_config.model["n_peaks"] == config["n_peaks"]
+    assert temp_config.model["min_mz"] == config["min_mz"]
+    assert temp_config.model["max_mz"] == config["max_mz"]
+    assert temp_config.model["min_intensity"] == config["min_intensity"]
+    assert temp_config.model["remove_precursor_tol"] == config["remove_precursor_tol"]
+    assert temp_config.model["max_length"] == config["max_length"]
 
-    root_dir, data_dir = dir_paths
-    sdf = SpectrumDataFrame(file_paths=[data_dir + "/test.ipc"], shuffle=False, is_lazy=False)
-
-    sd = SpectrumDataset(
-        df=sdf,
-        residue_set=diffusion_model.residue_set,
-        n_peaks=diffusion_model.config["n_peaks"],
-        min_mz=diffusion_model.config["min_mz"],
-        max_mz=diffusion_model.config["max_mz"],
-        peptide_pad_length=diffusion_model.config["max_length"],
+    _, data_dir = dir_paths
+    df = pl.read_ipc(os.path.join(data_dir, "test.ipc"))
+    sdf = SpectrumDataFrame(df=df, is_lazy=False)
+    processor = DiffusionDataProcessor(
+        diffusion_model.residue_set,
+        n_peaks=config.get("n_peaks", 200),
+        min_mz=config.get("min_mz", 50.0),
+        max_mz=config.get("max_mz", 2500.0),
+        min_intensity=config.get("min_intensity", 0.01),
+        remove_precursor_tol=config.get("remove_precursor_tol", 2.0),
+        return_str=False,
+        reverse_peptide=False,
+        peptide_pad_length=config.get("max_length", 40),
+        peptide_pad_value=diffusion_model.residue_set.PAD_INDEX,
         add_eos=False,
+        use_spectrum_utils=True,
     )
-    assert len(sd) == 1938
+    ds = sdf.to_dataset(in_memory=True)
+    ds = ds.map(processor.process_row)
+    ds.set_format(type="torch", columns=processor.get_expected_columns())
 
-    spectrum, precursor_mz, precursor_charge, peptide = sd[0]
+    assert len(ds) == 1938
+
+    batch = ds[0]
 
     assert torch.allclose(
-        spectrum,
+        batch["spectra"],
         torch.Tensor(
             [
                 [13.0941, 0.2582],
@@ -77,20 +88,19 @@ def test_model(
         ),
         rtol=1.5e-04,
     )
-    assert precursor_mz == 112.207876
-    assert precursor_charge == 1.0
+    assert batch["precursor_mz"] == 112.207876
+    assert batch["precursor_charge"] == 1.0
     assert torch.allclose(
-        peptide,
-        torch.tensor([6, 7, 5, 5, 3, 4]),
+        batch["peptide"],
+        torch.tensor([4, 3, 5, 5, 7, 6]),
         rtol=1e-04,
     )
 
-    dl = DataLoader(sd, batch_size=2, num_workers=0, shuffle=False, collate_fn=collate_batch)
+    dl = DataLoader(ds, batch_size=2, num_workers=0, shuffle=False, collate_fn=processor.collate_fn)
     batch = next(iter(dl))
-    spectra, precursors, spectra_mask, peptides, _ = batch
 
     assert torch.allclose(
-        spectra,
+        batch["spectra"],
         torch.tensor(
             [
                 [
@@ -122,11 +132,11 @@ def test_model(
         rtol=1.5e-04,
     )
     assert torch.allclose(
-        precursors,
+        batch["precursors"],
         torch.tensor([[111.2006, 1.0000, 112.2079], [110.3506, 1.0000, 111.3579]]),
     )
     assert torch.equal(
-        spectra_mask,
+        batch["spectra_mask"],
         torch.tensor(
             [
                 [False, False, False, False, False, False, False, False, False, False],
@@ -134,58 +144,69 @@ def test_model(
             ]
         ),
     )
-    assert torch.allclose(peptides, torch.tensor([[6, 7, 5, 5, 3, 4], [4, 3, 7, 4, 5, 7]]))
-
-    s3 = S3FileHandler()
-    get_preds(
-        config=temp_inference_config,
-        model=diffusion_model,
-        model_config=diffusion_model.config,
-        s3=s3,
-    )
-
-    pred_df = pl.read_csv(temp_inference_config["output_path"])
-
-    assert temp_inference_config["subset"] == 1
-    assert (
-        temp_inference_config["instanovo_plus_model"]
-        == "tests/instanovo_test_resources/instanovoplus"
-    )
-    assert pred_df["targets"][0] == "DDCA"
+    assert torch.allclose(batch["peptides"], torch.tensor([[4, 3, 5, 5, 7, 6], [7, 5, 4, 7, 3, 4]]))
 
     reset_seed()
-
-    # InstaNovo+ refinement case
-    temp_inference_config["refine"] = True
-
-    temp_inference_config["instanovo_predictions_path"] = instanovo_output_path
-
-    with pytest.raises(
-        ValueError,
-        match="All rows were dropped from the dataframe. "
-        "No ID matches / predictions to refine were present.",
-    ):
-        get_preds(
-            config=temp_inference_config,
-            model=diffusion_model,
-            model_config=diffusion_model.config,
-            s3=s3,
+    with torch.no_grad():
+        # output = diffusion_model(
+        #     spectra=batch["spectra"],
+        #     spectra_mask=batch["spectra_mask"],
+        #     precursors=batch["precursors"],
+        # )
+        # predictions = output.argmax(dim=-1)
+        _ = diffusion_decoder.decode(
+            spectra=batch["spectra"].to(device),
+            spectra_padding_mask=batch["spectra_mask"].to(device),
+            precursors=batch["precursors"].to(device),
         )
 
+    # pred_str = "".join(predictions[0])
+    target_str = "".join(diffusion_model.residue_set.decode(batch["peptides"][0], reverse=False))
+
+    assert target_str == "BACCED"
+    # TODO: Fix diffusion determinism
+    # assert pred_str == "CDDDCC"
+    # assert probabilities[0] == pytest.approx(-0.65, rel=1e-1)
+
+
+def test_diffusion_model_inference(
+    instanovoplus_inference_config: DictConfig,
+) -> None:
+    """Test diffusion model inference."""
+    temp_config = copy.deepcopy(instanovoplus_inference_config)
+    check_device(config=temp_config)
+
     reset_seed()
+    predictor = DiffusionPredictor(temp_config)
+    predictor.predict()
 
-    temp_inference_config["instanovo_predictions_path"] = (
-        root_dir + "/instanovoplus/sample_pred.csv"
-    )
+    pred_df = pl.read_csv(temp_config["output_path"])
 
-    get_preds(
-        config=temp_inference_config,
-        model=diffusion_model,
-        model_config=diffusion_model.config,
-        s3=s3,
-    )
-
-    pred_df = pl.read_csv(temp_inference_config["output_path"])
-
-    assert temp_inference_config["subset"] == 1
+    assert temp_config["subset"] == 1
     assert pred_df["targets"][0] == "DDCA"
+    # TODO: Fix diffusion determinism
+    # assert pred_df[temp_config["prediction_col"]][0] == "CDDDCC"
+    # assert pred_df[temp_config["log_probs_col"]][0] == pytest.approx(-0.585, rel=1e-1)
+
+
+def test_diffusion_model_inference_refinement(dir_paths: tuple[str, str], instanovoplus_inference_config: DictConfig) -> None:
+    """Test diffusion model inference."""
+    root_dir, _ = dir_paths
+    temp_config = copy.deepcopy(instanovoplus_inference_config)
+    check_device(config=temp_config)
+
+    # Test refinement mode
+    temp_config["refine"] = True
+    temp_config["refinement_path"] = root_dir + "/instanovoplus/sample_predictions.csv"
+
+    reset_seed()
+    predictor = DiffusionPredictor(temp_config)
+    predictor.predict()
+
+    pred_df = pl.read_csv(temp_config["output_path"])
+
+    assert pred_df["targets"][0] == "DDCA"
+
+    # TODO: Fix diffusion determinism
+    # assert pred_df[temp_config["prediction_col"]][0] == "CDDDCC"
+    # assert pred_df[temp_config["log_probs_col"]][0] == pytest.approx(-2.01, rel=1e-1)

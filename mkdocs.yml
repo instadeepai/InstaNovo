@@ -23,8 +23,8 @@ theme:
       toggle:
         icon: material/weather-night
         name: Switch to light mode
-  logo: assets/instadeep-logo.png
-  favicon: assets/instadeep-logo.png
+  logo: assets/instanovo_logo_square.svg
+  favicon: assets/instanovo_logo_square.svg
   icon:
     repo: fontawesome/brands/github
   font:
@@ -41,11 +41,12 @@ theme:
     - toc.integrate
     - toc.follow
     - content.code.annotate
-    - navigation.tabs
     - navigation.top
 
 markdown_extensions:
   - tables
+  - attr_list
+  - md_in_html
   - pymdownx.highlight:
       anchor_linenums: true
   - pymdownx.inlinehilite
@@ -55,8 +56,10 @@ markdown_extensions:
 plugins:
   - search
   - autorefs
-  # - git-revision-date
   - include-markdown
+  - gen-files:
+      scripts:
+        - docs/gen_ref_nav.py
   - mkdocstrings:
       default_handler: python
       handlers:
@@ -75,7 +78,37 @@ plugins:
             show_root_full_path: false
             show_root_heading: true
             docstring_section_style: spacy
+  - mkdocs-jupyter:
+      include_source: true
+  - coverage:
+      page_path: development/coverage
+      html_report_dir: docs/coverage
 
 nav:
   - Home: index.md
-  - License: LICENSE.md
+  - Tutorials:
+      - Quick overview: tutorials/getting_started.md
+      - Notebook: notebooks/getting_started_with_instanovo.ipynb
+  - How-to guides:
+      - Predicting: how-to/predicting.md
+      - Using Custom Datasets: how-to/using_custom_datasets.md
+      - Training: how-to/training.md
+  - Reference:
+      - CLI: reference/cli.md
+      - Models: reference/models.md
+      - Supported Modifications: reference/modifications.md
+      - Prediction Output: reference/prediction_output.md
+      - API: API/summary.md
+  - Explanation:
+      - Performance: explanation/performance.md
+      - SpectrumDataFrame: explanation/spectrum_data_frame.md
+  - Blog:
+      - Introducing the next generation of InstaNovo models: blog/introducing-the-next-generation-of-instanovo-models.md
+      - Introducing InstaNovo-P: blog/introducing-instanovo-p-a-de-novo-sequencing-model-for-phosphoproteomics.md
+      - "Winnow: calibrated confidence and FDR control for de novo sequencing": blog/calibrated-confidence-and-fdr-control-for-de-novo-sequencing.md
+  - For developers:
+    - Set up a development environment: development/setup.md
+    - Test Coverage: development/coverage.md
+    - Test Report: development/allure.md
+  - How to cite: citation.md
+  - License: license.md

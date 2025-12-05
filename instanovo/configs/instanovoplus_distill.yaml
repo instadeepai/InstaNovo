@@ -1,0 +1,59 @@
+defaults:
+  - model: instanovoplus_base
+  - dataset: default
+  - residues: default
+  - _self_
+
+run_name: instanovoplus
+tags:
+  - diffusion
+
+# Override model timesteps for distillation
+model:
+  time_steps: 20
+
+# Overwritten when using Aichor
+tb_summarywriter: "./logs/instanovo/instanovplus-base"
+
+# Training parameters
+seed: 101
+warmup_iters: 10_000
+learning_rate: 5e-5
+weight_decay: 0
+train_batch_size: 128
+grad_accumulation: 1
+gradient_clip_val: 10.0
+predict_batch_size: 128
+lr_scheduler: "cosine"
+
+fp16: True
+compile_model: True
+
+# Logging parameters
+epochs: 5 #10
+num_sanity_val_steps: 10
+console_logging_steps: 2000
+tensorboard_logging_steps: 500
+# x-axis for validation metrics on tensorboard/neptune
+validation_axis_type: "epoch" # "epoch" or "step"
+use_neptune: True
+
+# Training data parameters
+train_subset: 1.0
+valid_subset: 1.0
+
+# If float, use as a fraction epoch, else use number of model updates
+validation_interval: 0.25
+
+# Checkpointing parameters
+save_model: True
+model_save_folder_path: "checkpoints/instanovoplus-base"
+save_weights_only: False
+# If float, use as a fraction epoch, else use number of model updates
+checkpoint_interval: 0.25
+# Accelerate checkpoint
+resume_accelerator_state:
+# Model checkpoint
+resume_checkpoint_path:
+
+blacklist:

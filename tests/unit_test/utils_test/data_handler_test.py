@@ -80,9 +80,7 @@ def test_errors(tmp_path: Any, dir_paths: tuple[str, str]) -> None:
     _, data_dir = dir_paths
     with pytest.raises(
         ValueError,
-        match=re.escape(
-            "Input must be a string (filepath or glob) or a list of file paths. Found directory."
-        ),
+        match=re.escape("Input must be a string (filepath or glob) or a list of file paths. Found directory."),
     ):
         _ = SpectrumDataFrame(file_paths=data_dir)
 
@@ -207,19 +205,13 @@ def test_check_type_spec() -> None:
 
     with pytest.raises(
         ValueError,
-        match=(
-            "Columns missing! Missing columns: "
-            "mz_array, intensity_array, precursor_mz, precursor_charge"
-        ),
+        match=("Columns missing! Missing columns: mz_array, intensity_array, precursor_mz, precursor_charge"),
     ):
         _ = SpectrumDataFrame(df)
 
     with pytest.raises(
         ValueError,
-        match=(
-            "Columns missing! Missing columns: "
-            "mz_array, intensity_array, precursor_mz, precursor_charge, sequence"
-        ),
+        match=("Columns missing! Missing columns: mz_array, intensity_array, precursor_mz, precursor_charge, sequence"),
     ):
         _ = SpectrumDataFrame(df, is_annotated=True)
 
@@ -228,16 +220,13 @@ def test_check_type_spec() -> None:
         "intensity_array": [[1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]],
         "precursor_mz": [35.83],
         "precursor_charge": [2],
-        "sequence": "",
+        "sequence": [""],
     }
     df = pl.DataFrame(data)
 
     with pytest.raises(
         ValueError,
-        match=(
-            "Attempting to load annotated dataset, but some or all sequence "
-            "annotations are missing."
-        ),
+        match=("Attempting to load annotated dataset, but some or all sequence annotations are missing."),
     ):
         _ = SpectrumDataFrame(df=df, is_annotated=True)
 
@@ -250,6 +239,7 @@ def test_parquet_init(dir_paths: tuple[str, str], tmp_path: Any) -> None:
         is_annotated=True,
         is_lazy=False,
         shuffle=False,
+        add_spectrum_id=True,
     )
 
     assert not sdf._is_native
@@ -310,6 +300,7 @@ def test_mgf_to_parquet(dir_paths: tuple[str, str], tmp_path: Any) -> None:
         is_annotated=True,
         is_lazy=True,
         shuffle=False,
+        add_spectrum_id=True,
     )
 
     sdf.save(tmp_path, partition="example_lazy_mgf")
@@ -351,6 +342,7 @@ def test_mzml_to_parquet(dir_paths: tuple[str, str], tmp_path: Any) -> None:
         is_annotated=False,
         is_lazy=False,
         shuffle=False,
+        add_spectrum_id=True,
     )
     sdf.save(tmp_path, partition="example_mzml")
 
@@ -377,10 +369,55 @@ def test_mzml_to_parquet(dir_paths: tuple[str, str], tmp_path: Any) -> None:
         is_annotated=False,
         is_lazy=True,
         shuffle=False,
+        add_spectrum_id=True,
     )
     sdf.save(tmp_path, partition="example_lazy_mzml")
 
     df = pl.read_parquet(tmp_path / "dataset-ms-example_lazy_mzml-0000-0001.parquet").to_pandas()
+    assert df.equals(expected_df)
+
+
+def test_mgf_to_parquet_no_scan_number(dir_paths: tuple[str, str], tmp_path: Any) -> None:
+    """Test mgf to parquet conversion where no scan number column is present."""
+    _, data_dir = dir_paths
+    sdf = SpectrumDataFrame(
+        file_paths=[data_dir + "/test_sample.mgf"],
+        is_annotated=False,
+        is_lazy=False,
+        shuffle=False,
+        add_spectrum_id=True,
+    )
+
+    sdf.save(tmp_path, partition="example_mgf")
+    df = pl.read_parquet(tmp_path / "dataset-ms-example_mgf-0000-0001.parquet")
+    df = df.drop(["scan_number"]).write_parquet(tmp_path / "dataset-ms-example_mgf_no_scan_number-0000-0001.parquet")
+
+    sdf = SpectrumDataFrame(
+        file_paths=[str(tmp_path) + "/dataset-ms-example_mgf_no_scan_number-0000-0001.parquet"],
+        is_annotated=False,
+        is_lazy=False,
+        shuffle=False,
+        add_spectrum_id=True,
+    )
+    sdf.save(tmp_path, partition="example_mgf_no_scan_number")
+
+    expected_df = pd.DataFrame(
+        {
+            "sequence": ["DDCA"],
+            "precursor_mass": [80.6906],
+            "precursor_mz": [27.90414266666667],
+            "precursor_charge": [3],
+            "retention_time": [1.0],
+            "mz_array": [
+                array([0.0, 0.0, 0.0, 0.0, 15.262576, 15.737476000000001, 19.177476, 27.90414266666667, 32.227576, 36.102576, 37.267875999999994])
+            ],
+            "intensity_array": [array([1.0, 1.0, 1.0, 0.5, 0.5, 0.5, 0.25, 0.0, 0.0, 0.0, 0.0])],
+            "experiment_name": ["test_sample"],
+            "spectrum_id": ["test_sample:0"],
+        }
+    )
+
+    df = pl.read_parquet(tmp_path / "dataset-ms-example_mgf_no_scan_number-0000-0001.parquet").to_pandas()
     assert df.equals(expected_df)
 
 
@@ -392,6 +429,7 @@ def test_mzxml_to_parquet(dir_paths: tuple[str, str], tmp_path: Any) -> None:
         is_annotated=False,
         is_lazy=False,
         shuffle=False,
+        add_spectrum_id=True,
     )
     sdf.save(tmp_path, partition="example_mzxml")
 
@@ -418,6 +456,7 @@ def test_mzxml_to_parquet(dir_paths: tuple[str, str], tmp_path: Any) -> None:
         is_annotated=False,
         is_lazy=True,
         shuffle=False,
+        add_spectrum_id=True,
     )
     sdf.save(tmp_path, partition="example_lazy_mzxml")
 

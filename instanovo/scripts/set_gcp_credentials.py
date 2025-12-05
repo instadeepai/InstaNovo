@@ -53,8 +53,7 @@ def set_credentials() -> None:
         gcp_credentials_encoded = os.environ["GS_CREDENTIALS_ENCODED"]
     except KeyError:
         msg = (
-            "If the json file 'GOOGLE_APPLICATION_CREDENTIALS' does not exist, "
-            "you must set 'GS_CREDENTIALS_ENCODED' as the base64 encoded json file."
+            "If the json file 'GOOGLE_APPLICATION_CREDENTIALS' does not exist, you must set 'GS_CREDENTIALS_ENCODED' as the base64 encoded json file."
         )
         raise OSError(msg) from None
 

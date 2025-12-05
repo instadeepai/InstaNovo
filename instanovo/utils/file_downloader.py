@@ -28,6 +28,9 @@ def download_file(url: str, path: Path, model_id: str, file_name: str) -> None:
     total_size = int(response.headers.get("content-length", 0))
     logger.info(f"Downloading model {model_id} from {url}")
 
+    if response.status_code == 404:
+        raise ValueError(f"Model {model_id} not found at {url}. Status code: {response.status_code}")
+
     with (
         open(path, "wb") as file,
         tqdm(
@@ -43,9 +46,7 @@ def download_file(url: str, path: Path, model_id: str, file_name: str) -> None:
             progress_bar.update(size)
     if not os.path.getsize(path) == total_size:
         raise ValueError(
-            f"Downloaded file is incomplete. Expected size of {total_size} "
-            "bytes does not match downloaded size of "
-            f"{os.path.getsize(path)} bytes."
+            f"Downloaded file is incomplete. Expected size of {total_size} bytes does not match downloaded size of {os.path.getsize(path)} bytes."
         )
 
     logger.info(f"Cached model {model_id} at {path}")

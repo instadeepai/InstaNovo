@@ -44,10 +44,10 @@ class Decodable(metaclass=ABCMeta):
         """Initialize the search state.
 
         Args:
-            x (torch.FloatTensor):
+            spectra (torch.FloatTensor):
                 The spectra to be sequenced.
 
-            p (torch.FloatTensor[batch size, 3]):
+            precursors (torch.FloatTensor[batch size, 3]):
                 The precursor mass, charge and mass-to-charge ratio.
         """
         pass
@@ -63,11 +63,11 @@ class Decodable(metaclass=ABCMeta):
         """Generate and score the next set of candidates.
 
         Args:
-            y (torch.LongTensor):
+            sequences (torch.LongTensor):
                 Partial residue sequences in generated
                 the course of decoding.
 
-            p (torch.FloatTensor[batch size, 3]):
+            precursor_mass_charge (torch.FloatTensor[batch size, 3]):
                 The precursor mass, charge and mass-to-charge ratio.
         """
         pass
@@ -129,7 +129,7 @@ class Decoder(metaclass=ABCMeta):
         precursors: Float[PrecursorFeatures, "..."],
         *args,
         **kwargs,
-    ) -> list[ScoredSequence] | list[list[ScoredSequence]]:
+    ) -> dict[str, Any]:
         """Generate the predicted residue sequence using the decoder's search algorithm.
 
         Args:
@@ -139,5 +139,15 @@ class Decoder(metaclass=ABCMeta):
             precursors (torch.FloatTensor):
                 The precursor mass, charge and mass-to-charge ratio.
 
+        Returns:
+            dict[str, Any]:
+                Required keys:
+                    - "sequence": list[str]
+                    - "mass_error": float
+                    - "sequence_log_probability": float
+                    - "token_log_probabilities": list[float]
+                    - "encoder_output": list[float] (optional)
+                Example additional keys:
+                    - "sequence_beam_0": list[str]
         """
         pass

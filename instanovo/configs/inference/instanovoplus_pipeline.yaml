@@ -1,80 +1,80 @@
 # Data paths and output location
 
-data_dir: /mnt/instanovo-data-kyber/validation
+data_dir: /mnt/instanovo-ceph/validation
 output_dir: s3://dtu-denovo-s-2e6da747d6d34f62-outputs/evaluation
 instanovo_run_name: instanovo_extended_massivekb_knapsack_8cbd543a
-instanovoplus_run_name: instanovoplus_extended_massivekb_fb7f5eea_refine_all_1_pred
+instanovoplus_run_name: instanovoplus_extended_massivekb_fb7f5eea_new_1_pred
 
 data_path: # type: .mgf, .mzml or any other filetype supported by SpectrumDataFrame
   # Biological validation datasets
   - result_name: gluc
     input_path: ${data_dir}/biological/annotated/dataset-gluc-*.parquet
-    instanovo_predictions_path: ${output_dir}/${instanovo_run_name}/samples/gluc.csv
+    refinement_path: ${output_dir}/${instanovo_run_name}/samples/gluc.csv
     output_path: ${output_dir}/${instanovo_run_name}/${instanovoplus_run_name}/samples/gluc.csv
   - result_name: hela_qc
     input_path: ${data_dir}/biological/annotated/dataset-helaqc-*.parquet
-    instanovo_predictions_path: ${output_dir}/${instanovo_run_name}/samples/helaqc.csv
+    refinement_path: ${output_dir}/${instanovo_run_name}/samples/helaqc.csv
     output_path: ${output_dir}/${instanovo_run_name}/${instanovoplus_run_name}/samples/helaqc.csv
   - result_name: herceptin
     input_path: ${data_dir}/biological/annotated/dataset-herceptin-*.parquet
-    instanovo_predictions_path: ${output_dir}/${instanovo_run_name}/samples/herceptin.csv
+    refinement_path: ${output_dir}/${instanovo_run_name}/samples/herceptin.csv
     output_path: ${output_dir}/${instanovo_run_name}/${instanovoplus_run_name}/samples/herceptin.csv
   - result_name: immuno
     input_path: ${data_dir}/biological/annotated/dataset-immuno-*.parquet
-    instanovo_predictions_path: ${output_dir}/${instanovo_run_name}/samples/immuno.csv
+    refinement_path: ${output_dir}/${instanovo_run_name}/samples/immuno.csv
     output_path: ${output_dir}/${instanovo_run_name}/${instanovoplus_run_name}/samples/immuno.csv
   - result_name: s_brodae
     input_path: ${data_dir}/biological/annotated/dataset-sbrodae-*.parquet
-    instanovo_predictions_path: ${output_dir}/${instanovo_run_name}/samples/sbrodae.csv
+    refinement_path: ${output_dir}/${instanovo_run_name}/samples/sbrodae.csv
     output_path: ${output_dir}/${instanovo_run_name}/${instanovoplus_run_name}/samples/sbrodae.csv
   - result_name: snake_venoms
     input_path: ${data_dir}/biological/annotated/dataset-snakevenoms-*.parquet
-    instanovo_predictions_path: ${output_dir}/${instanovo_run_name}/samples/snakevenoms.csv
+    refinement_path: ${output_dir}/${instanovo_run_name}/samples/snakevenoms.csv
     output_path: ${output_dir}/${instanovo_run_name}/${instanovoplus_run_name}/samples/snakevenoms.csv
   - result_name: tpl_antibodies
     input_path: ${data_dir}/biological/annotated/dataset-tplantibodies-*.parquet
-    instanovo_predictions_path: ${output_dir}/${instanovo_run_name}/samples/tplantibodies.csv
+    refinement_path: ${output_dir}/${instanovo_run_name}/samples/tplantibodies.csv
     output_path: ${output_dir}/${instanovo_run_name}/${instanovoplus_run_name}/samples/tplantibodies.csv
   - result_name: wound_fluids
     input_path: ${data_dir}/biological/annotated/dataset-woundfluids-*.parquet
-    instanovo_predictions_path: ${output_dir}/${instanovo_run_name}/samples/woundfluids.csv
+    refinement_path: ${output_dir}/${instanovo_run_name}/samples/woundfluids.csv
     output_path: ${output_dir}/${instanovo_run_name}/${instanovoplus_run_name}/samples/woundfluids.csv
   # Ninespecies v1
   - result_name: bacillus
     input_path: ${data_dir}/ninespecies_v1/dataset-bacillus-*.parquet
-    instanovo_predictions_path: ${output_dir}/${instanovo_run_name}/samples/bacillus.csv
+    refinement_path: ${output_dir}/${instanovo_run_name}/samples/bacillus.csv
     output_path: ${output_dir}/${instanovo_run_name}/${instanovoplus_run_name}/samples/bacillus.csv
   - result_name: clambacteria
     input_path: ${data_dir}/ninespecies_v1/dataset-clambacteria-*.parquet
-    instanovo_predictions_path: ${output_dir}/${instanovo_run_name}/samples/clambacteria.csv
+    refinement_path: ${output_dir}/${instanovo_run_name}/samples/clambacteria.csv
     output_path: ${output_dir}/${instanovo_run_name}/${instanovoplus_run_name}/samples/clambacteria.csv
   - result_name: honeybee
     input_path: ${data_dir}/ninespecies_v1/dataset-honeybee-*.parquet
-    instanovo_predictions_path: ${output_dir}/${instanovo_run_name}/samples/honeybee.csv
+    refinement_path: ${output_dir}/${instanovo_run_name}/samples/honeybee.csv
     output_path: ${output_dir}/${instanovo_run_name}/${instanovoplus_run_name}/samples/honeybee.csv
   - result_name: human
     input_path: ${data_dir}/ninespecies_v1/dataset-human-*.parquet
-    instanovo_predictions_path: ${output_dir}/${instanovo_run_name}/samples/human.csv
+    refinement_path: ${output_dir}/${instanovo_run_name}/samples/human.csv
     output_path: ${output_dir}/${instanovo_run_name}/${instanovoplus_run_name}/samples/human.csv
   - result_name: mmazei
     input_path: ${data_dir}/ninespecies_v1/dataset-mmazei-*.parquet
-    instanovo_predictions_path: ${output_dir}/${instanovo_run_name}/samples/mmazei.csv
+    refinement_path: ${output_dir}/${instanovo_run_name}/samples/mmazei.csv
     output_path: ${output_dir}/${instanovo_run_name}/${instanovoplus_run_name}/samples/mmazei.csv
   - result_name: mouse
     input_path: ${data_dir}/ninespecies_v1/dataset-mouse-*.parquet
-    instanovo_predictions_path: ${output_dir}/${instanovo_run_name}/samples/mouse.csv
+    refinement_path: ${output_dir}/${instanovo_run_name}/samples/mouse.csv
     output_path: ${output_dir}/${instanovo_run_name}/${instanovoplus_run_name}/samples/mouse.csv
   - result_name: ricebean
     input_path: ${data_dir}/ninespecies_v1/dataset-ricebean-*.parquet
-    instanovo_predictions_path: ${output_dir}/${instanovo_run_name}/samples/ricebean.csv
+    refinement_path: ${output_dir}/${instanovo_run_name}/samples/ricebean.csv
     output_path: ${output_dir}/${instanovo_run_name}/${instanovoplus_run_name}/samples/ricebean.csv
   - result_name: tomato
     input_path: ${data_dir}/ninespecies_v1/dataset-tomato-*.parquet
-    instanovo_predictions_path: ${output_dir}/${instanovo_run_name}/samples/tomato.csv
+    refinement_path: ${output_dir}/${instanovo_run_name}/samples/tomato.csv
     output_path: ${output_dir}/${instanovo_run_name}/${instanovoplus_run_name}/samples/tomato.csv
   - result_name: yeast
     input_path: ${data_dir}/ninespecies_v1/dataset-yeast-*.parquet
-    instanovo_predictions_path: ${output_dir}/${instanovo_run_name}/samples/yeast.csv
+    refinement_path: ${output_dir}/${instanovo_run_name}/samples/yeast.csv
     output_path: ${output_dir}/${instanovo_run_name}/${instanovoplus_run_name}/samples/yeast.csv
 
 result_file_path: ${output_dir}/${instanovo_run_name}/${instanovoplus_run_name}/instanovoplus_results.csv
@@ -90,27 +90,27 @@ data_type: # .csv, .mgf, .mzml, .mzxml
 
 # Inference mode
 denovo: False
-num_beams: 1 # 1 defaults to greedy search with basic filtering
+num_beams: 5 # 1 defaults to greedy search with basic filtering
 max_length: 40
 max_charge: 10 # Must be <= model max charge
 isotope_error_range: [0, 1]
-use_knapsack: False
-save_beams: False
 subset: 1.0 # Subset of dataset to perform inference on, useful for debugging. Represented as a float between 0 and 1.
-n_preds: 1 #5 # Number of diffusion predictions to sample per spectrum
+use_knapsack: False
+save_beams: True
 
 # Refine mode
 refine: True
-instanovo_predictions_path: # type: .csv
-pred_refine_col: preds_tokenised
-refine_all: True # If True, all predictions will be refined
+refinement_path: # type: .csv
+prediction_refine_col: predictions_tokenised
+prediction_confidence_col: log_probs
+refinement_id_col: "spectrum_id"
+dataset_id_col: "spectrum_id"
+refine_all: False # If True, all predictions will be refined
 refine_threshold: 0.9 # Only predictions with a confidence score less than this will be refined
 
 # Prediction columns
-pred_tok_col: "preds_tokenised"
-pred_col: "preds"
-instanovo_id_col: "spectrum_id"
-instanovoplus_id_col: "spectrum_id"
+prediction_tokenised_col: "predictions_tokenised"
+prediction_col: "predictions"
 log_probs_col: "log_probs"
 token_log_probs_col: "token_log_probs"
 

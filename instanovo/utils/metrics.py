@@ -15,12 +15,17 @@ class Metrics:
     def __init__(
         self,
         residue_set: ResidueSet,
-        isotope_error_range: list[int],
+        isotope_error_range: list[int] | int | None = None,
         cum_mass_threshold: float = 0.5,
         ind_mass_threshold: float = 0.1,
     ) -> None:
         self.residue_set = residue_set
-        self.isotope_error_range = isotope_error_range
+        if isotope_error_range is None:
+            self.isotope_error_range = [0, 1]
+        elif isinstance(isotope_error_range, int):
+            self.isotope_error_range = [0, isotope_error_range]
+        else:
+            self.isotope_error_range = isotope_error_range
         self.cum_mass_threshold = cum_mass_threshold
         self.ind_mass_threshold = ind_mass_threshold
 
@@ -101,6 +106,8 @@ class Metrics:
                 n_pred_aa += len(pred)
                 n_pred_pep += 1
 
+                # pred = [x.replace('I', 'L') for x in pred]
+                # n_match_aa += np.sum([m[0]==' ' for m in difflib.ndiff(targ,pred)])
                 n_match = self._novor_match(targ, pred)
                 n_match_aa += n_match
 
@@ -192,15 +199,9 @@ class Metrics:
         seq = self._split_peptide(seq)
         return self.residue_set.get_sequence_mass(seq, charge)  # type: ignore
 
-    def _calc_mass_error(
-        self, mz_theoretical: float, mz_measured: float, charge: int, isotope: int = 0
-    ) -> float:
+    def _calc_mass_error(self, mz_theoretical: float, mz_measured: float, charge: int, isotope: int = 0) -> float:
         """Calculate the mass error between theoretical and actual mz in ppm."""
-        return float(
-            (mz_theoretical - (mz_measured - isotope * CARBON_MASS_DELTA / charge))
-            / mz_measured
-            * 10**6
-        )
+        return float((mz_theoretical - (mz_measured - isotope * CARBON_MASS_DELTA / charge)) / mz_measured * 10**6)
 
     # Adapted from https://github.com/Noble-Lab/casanovo/blob/main/casanovo/denovo/evaluate.py
     def _novor_match(

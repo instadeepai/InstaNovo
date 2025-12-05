@@ -1,0 +1,58 @@
+# Accept Python version as build argument
+ARG PYTHON_VERSION=3.13
+
+# Use a lightweight Python image with uv pre-installed
+FROM ghcr.io/astral-sh/uv:python${PYTHON_VERSION}-bookworm-slim
+
+# Install git, make, Java, and other tools, then clean up in a single layer to reduce image size
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git \
+    make \
+    util-linux \
+    wget \
+    openjdk-17-jre-headless \
+    && apt-get clean autoclean \
+    && apt-get autoremove -y \
+    && rm -rf /var/lib/apt/lists/* /var/lib/{dpkg,cache,log} /var/cache/apt
+
+# Set JAVA_HOME environment variable
+ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+
+# Install allure command-line tool
+RUN wget -qO - https://github.com/allure-framework/allure2/releases/download/2.31.0/allure-2.31.0.tgz | tar -xz && \
+    mv allure-2.31.0 /opt/allure && \
+    ln -s /opt/allure/bin/allure /usr/local/bin/allure
+
+# Set working directory
+WORKDIR /app
+
+# Create virtual environment location
+ENV VIRTUAL_ENV=/app/.venv
+ENV PATH="/app/.venv/bin:$PATH"
+ENV UV_LINK_MODE=copy
+
+# Copy dependency files for optimal layer caching
+# These files change less frequently than source code
+COPY uv.lock pyproject.toml /app/
+
+# Install all dependencies (but not the project itself)
+# This layer will be cached until uv.lock or pyproject.toml changes
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --locked --no-install-project --extra cu126 --all-groups
+
+# Copy the entire project
+# This layer invalidates when source code changes, but dependencies are cached
+COPY . /app/
+
+# Download and extract test resources
+# This will be cached unless the source code of the script changes.
+RUN python -m instanovo.scripts.get_zenodo_record
+
+# Install the project itself (fast since deps are already installed)
+# Using --no-editable ensures the project is properly installed, not just linked
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --locked --extra cu126 --all-groups --no-editable
+
+# Verify installation
+RUN python -c "import instanovo; print(f'InstaNovo version: {instanovo.__version__}')"

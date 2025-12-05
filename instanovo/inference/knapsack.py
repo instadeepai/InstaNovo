@@ -8,6 +8,7 @@ from dataclasses import dataclass
 import numpy as np
 
 from instanovo.__init__ import console
+from instanovo.constants import CARBON_MASS_DELTA
 from instanovo.types import KnapsackChart, MassArray
 from instanovo.utils.colorlogging import ColorLog
 
@@ -52,6 +53,7 @@ class Knapsack:
 
     max_mass: float
     mass_scale: int
+    max_isotope: int
     residues: list[str]
     residue_indices: dict[str, int]
     masses: MassArray
@@ -75,6 +77,7 @@ class Knapsack:
         parameters = (
             self.max_mass,
             self.mass_scale,
+            self.max_isotope,
             self.residues,
             self.residue_indices,
         )
@@ -89,6 +92,7 @@ class Knapsack:
         residue_indices: dict[str, int],
         max_mass: float,
         mass_scale: int,
+        max_isotope: int = 2,
     ) -> "Knapsack":
         """Construct a knapsack chart using depth-first search.
 
@@ -130,8 +134,12 @@ class Knapsack:
         logger.info("Scaling masses.")
         # Load residue information into appropriate data structures
         residues, scaled_residue_masses = [""], {}
+        negative_residue_masses = [0.0]
+
         for residue, mass in residue_masses.items():
             residues.append(residue)
+            if mass < 0:
+                negative_residue_masses.append(mass)
             if abs(mass) > 0:
                 scaled_residue_masses[residue] = round(mass * mass_scale)
 
@@ -142,8 +150,14 @@ class Knapsack:
         logger.info("Initializing chart.")
         agenda, visited = [], set()
         for residue, mass in scaled_residue_masses.items():
-            agenda.append(mass)
-            chart[mass, residue_indices[residue]] = True
+            if mass < 0:
+                chart[:, residue_indices[residue]] = True
+                continue
+            for negative_mass in negative_residue_masses:
+                for isotope in range(0, max_isotope + 1, 1):
+                    offset = round((CARBON_MASS_DELTA * isotope + negative_mass) * mass_scale)
+                    agenda.append(mass + offset)
+                    chart[mass + offset, residue_indices[residue]] = True
 
         # Perform depth-first search
         logger.info("Performing search.")
@@ -154,6 +168,8 @@ class Knapsack:
                 continue
 
             for residue, mass in scaled_residue_masses.items():
+                if mass < 0:
+                    continue
                 next_mass = current_mass + mass
                 if next_mass <= scaled_max_mass:
                     agenda.append(next_mass)
@@ -164,6 +180,7 @@ class Knapsack:
         return cls(
             max_mass=max_mass,
             mass_scale=mass_scale,
+            max_isotope=max_isotope,
             residues=residues,
             residue_indices=residue_indices,
             masses=masses,
@@ -181,14 +198,13 @@ class Knapsack:
         Returns:
             _type_: _description_
         """
-        max_mass, mass_scale, residues, residue_indices = pickle.load(
-            open(os.path.join(path, "parameters.pkl"), "rb")
-        )
+        max_mass, mass_scale, max_isotope, residues, residue_indices = pickle.load(open(os.path.join(path, "parameters.pkl"), "rb"))
         masses = np.load(os.path.join(path, "masses.npy"))
         chart = np.load(os.path.join(path, "chart.npy"))
         return cls(
             max_mass=max_mass,
             mass_scale=mass_scale,
+            max_isotope=max_isotope,
             residues=residues,
             residue_indices=residue_indices,
             masses=masses,

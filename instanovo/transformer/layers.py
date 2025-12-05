@@ -24,9 +24,7 @@ class PositionalEncoding(nn.Module):
         pe[0, :, 1::2] = torch.cos(position * div_term)
         self.register_buffer("pe", pe)
 
-    def forward(
-        self, x: Float[Tensor, "token batch embedding"]
-    ) -> Float[Tensor, "token batch embedding"]:
+    def forward(self, x: Float[Tensor, "token batch embedding"]) -> Float[Tensor, "token batch embedding"]:
         """Positional encoding forward pass.
 
         Arguments:
@@ -39,9 +37,12 @@ class PositionalEncoding(nn.Module):
 class MultiScalePeakEmbedding(nn.Module):
     """Multi-scale sinusoidal embedding based on Voronov et. al."""
 
-    def __init__(self, h_size: int, dropout: float = 0) -> None:
+    def __init__(self, h_size: int, dropout: float = 0, float_dtype: torch.dtype | str = torch.float64) -> None:
         super().__init__()
         self.h_size = h_size
+        self.float_dtype = getattr(torch, float_dtype, None) if isinstance(float_dtype, str) else float_dtype
+        if self.float_dtype is None:
+            raise ValueError(f"Unknown torch dtype string: {float_dtype}")
 
         self.mlp = nn.Sequential(
             nn.Linear(h_size, h_size),
@@ -59,7 +60,7 @@ class MultiScalePeakEmbedding(nn.Module):
             nn.Dropout(dropout),
         )
 
-        freqs = 2 * np.pi / torch.logspace(-2, -3, int(h_size / 2), dtype=torch.float64)
+        freqs = 2 * np.pi / torch.logspace(-2, -3, int(h_size / 2), dtype=self.float_dtype)
         self.register_buffer("freqs", freqs)
 
     # @torch.autocast("cuda", dtype=torch.float32)

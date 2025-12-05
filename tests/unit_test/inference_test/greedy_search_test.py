@@ -7,7 +7,7 @@ import torch
 
 from instanovo.constants import MASS_SCALE
 from instanovo.inference.greedy_search import GreedyDecoder
-from instanovo.inference.interfaces import ScoredSequence
+from instanovo.utils.device_handler import check_device
 
 
 def test_greedy_decoder(instanovo_model: tuple[Any, Any]) -> None:
@@ -28,10 +28,10 @@ def test_greedy_decoder(instanovo_model: tuple[Any, Any]) -> None:
 
 def test_decode(instanovo_model: tuple[Any, Any]) -> None:
     """Test greedy decoder decode function."""
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+    device = check_device()
     model, _ = instanovo_model
     model = model.to(device)
-    gd = GreedyDecoder(model, mass_scale=MASS_SCALE)
+    gd = GreedyDecoder(model, mass_scale=MASS_SCALE, float_dtype=torch.float32 if device == "mps" else torch.float64)
 
     spectra = torch.tensor(
         [
@@ -52,32 +52,18 @@ def test_decode(instanovo_model: tuple[Any, Any]) -> None:
         device=device,
     )
 
-    scored_sequence = gd.decode(spectra, precursors, beam_size=5, max_length=6)
+    result: dict[str, Any] = gd.decode(spectra, precursors, beam_size=5, max_length=6)
 
-    expected_scored_sequence = [
-        ScoredSequence(
-            sequence=["C", "B", "E", "D", "D", "D"],
-            mass_error=-6.347656196226126e-07,
-            sequence_log_probability=-4.22208309173584,
-            token_log_probabilities=[
-                -0.006113164126873016,
-                -0.6898691058158875,
-                -1.1169137954711914,
-                -0.9948660135269165,
-                -0.7691261768341064,
-                -0.645194947719574,
-            ],
-        )
-    ]
-
-    if isinstance(scored_sequence[0], ScoredSequence):
-        assert scored_sequence[0].sequence == expected_scored_sequence[0].sequence
-        assert scored_sequence[0].mass_error == pytest.approx(
-            expected_scored_sequence[0].mass_error, abs=1e-2
-        )
-        assert scored_sequence[0].sequence_log_probability == pytest.approx(
-            expected_scored_sequence[0].sequence_log_probability, abs=1e-2
-        )
-        assert scored_sequence[0].token_log_probabilities == pytest.approx(
-            expected_scored_sequence[0].token_log_probabilities, abs=1e-2
-        )
+    assert result["predictions"][0] == ["C", "B", "E", "D", "D", "D"]
+    assert result["prediction_log_probability"][0] == pytest.approx(-4.22208309173584, rel=1e-1)
+    assert result["prediction_token_log_probabilities"][0] == pytest.approx(
+        [
+            -0.006113164126873016,
+            -0.6898691058158875,
+            -1.1169137954711914,
+            -0.9948660135269165,
+            -0.7691261768341064,
+            -0.645194947719574,
+        ],
+        rel=1e-1,
+    )

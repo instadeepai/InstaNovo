@@ -1,54 +1,66 @@
 defaults:
   - _self_
   - model: instanovoplus_base
-  - dataset: acpt
+  - dataset: default
   - residues: default
+
+run_name: instanovoplus
+tags:
+  - diffusion
 
 # Overwritten when using Aichor
 tb_summarywriter: "./logs/instanovo/instanovplus-base"
 
 # Training parameters
 seed: 101
-warmup_iters: 10000
+warmup_iters: 50_000
 learning_rate: 5e-5
-weight_decay: 0
+weight_decay: 0.0
 train_batch_size: 128
-n_gpu: 1
-gradient_clip_val: 5 #10.0
+grad_accumulation: 1
+gradient_clip_val: 10.0
 predict_batch_size: 128
+lr_scheduler: "cosine"
+
+# Data loading parameters
+num_workers: 6
+pin_memory: True
+prefetch_factor:
+
 compile_model: True
+fp16: True
+force_cpu: False
+mps: False
+force_fp32: False
 
 # Logging parameters
-epochs: 30 #10
+# epochs: 30 #10
+training_steps: 10_000_000
 num_sanity_val_steps: 10
 console_logging_steps: 2000
 tensorboard_logging_steps: 500
-report_to: neptune
-run_name: instanovoplus_acpt_base
-tags:
-  - acpt
+# x-axis for validation metrics on tensorboard/neptune
+# validation_axis_type: "epoch" # "epoch" or "step"
+use_neptune: True
+
+enable_verbose_logging: False
+enable_verbose_accelerate: True
+enable_verbose_s3: True
 
 # Training data parameters
-train_subset: 1
-valid_subset: 0.01
-val_check_interval: 0.2
-lazy_loading: True # Use lazy loading mode
-max_shard_size: 1_000_000 # Max data shard size for lazy loading, may influence shuffling mechanics
-preshuffle_shards: False #True # Perform a preshuffle across shards to ensure shards are homogeneous in lazy mode
-perform_data_checks: True # Check residues, check precursor masses, etc.
-validate_precursor_mass: False # Slow for large datasets
-verbose_loading: True # Verbose SDF logs when loading the dataset
+train_subset: 1.0
+valid_subset: 1.0
+
+# Number of model updates between validations
+validation_interval: 100_000 # roughly half an epoch
 
 # Checkpointing parameters
 save_model: True
 model_save_folder_path: "checkpoints/instanovoplus-base"
-ckpt_interval: 50000
-train_from_scratch: True
-resume_checkpoint:
-
-blacklist:
-
-device: auto
-fp16: True
-
-time_steps: 200
+save_weights_only: False
+# Number of model updates between checkpoints
+checkpoint_interval: 100_000
+# Accelerate checkpoint
+resume_accelerator_state:
+# Model checkpoint
+resume_checkpoint_path:

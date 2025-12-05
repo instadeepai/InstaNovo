@@ -1,0 +1,493 @@
+name: CI Pipeline
+
+# Consolidated triggers for all jobs
+on:
+  # For main CI/CD on main branches
+  push:
+    branches:
+      - main
+      - test_ci
+  # For validation on pull requests (excluding drafts)
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  # Allows manual triggering
+  workflow_dispatch:
+
+# Concurrency control to cancel stale runs
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Environment variables available to all jobs
+env:
+  COVERAGE_THRESHOLD: ${{ vars.COVERAGE_THRESHOLD || 60 }}
+
+jobs:
+  # Job 1: Build Docker images for multiple Python versions
+  # These images are used by all Linux jobs.
+  docker_build:
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
+    uses: instadeepai/mlops-reusable-ci/.github/workflows/docker-build.yaml@main
+    with:
+      # Dynamically set runner based on repository visibility
+      job-runner: ${{ github.event.repository.private == true && 'instadeep-ci' || 'ubuntu-latest' }}
+      display-name: CI image Python ${{ matrix.python-version }}
+      build-path: . # project root
+      # Dynamically set image name based on repository visibility
+      image: ${{ github.event.repository.private == true && 'ghcr.io/instadeepai/instanovo-internal' || 'ghcr.io/instadeepai/instanovo' }}/ci-py${{ matrix.python-version }}
+      cache-image: ${{ github.event.repository.private == true && 'ghcr.io/instadeepai/instanovo-internal' || 'ghcr.io/instadeepai/instanovo' }}/ci-py${{ matrix.python-version }}/cache${{ github.event_name == 'pull_request' && format('-pr-{0}', github.event.pull_request.number) || '' }}
+      main-branch: main
+      filename: "./Dockerfile.ci"
+      registry-host: ghcr.io
+      registry-username: ${{ github.actor }}
+      dockerhub-username: ${{ vars.DOCKERHUB_USERNAME }}
+      instadeep-app-id: ${{ vars.INSTADEEP_APP_ID }}
+      build-args: |
+        PYTHON_VERSION=${{ matrix.python-version }}
+    secrets:
+      pre-script: |
+        echo "Starting Docker image build for Python ${{ matrix.python-version }}..."
+      registry-password: ${{ secrets.GITHUB_TOKEN }}
+      dockerhub-password: ${{ secrets.DOCKERHUB_TOKEN }}
+      instadeep-app-secret-pem: ${{ secrets.INSTADEEP_APP_SECRET_PEM }}
+
+  # Job 2: Run linting on Linux (in parallel)
+  linux_lint:
+    needs: docker_build
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
+    runs-on: ${{ github.event.repository.private == true && 'instadeep-ci-8-highmem' || 'ubuntu-latest' }}
+    container:
+      image: ${{ github.event.repository.private == true && 'ghcr.io/instadeepai/instanovo-internal' || 'ghcr.io/instadeepai/instanovo' }}/ci-py${{ matrix.python-version }}:${{ github.sha }}
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+      - run: git config --system --add safe.directory $GITHUB_WORKSPACE
+
+      - name: Verify environment
+        run: |
+          echo "Python version: $(python --version)"
+          uv pip list
+
+      - name: Run pre-commit hooks
+        run: |
+          pre-commit install
+          pre-commit run --all-files
+
+  # Job 3: Run main tests on Linux (in parallel)
+  linux_test:
+    needs: docker_build
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
+    runs-on: ${{ github.event.repository.private == true && 'instadeep-ci-8-highmem' || 'ubuntu-latest' }}
+    container:
+      image: ${{ github.event.repository.private == true && 'ghcr.io/instadeepai/instanovo-internal' || 'ghcr.io/instadeepai/instanovo' }}/ci-py${{ matrix.python-version }}:${{ github.sha }}
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - run: git config --system --add safe.directory $GITHUB_WORKSPACE
+
+      - name: Restore test resources from Docker image
+        run: cp -r /app/tests/instanovo_test_resources ./tests/
+
+      - name: Run tests with coverage
+        run: |
+          pytest -v \
+            --alluredir=allure_results \
+            --cov \
+            --cov-report=html:docs/coverage \
+            --cov-report=xml \
+            --random-order
+          coverage report -m --fail-under=${COVERAGE_THRESHOLD}
+
+      - name: Upload coverage results
+        if: matrix.python-version == '3.13'
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-results-py3.13
+          path: |
+            ./docs/coverage/
+            ./coverage.xml
+          retention-days: 1
+
+      - name: Upload Allure results
+        if: matrix.python-version == '3.13'
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-results-py${{ matrix.python-version }}
+          path: allure_results
+          retention-days: 1
+
+  # Job 4: Test Notebook on Linux (in parallel)
+  linux_test_notebook:
+    if: ((github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch')
+    needs: docker_build
+    runs-on: ${{ github.event.repository.private == true && 'instadeep-ci-8-highmem' || 'ubuntu-latest' }}
+    container:
+      image: ${{ github.event.repository.private == true && 'ghcr.io/instadeepai/instanovo-internal' || 'ghcr.io/instadeepai/instanovo' }}/ci-py3.13:${{ github.sha }}
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - run: git config --system --add safe.directory $GITHUB_WORKSPACE
+
+      - name: Test notebooks
+        run: |
+          sed -i 's/test\[:10%\]/test[:10]/g' notebooks/getting_started_with_instanovo.ipynb
+          python -m ipykernel install --user --name instanovo
+          PYDEVD_DISABLE_FILE_VALIDATION=1 pytest \
+            --nbmake "./notebooks/getting_started_with_instanovo.ipynb" \
+            --nbmake-kernel=instanovo \
+            --nbmake-timeout=10000
+
+  # Job 5: Build Docs, Generate Reports, and Deploy
+  docs:
+    needs: linux_test
+    runs-on: ${{ github.event.repository.private == true && 'instadeep-ci-4' || 'ubuntu-latest' }}
+    container:
+      image: ${{ github.event.repository.private == true && 'ghcr.io/instadeepai/instanovo-internal' || 'ghcr.io/instadeepai/instanovo' }}/ci-py3.13:${{ github.sha }}
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Checkout main branch code
+        uses: actions/checkout@v5
+        with:
+          # Fetch all history for plugins that rely on Git history
+          fetch-depth: 0
+          # Enable write access for committing coverage badge
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - run: git config --system --add safe.directory $GITHUB_WORKSPACE
+
+      - name: Generate terminal images with rich-codex
+        run: |
+          script -e -c "rich-codex \
+            --search-include 'docs/**/*.md' \
+            --timeout 30 \
+            --terminal-theme MONOKAI \
+            --terminal-width 160 \
+            --use-pty \
+            --no-confirm \
+            --min-pct-diff 10" /dev/null
+
+      - name: Download coverage results
+        uses: actions/download-artifact@v4
+        with:
+          name: coverage-results-py3.13
+          path: .
+
+      - name: Download Allure results
+        uses: actions/download-artifact@v4
+        with:
+          name: allure-results-py3.13
+          path: allure_results
+      
+      - name: Generate coverage badge
+        run: |
+          if [ -f "coverage.xml" ]; then
+            echo "Generating coverage badge..."
+            mkdir -p docs/assets
+            genbadge coverage -i coverage.xml -o docs/assets/coverage.svg
+          else
+            echo "Warning: coverage.xml not found, skipping badge generation"
+          fi
+      
+      - name: Commit coverage badge to repository
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          if [ -f "docs/assets/coverage.svg" ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add docs/assets/coverage.svg
+            git diff --staged --quiet || git commit -m "docs: update coverage badge [skip ci]"
+            git push origin main || echo "No changes to commit or push failed"
+          fi
+      
+      - name: Checkout gh-pages branch for Allure history
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          path: gh-pages
+        continue-on-error: true # Continue if gh-pages doesn't exist yet
+
+      - name: Copy Allure history
+        run: |
+          # Copy history from the temporary checkout to the allure_results directory
+          if [ -d "gh-pages/allure-report/history" ]; then
+              echo "Copying history from previous report on gh-pages..."
+              mkdir -p allure_results/history
+              cp -r gh-pages/allure-report/history/* allure_results/history/
+          fi
+          # Remove the temporary checkout *before* the mkdocs build
+          echo "Cleaning up temporary gh-pages directory..."
+          rm -rf gh-pages
+      
+      - name: Generate Allure report
+        run: |
+          echo "Generating Allure report..."
+          allure generate allure_results -o allure-report --clean
+      
+      - name: Build the MkDocs site
+        run: mkdocs build
+      
+      - name: Move reports into the built docs_public directory
+        run: |
+          echo "Placing Allure report..."
+          mv allure-report docs_public/allure-report
+          echo "Placing coverage report..."
+          if [ -d "docs/coverage" ]; then 
+            mv docs/coverage docs_public/coverage
+          fi
+
+      - name: Deploy to GitHub Pages (PR Preview)
+        if: github.event_name == 'pull_request'
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./docs_public
+          destination_dir: pr-${{ github.event.pull_request.number }}
+          keep_files: true  # Don't remove other PR previews
+
+      - name: Show Preview URL
+        if: github.event_name == 'pull_request'
+        run: |
+          echo "=============================================="
+          echo "Documentation Preview deployed successfully!"
+          echo "URL: https://cuddly-adventure-n2v5ryv.pages.github.io/pr-${{ github.event.pull_request.number }}/"
+          echo "This preview will be deleted after 7 days."
+          echo "=============================================="
+      
+      - name: Clean up old previews (>7 days)
+        if: github.event_name == 'pull_request'
+        run: |
+          echo "Cleaning up previews older than 7 days..."
+          # Checkout gh-pages branch in a separate directory
+          git fetch origin gh-pages || echo "gh-pages branch not found, skipping cleanup"
+          
+          # Use worktree to checkout gh-pages without affecting current directory
+          if git show-ref --verify --quiet refs/remotes/origin/gh-pages; then
+            git worktree add gh-pages-cleanup origin/gh-pages 2>/dev/null || (git worktree remove gh-pages-cleanup --force 2>/dev/null; git worktree add gh-pages-cleanup origin/gh-pages)
+            
+            if [ -d "gh-pages-cleanup" ]; then
+              cd gh-pages-cleanup
+              
+              # Find and remove directories older than 7 days
+              REMOVED_COUNT=0
+              for dir in pr-*/; do
+                if [ -d "$dir" ]; then
+                  # Get the directory's modification time and check if it's older than 7 days
+                  DIR_MTIME=$(stat -c %Y "$dir" 2>/dev/null || stat -f %m "$dir" 2>/dev/null || echo "0")
+                  CURRENT_TIME=$(date +%s)
+                  AGE_DAYS=$(( (CURRENT_TIME - DIR_MTIME) / 86400 ))
+                  
+                  if [ $AGE_DAYS -gt 7 ]; then
+                    echo "Removing old preview: $dir (age: ${AGE_DAYS} days)"
+                    rm -rf "$dir"
+                    REMOVED_COUNT=$((REMOVED_COUNT + 1))
+                  fi
+                fi
+              done
+              
+              if [ $REMOVED_COUNT -gt 0 ]; then
+                git config user.name "github-actions[bot]"
+                git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+                # Only stage deletions, not new files
+                git add -u
+                if ! git diff --staged --quiet; then
+                  git commit -m "Clean old PR previews (older than 7 days)"
+                  git push origin gh-pages || echo "Push failed"
+                  echo "Removed $REMOVED_COUNT old preview(s)"
+                else
+                  echo "No changes to commit"
+                fi
+              else
+                echo "No old previews to remove"
+              fi
+              
+              cd ..
+              git worktree remove gh-pages-cleanup --force || true
+            fi
+          else
+            echo "gh-pages branch does not exist yet, skipping cleanup"
+          fi
+      
+      - name: Deploy to GitHub Pages (Main)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./docs_public
+
+  # Job 6: Run tests on Windows for public repositories
+  windows_test:
+    if: github.event.repository.private == false
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Install uv and set up Python ${{ matrix.python-version }}
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: uv sync --extra cpu --all-groups
+
+      - name: Cache pre-commit environments
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pre-commit
+          key: pre-commit-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
+          restore-keys: |
+            pre-commit-${{ runner.os }}-
+
+      - name: Lint with pre-commit
+        run: |
+          pre-commit install
+          pre-commit run --all-files -c .pre-commit-config.yaml
+
+      - name: Test with pytest
+        run: |
+          python -m instanovo.scripts.get_zenodo_record
+          pytest -v `
+            --cov `
+            --cov-report=html `
+            --cov-report=term `
+            --random-order
+          coverage report -m --fail-under=$env:COVERAGE_THRESHOLD
+        shell: pwsh
+
+      - name: Test notebooks (Python 3.13 only)
+        if: matrix.python-version == '3.13'
+        run: |
+          (Get-Content "notebooks/getting_started_with_instanovo.ipynb") -replace 'test\[:10%\]', 'test[:10]' | Set-Content "notebooks/getting_started_with_instanovo.ipynb"
+          python -m ipykernel install --user --name instanovo
+          $env:PYDEVD_DISABLE_FILE_VALIDATION = "1"
+          pytest `
+            --nbmake "./notebooks/getting_started_with_instanovo.ipynb" `
+            --nbmake-kernel=instanovo `
+            --nbmake-timeout=10000
+        shell: pwsh
+
+  # Job 7: Run tests on macOS for public repositories
+  macos_test:
+    if: github.event.repository.private == false
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
+    runs-on: macos-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Install uv and set up Python ${{ matrix.python-version }}
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: uv sync --extra cpu --all-groups
+
+      - name: Cache pre-commit environments
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pre-commit
+          key: pre-commit-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
+          restore-keys: |
+            pre-commit-${{ runner.os }}-
+
+      - name: Lint with pre-commit
+        run: |
+          pre-commit install
+          pre-commit run --all-files -c .pre-commit-config.yaml
+
+      - name: Test with pytest
+        run: |
+          python -m instanovo.scripts.get_zenodo_record
+          pytest -v \
+            --cov \
+            --cov-report=html \
+            --cov-report=term \
+            --random-order
+          coverage report -m --fail-under=${COVERAGE_THRESHOLD}
+
+      - name: Test notebooks (Python 3.13 only)
+        if: matrix.python-version == '3.13'
+        run: |
+          sed -i '' 's/test\[:10%\]/test[:10]/g' notebooks/getting_started_with_instanovo.ipynb
+          python -m ipykernel install --user --name instanovo
+          PYDEVD_DISABLE_FILE_VALIDATION=1 pytest \
+            --nbmake "./notebooks/getting_started_with_instanovo.ipynb" \
+            --nbmake-kernel=instanovo \
+            --nbmake-timeout=10000
+
+  # Job 8: Run GPU-specific tests on private infrastructure
+  linux_test_gpu:
+    # Run only when PR is merged to main (push to main after merge) or when manually triggered:
+    if: github.event.repository.private == true && ((github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch')
+    needs: docker_build
+    runs-on: instadeep-ci
+    container:
+      image: ghcr.io/instadeepai/instanovo-internal/ci-py3.13:${{ github.sha }}
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - run: git config --system --add safe.directory $GITHUB_WORKSPACE
+
+      - name: Authenticate with AIchor
+        run: aichor auth key --apikey ${{ secrets.AICHOR_API_KEY }}
+        env:
+          AICHOR_API_KEY: ${{ secrets.AICHOR_API_KEY }}
+
+      - name: Update manifest.yaml command
+        run: python scripts/update_manifest.py --command "make tests" --gpu 1
+
+      - name: Submit GPU experiment to AIchor
+        run: |
+          COMMIT_SHORT=$(echo "${{ github.sha }}" | cut -c1-7)
+          if [ "${{ github.event_name }}" == "pull_request" ]; then
+            MESSAGE="exp: CI GPU test - PR #${{ github.event.pull_request.number }} - $COMMIT_SHORT"
+          else
+            MESSAGE="exp: CI GPU test - $COMMIT_SHORT"
+          fi
+          echo "Submitting experiment with message: $MESSAGE"
+          EXPERIMENT_OUTPUT=$(aichor submit local experiment \
+            --repo-dir . \
+            --message "$MESSAGE" \
+            --project-name "DTU Denovo Sequencing")
+          echo "$EXPERIMENT_OUTPUT"
+          EXPERIMENT_ID=$(echo "$EXPERIMENT_OUTPUT" | grep "Experiment ID:" | awk '{print $4}')
+          echo "EXPERIMENT_ID=$EXPERIMENT_ID" >> $GITHUB_ENV
+
+      - name: Monitor experiment status
+        shell: bash
+        run: |
+          chmod +x scripts/monitor_experiment.sh
+          ./scripts/monitor_experiment.sh "$EXPERIMENT_ID"

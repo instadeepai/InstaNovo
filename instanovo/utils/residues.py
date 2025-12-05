@@ -68,6 +68,8 @@ class ResidueSet:
         self.SOS_INDEX: int = self.residue_to_index[SpecialTokens.SOS_TOKEN.value]
         self.EOS_INDEX: int = self.residue_to_index[SpecialTokens.EOS_TOKEN.value]
 
+        # TODO: Add support for specifying which residues are n-terminal only.
+
     def update_remapping(self, mapping: dict[str, str]) -> None:
         """Update the residue remapping for specific datasets.
 
@@ -94,7 +96,7 @@ class ResidueSet:
             residue = self.residue_remapping[residue]
         return self.residue_masses[residue]
 
-    def get_sequence_mass(self, sequence: str, charge: int | None) -> float:
+    def get_sequence_mass(self, sequence: str | list[str], charge: int | None) -> float:
         """Get the mass of a residue sequence.
 
         Args:
@@ -123,16 +125,13 @@ class ResidueSet:
         Returns:
             list[str]: The sequence of residues forming the peptide.
         """
+        # return re.split(self.tokenizer_regex, sequence)
+        # TODO: find a way to handle N-terminal PTMs appearing at any position
         if sequence is None:
             return []
         if isinstance(sequence, list):
             return sequence
-        return [
-            item
-            for sublist in re.findall(self.tokenizer_regex, sequence)
-            for item in sublist
-            if item
-        ]
+        return [item for sublist in re.findall(self.tokenizer_regex, sequence) for item in sublist if item]
 
     def detokenize(self, sequence: list[str]) -> str:
         """Joining a list of residues into a string representing the peptide.
@@ -230,3 +229,14 @@ class ResidueSet:
         if not isinstance(other, ResidueSet):
             return NotImplemented
         return self.vocab == other.vocab
+
+    def __contains__(self, residue: str) -> bool:
+        """Check if a residue is in the residue set.
+
+        Args:
+            residue (str): The residue to check.
+
+        Returns:
+            bool: True if the residue is in the residue set, False otherwise.
+        """
+        return residue in self.residue_masses

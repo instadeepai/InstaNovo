@@ -1,8 +1,12 @@
 defaults:
   - _self_
   - model: instanovo_base
-  - dataset: acpt
+  - dataset: default
   - residues: default
+
+run_name: instanovo
+tags:
+  - default
 
 # Overwritten when using Aichor
 tb_summarywriter: "./logs/instanovo/instanovo-base"
@@ -10,45 +14,72 @@ tb_summarywriter: "./logs/instanovo/instanovo-base"
 # Training parameters
 seed: 101
 warmup_iters: 100_000
-max_iters: 3_000_000
 learning_rate: 5e-5 #5e-4 5e-5
-weight_decay: 1e-5
-train_batch_size: 256 #32
+weight_decay: 0.0 #1e-5
+train_batch_size: 128
 grad_accumulation: 1
-n_gpu: 1
 gradient_clip_val: 10.0
-predict_batch_size: 64
-n_beams: 5
-fp16: True
+predict_batch_size: 128
+lr_scheduler: "cosine"
+
+# Data loading parameters
+num_workers: 8
+pin_memory: False
+prefetch_factor:
+use_shuffle_buffer: True
+shuffle_buffer_size: 100_000
+
 compile_model: True
+force_cpu: False
+fp16: True
+mps: False
+force_fp32: False
 
 # Logging parameters
-epochs: 30
+# epochs: 10
+training_steps: 2_500_000
 num_sanity_val_steps: 10
+validate_before_training: True
 console_logging_steps: 2000
 tensorboard_logging_steps: 500
-report_to: neptune
-run_name: instanovo_acpt_base
-tags:
-  - acpt
+use_neptune: True
+
+enable_verbose_logging: False
+enable_verbose_accelerate: True
+enable_verbose_s3: True
 
 # Training data parameters
 train_subset: 1.0
-valid_subset: 0.01
-val_check_interval: 1.0 # 1.0 This doesn't work
-lazy_loading: True # Use lazy loading mode
-max_shard_size: 1_000_000 # Max data shard size for lazy loading, may influence shuffling mechanics
-preshuffle_shards: True # Perform a preshuffle across shards to ensure shards are homogeneous in lazy mode
-perform_data_checks: True # Check residues, check precursor masses, etc.
-validate_precursor_mass: False # Slow for large datasets
-verbose_loading: True # Verbose SDF logs when loading the dataset
+valid_subset: 1.0
+
+# Number of model updates between validations
+validation_interval: 100_000 # roughly half an epoch
 
 # Checkpointing parameters
-save_model: True
-model_save_folder_path: "checkpoints/instanovo-base"
-save_weights_only: False
-ckpt_interval: 100_000
-train_from_scratch: True
-resume_checkpoint:
+# Both model and accelerator level checkpointing
+# Either can save every `checkpoint_interval` or only keep best and latest
 
-blacklist:
+# Model level checkpointing
+save_model: True
+# If false, only keep the best checkpoint and latest checkpoint
+# Best checkpoint is the one with the lowest `metric_to_keep_model`
+# If true, save every `checkpoint_interval`
+keep_model_every_interval: False
+# Accelerator level checkpointing
+save_accelerator_state: True
+# If false, only keep the best checkpoint and latest checkpoint
+# If true, save every `checkpoint_interval`
+keep_accelerator_every_interval: False
+# Other checkpointing parameters
+model_save_folder_path: "checkpoints/instanovo-base"
+# Number of model updates between checkpoints
+checkpoint_interval: 100_000 # roughly half an epoch
+# Metric to keep the best checkpoint, eg
+checkpoint_metric: "valid_loss"
+# Min or max, min means lower is better, max means higher is better
+checkpoint_metric_mode: "min"
+
+# Accelerate checkpoint (resume training)
+resume_accelerator_state:
+# Model checkpoint (fine-tuning)
+resume_checkpoint_path:

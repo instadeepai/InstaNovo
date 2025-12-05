@@ -2,7 +2,7 @@ default_stages: [pre-commit]
 
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v5.0.0
+    rev: v6.0.0
     hooks:
       - id: debug-statements # Check for debugger imports
       - id: requirements-txt-fixer # Order requirements alphabetically
@@ -14,11 +14,28 @@ repos:
       - id: check-yaml # Check yaml files
         args: ["--unsafe"]
       - id: end-of-file-fixer # Ensure that a file is either empty, or ends with one newline
+        exclude: |
+          (?x)(
+              ^docs/|
+              ^notebooks/|
+          )
+
       - id: mixed-line-ending # Replace or checks mixed line ending
+        exclude: |
+          (?x)(
+              ^docs/|
+              ^notebooks/|
+          )
+
       - id: trailing-whitespace # This hook trims trailing whitespace
+        exclude: |
+          (?x)(
+              ^docs/|
+              ^notebooks/|
+          )
 
   - repo: https://github.com/compilerla/conventional-pre-commit
-    rev: v4.0.0
+    rev: v4.2.0
     hooks:
       - id: conventional-pre-commit
         stages:
@@ -37,15 +54,6 @@ repos:
             "exp",
             "chore",
           ]
-
-  - repo: https://github.com/pre-commit/mirrors-prettier
-    rev: v3.0.0-alpha.4
-    hooks:
-      - id: prettier
-        args:
-          - --print-width=100
-          - --prose-wrap=always
-          - --tab-width=2
 
   #   - repo: https://github.com/asottile/pyupgrade
   #     rev: v3.15.0
@@ -74,6 +82,8 @@ repos:
         types: [text]
         additional_dependencies:
           - tomli
+        exclude: |
+          ^(docs/.venv|dist|build)/
 
   - repo: https://github.com/kynan/nbstripout
     rev: 0.8.1
@@ -82,7 +92,7 @@ repos:
         exclude: ^notebooks/introducing_the_next_generation_of_InstaNovo_models\.ipynb$
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.11.0
+    rev: v0.13.0
     hooks:
       # Run the linter.
       - id: ruff
@@ -100,7 +110,7 @@ repos:
         types_or: [python, pyi]
 
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: "v1.15.0"
+    rev: "v1.17.1"
     hooks:
       - id: mypy
         additional_dependencies: [types-requests, types-PyYAML, types-tqdm] # TODO: pandas-stubs
@@ -114,7 +124,7 @@ repos:
 
   - repo: https://github.com/astral-sh/uv-pre-commit
     # uv version.
-    rev: 0.6.6
+    rev: 0.8.17
     hooks:
       # Update the uv lockfile
       - id: uv-lock

@@ -3,7 +3,20 @@ from __future__ import annotations
 from enum import Enum
 
 import polars as pl
-import torch
+
+# CLI constants
+
+DEFAULT_TRAIN_CONFIG_PATH = "../configs"
+DEFAULT_INFERENCE_CONFIG_PATH = "../configs/inference"
+DEFAULT_INFERENCE_CONFIG_NAME = "default"
+
+# Logging
+
+USE_RICH_HANDLER = True
+LOGGING_SHOW_PATH = False
+LOGGING_SHOW_TIME = True
+
+# Constants
 
 H2O_MASS = 18.0106
 CARBON_MASS_DELTA = 1.00335
@@ -12,6 +25,9 @@ MASS_SCALE = 10000
 MAX_MASS = 4000.0
 
 MAX_SEQUENCE_LENGTH = 200
+
+# Buffer size for shuffling the training dataset
+SHUFFLE_BUFFER_SIZE = 100_000
 
 
 class PrecursorDimension(Enum):
@@ -31,8 +47,6 @@ class SpecialTokens(Enum):
 
 
 PRECURSOR_DIM = 3
-
-INTEGER = torch.int64
 
 DIFFUSION_BASE_STEPS = 20
 DIFFUSION_START_STEP = 15
@@ -64,9 +78,15 @@ MS_TYPES: dict[MSColumns, pl.DataType] = {
     MSColumns.RETENTION_TIME: pl.Float64,
 }
 
-ANNOTATION_ERROR = (
-    "Attempting to load annotated dataset, but some or all sequence annotations are missing."
-)
+DATASETS_COLUMNS = [
+    MSColumns.MZ_ARRAY.value,
+    MSColumns.INTENSITY_ARRAY.value,
+    MSColumns.PRECURSOR_MZ.value,
+    MSColumns.PRECURSOR_CHARGE.value,
+    MSColumns.PRECURSOR_MASS.value,
+]
+
+ANNOTATION_ERROR = "Attempting to load annotated dataset, but some or all sequence annotations are missing."
 
 LEGACY_PTM_TO_UNIMOD: dict[str, str] = {
     "M(ox)": "M[UNIMOD:35]",
@@ -86,3 +106,16 @@ LEGACY_PTM_TO_UNIMOD: dict[str, str] = {
     "(+43.01)": "[UNIMOD:5]",
     "(-17.03)": "[UNIMOD:385]",
 }
+
+# Required output columns
+PREDICTION_COLUMNS = [
+    "prediction_id",
+    "predictions",
+    "targets",
+    "prediction_log_probability",
+    "prediction_token_log_probabilities",
+    "group",
+]
+
+REFINEMENT_COLUMN = "input_predictions"
+REFINEMENT_PROBABILITY_COLUMN = "input_log_probabilities"

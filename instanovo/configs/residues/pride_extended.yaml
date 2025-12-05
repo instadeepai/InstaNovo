@@ -1,0 +1,111 @@
+residues:
+  "G": 57.021464
+  "A": 71.037114
+  "S": 87.032028
+  "P": 97.052764
+  "V": 99.068414
+  "T": 101.047670
+  "C": 103.009185
+  "L": 113.084064
+  "I": 113.084064
+  "N": 114.042927
+  "D": 115.026943
+  "Q": 128.058578
+  "K": 128.094963
+  "E": 129.042593
+  "M": 131.040485
+  "H": 137.058912
+  "F": 147.068414
+  "R": 156.101111
+  "Y": 163.063329
+  "W": 186.079313
+  # Modifications
+  "M[UNIMOD:35]": 147.035400 # Oxidation
+  "C[UNIMOD:4]": 160.030649 # Carboxyamidomethylation
+  "N[UNIMOD:7]": 115.026943 # Deamidation
+  "Q[UNIMOD:7]": 129.042594 # Deamidation
+  # Extended modifications
+  # "F(+.98)": 148.052431 # Deamidation
+  # Phospho modifications
+  "S[UNIMOD:21]": 166.998028 # Phosphorylation + 79.966
+  "T[UNIMOD:21]": 181.01367 # Phosphorylation + 79.966
+  "Y[UNIMOD:21]": 243.029329 # Phosphorylation + 79.966
+  # Terminal modifications
+  "[UNIMOD:1]": 42.010565 # Acetylation
+  "[UNIMOD:5]": 43.005814 # Carbamylation
+  "[UNIMOD:385]": -17.026549 # NH3 loss
+  # "(+25.98)": 25.980265 # Carbamylation & NH3 loss
+  "(+57.021464)": 57.021464 # carbamidomethylation
+  "Q(-17.026549)": 111.032029 # glutamine to pyro glutamate conversion (common sample prep artifact)
+  "(+44.017274)": 44.017274 # heavy acetylation (labeling)
+  "F(+.98)": 148.048414 # phenylalanine deamidation
+  "C(-33.987721)": 69.021464 # dehydroalanine from cysteine
+  "C(+209.018035)": 312.027220 # carbamidomethylated DTT modification of cysteine
+  "(+58.005479)": 58.005479 # carboxymethylation (N-term artifact?)
+  "K(+43.005814)": 171.100777 # lysine acetylation
+  "C(+75.998285)": 179.007470 # cysteine mercaptoethanol
+  "Y(+15.994915)": 179.058244 # tyrosine oxidation
+  "S(-15.994915)": 71.037113 # serine to alanine conversion
+  "W(+31.989829)": 218.069142 # tryptophan dioxidation
+  "(+12.0)": 12.000000 # formaldehyde adduct (N-term?)
+  "(+40.0313)": 40.031300 # Propionaldehyde +40 (N-term?)
+  "(+42.010565)": 42.010565 # N-term acetylation
+  "S(+44.008456)": 131.040484 # S-Ethylcystine from Serine
+  "N(-17.026549)": 97.016378 # asparagine succinimide
+  "H(+57.021464)": 194.080376 # carbamidomethylated histidine (artifact)
+  "N(+2.988261)": 117.031188 # glycosylated asparagine (18O labeling)
+  "S(+58.029289)": 145.061317 # not found (serine to tryptophan conversion?)
+  "E(+52.911464)": 181.954057 # 3 proton replacement by iron (artifact)
+  "M(+57.021464)": 188.061949 # methionine carbamidomethyl
+  "E(+43.989829)": 173.032422 # glutamate carboxylation
+  "(+27.994915)": 27.994915 # formylation
+  "(+41.026549)": 41.026549 # N-term amidination E(-18.010565)
+  "C(+39.994915)": 143.004100 # cysteine pyrocarbamidomethylation (artifact)
+  "(+59.036279)": 59.036279 # N-terminal formyl-methionine (should be only on M residues)
+  "C(-33.003705)": 70.005480 # pyruvic acid from N-terminal cysteine (should be exclusive to N-term cysteines)
+  "K(+43.989829)": 172.084792 # lysine carboxylation
+  "(+58.041865)": 58.041865 # reduced acrolein addition
+  "D(+52.911464)": 167.938407 # 3 proton replacement by iron (artifact)
+  "C(+210.00205)": 313.011235 # carboxymethylated DTT modification of cysteine
+  "E(+14.01565)": 143.058243 # glutamate to aspartate conversion
+  "D(-18.010565)": 97.016378 # aspartate dehydration
+  "E(+53.919289)": 182.961882 # replacement of 2 protons by iron
+  "C(+58.005479)": 161.014664 # cystein carboxymethylation
+  "(+26.01565)": 26.015650 # N-term acetaldehyde
+  "R(+0.984016)": 157.085127 # arginine deamidation
+  "W(+15.994915)": 202.074228 # tryptophan oxidation
+  "E(+15.010899)": 144.053492 # ADP-ribosylation (artifact after exposure to hydroxylamine)
+  "S(+27.994915": 115.026938 # serine to aspartate conversion
+  "D(+53.919289)": 168.946232 # replacement of 2 protons by iron
+  "D(-15.994915)": 99.032028 # aspartate reduction
+  "D(+43.989829)": 159.016772 # aspartate carboxylation
+  "W(+3.994915)": 190.074228 # tryptophan oxidation to kynurenin
+  "T(-15.994915)": 85.052755 # tyrosine to phenylalanine conversion
+  "E(+57.021464)": 186.064057 # glutamate carbamidomethylation
+  "P(+18.010565)": 115.063329 # proline oxidation to 5-hydroxy-2-aminovaleric acid
+  "S(+42.010565)": 129.042593 # serine to glutamate substitution
+  "S(-15.010899)": 72.021129 # lactic acid from N-terminal serine (exclusive to N-terminal serines)
+  "A(+42.04695)": 113.084064 # alanine to leucine/isoleucine conversion
+  "M(-89.02992)": 42.010565 # removal or initiator methionine
+  "S(-17.026549)": 70.005479 # serine ammonia loss (should be exclusive to N-terminal serines)
+  "T(-17.026549)": 84.021121 # threonine ammonia loss (should be exclusive to N-terminal threonines)
+  "S(+59.019355)": 146.051383 # serine to aminoethylcysteine
+  "(-15.010899)": -15.010899 # ISD (z+2)-series (artifact)
+  "P(+31.989829)": 129.042593 # proline to glutamate conversion
+  "L(+31.989829)": 145.073893 # dihydroxyleucine
+  "Y(+44.985078)": 208.048407 # tyrosine nitrosylation
+  "T(+59.019355)": 160.067025 # threonine aminoethylcysteine
+  "E(+23.958063)": 153.000656 # replacement of 3 protons by aluminium
+  "C(+305.068156)": 408.077341 # glutathione disulfide
+  "D(+23.958063)": 138.985006 # replacement of 3 protons by aluminium
+  "T(-18.010565)": 83.037105 # threonine dehydration
+  "S(+43.005814)": 130.037842 # serine carbamylation
+  "C(+58.041865)": 161.051050 # reduced acrolein addition +58
+  "P(+15.994915)": 113.047679 # proline hydrohxylation
+  "F(+15.994915)": 163.063329 # phenylalanine hydroxylation
+  "D(+57.021464)": 172.048407 # aspartate carbamidomethylation
+  "E(-0.979006)": 128.063587 # pyro-Glu from glutamate + Methylation Medium
+  "E(+21.981943)": 151.024536 # sodium adduct
+  "M(+43.005814)": 174.046299 # methionine carbamylation
+  "S(+79.966331)": 166.998359 # serine phosphorylation
+  "H(+58.041865)": 195.100777 # reduced acrolein addition +58

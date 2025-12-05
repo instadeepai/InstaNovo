@@ -34,6 +34,7 @@ def test_convert_command(dir_paths: tuple[str, str]) -> None:
                 "--max-charge",
                 "2",
                 "--is-annotated",
+                "--add-spectrum-id",
             ],
         )
 
