@@ -41,7 +41,7 @@ jobs:
           apt-get update && apt-get install -y git curl
 
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -85,7 +85,7 @@ jobs:
       packages: write
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -140,7 +140,7 @@ jobs:
         password: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
       - run: git config --system --add safe.directory $GITHUB_WORKSPACE
 
       - name: Verify environment
@@ -170,7 +170,7 @@ jobs:
         password: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - run: git config --system --add safe.directory $GITHUB_WORKSPACE
 
@@ -220,7 +220,7 @@ jobs:
         password: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - run: git config --system --add safe.directory $GITHUB_WORKSPACE
 
@@ -239,6 +239,8 @@ jobs:
     # Explicitly check for linux_test success to ignore upstream skipped jobs
     if: always() && needs.linux_test.result == 'success'
     runs-on: ${{ github.event.repository.private == true && 'instadeep-ci-4' || 'ubuntu-latest' }}
+    permissions:
+      contents: write   # Required for committing badges and checking out code
     container:
       image: ${{ github.event.repository.private == true && 'ghcr.io/instadeepai/instanovo-internal' || 'ghcr.io/instadeepai/instanovo' }}/ci-py3.13:${{ github.event.repository.private == true && 'latest' || github.sha }}
       credentials:
@@ -246,7 +248,7 @@ jobs:
         password: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: Checkout main branch code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           # Fetch all history for plugins that rely on Git history
           fetch-depth: 0
@@ -411,8 +413,10 @@ jobs:
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: peaceiris/actions-gh-pages@v4
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          github_token: ${{ secrets.CI_DEPLOY_TOKEN }}
           publish_dir: ./docs_public
+          user_name: 'github-actions[bot]'
+          user_email: 'github-actions[bot]@users.noreply.github.com'
 
   # Job 6: Run tests on Windows for public repositories
   windows_test:
@@ -424,7 +428,7 @@ jobs:
     runs-on: windows-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Install uv and set up Python ${{ matrix.python-version }}
         uses: astral-sh/setup-uv@v6
@@ -484,7 +488,7 @@ jobs:
       PYTORCH_ENABLE_MPS_FALLBACK: "1"
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Install uv and set up Python ${{ matrix.python-version }}
         uses: astral-sh/setup-uv@v6
@@ -541,7 +545,7 @@ jobs:
         password: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - run: git config --system --add safe.directory $GITHUB_WORKSPACE
 
