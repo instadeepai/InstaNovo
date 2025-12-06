@@ -310,7 +310,7 @@ jobs:
           fi
       
       - name: Checkout gh-pages branch for Allure history
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           ref: gh-pages
           path: gh-pages
