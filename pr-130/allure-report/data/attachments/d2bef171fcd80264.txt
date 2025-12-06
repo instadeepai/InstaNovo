@@ -1,0 +1,2 @@
+[12/06/25 00:58:20] INFO     Creating s3fs.core.S3FileSystem, Endpoint: example/end_point                                                                                      
+                    INFO     Created s3fs.core.S3FileSystem: <MagicMock name='S3FileSystem()' id='140364795568752'>                                                            
