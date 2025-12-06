@@ -26,10 +26,7 @@ If you are on a machine without a GPU, or on macOS, you can install the CPU-only
 pip install "instanovo[cpu]"
 ```
 
-InstaNovo now has support for Metal Performance Shaders (MPS) for Apple silicon devices. See
-https://developer.apple.com/documentation/metalperformanceshaders for more information on MPS. If
-you would like to use InstaNovo with MPS, please set 'mps' to True in the configuration files
-([instanovo/configs/](instanovo/configs/)) and set the environment variable:
+InstaNovo now has support for [Metal Performance Shaders](https://developer.apple.com/documentation/metalperformanceshaders) (MPS) for Apple silicon devices. If you would like to use InstaNovo with MPS, please set 'mps' to True in the configuration files ([instanovo/configs/](instanovo/configs/)) and set the environment variable:
 
 ```bash
 PYTORCH_ENABLE_MPS_FALLBACK=1

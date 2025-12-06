@@ -25,35 +25,35 @@ The full documentation is available at
 [https://instadeepai.github.io/InstaNovo/](https://instadeepai.github.io/InstaNovo/) and consists of
 the following sections.
 
-- **[Tutorials](https://instadeepai.github.io/InstaNovo/tutorials/getting_started.md)**
-    - How to [install](https://instadeepai.github.io/InstaNovo/tutorials/getting_started.md#installation) InstaNovo, make your first [prediction](https://instadeepai.github.io/InstaNovo/tutorials/getting_started.md#making-your-first-prediction) and [evaluate](https://instadeepai.github.io/InstaNovo/tutorials/getting_started.md#evaluating-performance) InstaNovo's performance.
-    - An end-to-end starter [notebook](https://instadeepai.github.io/InstaNovo/notebooks/getting_started_with_instanovo.ipynb) that you can [run in Google Colab
+- **[Tutorials](https://instadeepai.github.io/InstaNovo/tutorials/getting_started)**
+    - How to [install](https://instadeepai.github.io/InstaNovo/tutorials/getting_started#installation) InstaNovo, make your first [prediction](https://instadeepai.github.io/InstaNovo/tutorials/getting_started#making-your-first-prediction) and [evaluate](https://instadeepai.github.io/InstaNovo/tutorials/getting_started#evaluating-performance) InstaNovo's performance.
+    - An end-to-end starter [notebook](https://instadeepai.github.io/InstaNovo/notebooks/getting_started_with_instanovo) that you can [run in Google Colab
     ](https://colab.research.google.com/github/instadeepai/InstaNovo/blob/main/notebooks/getting_started_with_instanovo.ipynb).
-- **[How-to guides](https://instadeepai.github.io/InstaNovo/how-to/predicting.md)**:
-    - How to perform [predictions](https://instadeepai.github.io/InstaNovo/how-to/predicting.md#basic-prediction) with InstaNovo with iterative refinement of InstaNovo+, or how to [use each model separately](https://instadeepai.github.io/InstaNovo/how-to/predicting.md#advanced-prediction-scenarios).
-    - Guide for preparing your [own data](https://instadeepai.github.io/InstaNovo/how-to/using_custom_datasets.md) for use with InstaNovo and InstaNovo+.
-    - Details how to [train](https://instadeepai.github.io/InstaNovo/how-to/training.md) your own InstaNovo and InstaNovo+ models.
--  **[Reference](https://instadeepai.github.io/InstaNovo/reference/cli.md)**:
-    - Overview of the `instanovo` [command-line interface](https://instadeepai.github.io/InstaNovo/reference/cli.md).
-    - List of the supported [post translational modifications](https://instadeepai.github.io/InstaNovo/reference/modifications.md).
-    - Description of the columns in the [prediction output CSV](https://instadeepai.github.io/InstaNovo/reference/prediction_output.md)
-    - Code [reference API](https://instadeepai.github.io/InstaNovo/API/summary.md)
-- **[Explanation](https://instadeepai.github.io/InstaNovo/explanation/performance.md)**:
-    - Explains our [performance metrics](https://instadeepai.github.io/InstaNovo/explanation/performance.md#performance-metrics) and [benchmarking results](https://instadeepai.github.io/InstaNovo/explanation/performance.md#benchmarks)
-    - A detailed explanation of the [`SpectrumDataFrame`](https://instadeepai.github.io/InstaNovo/explanation/spectrum_data_frame.md) class and its features.
-- **[Blog](https://instadeepai.github.io/InstaNovo/blog/introducing-the-next-generation-of-instanovo-models.md)**:
-    - [Introducing the next generation of InstaNovo models](https://instadeepai.github.io/InstaNovo/blog/introducing-the-next-generation-of-instanovo-models.md)
-    - [Introducing InstaNovo-P](https://instadeepai.github.io/InstaNovo/blog/introducing-instanovo-p-a-de-novo-sequencing-model-for-phosphoproteomics.md)
-    - [Winnow: calibrated confidence and FDR control for _de novo_ sequencing](https://instadeepai.github.io/InstaNovo/blog/calibrated-confidence-and-fdr-control-for-de-novo-sequencing.md)
-- **[For Developers](https://instadeepai.github.io/InstaNovo/development/setup.md)**:
-    - How to set up a [development environment](https://instadeepai.github.io/InstaNovo/development/setup.md#setting-up-with-uv).
-    - How to run the [tests](https://instadeepai.github.io/InstaNovo/development/setup.md#testing) and [lint](https://instadeepai.github.io/InstaNovo/development/setup.md#linting) the code.
-    - View the [test coverage](https://instadeepai.github.io/InstaNovo/development/coverage.md) and [test report](development/allure.md).
-- **[How to Cite](https://instadeepai.github.io/InstaNovo/citation.md)**:
-    - Bibtex references for our [peer-reviewed publication](https://instadeepai.github.io/InstaNovo/citation.md#instanovo-instanovo) on InstaNovo and InstaNovo+ and our preprints on [InstaNovo-P](citation.md#instanovo-p), [InstaNexus](https://instadeepai.github.io/InstaNovo/citation.md#instanexus) and [Winnow](https://instadeepai.github.io/InstaNovo/citation.md#winnow).
-- **[License](https://instadeepai.github.io/InstaNovo/license.md)**:
-    - Code is licensed under the [Apache License, Version 2.0](https://instadeepai.github.io/InstaNovo/license.md#apache-license)
-    - The model checkpoints are licensed under Creative Commons Non-Commercial ([CC BY-NC-SA 4.0](https://instadeepai.github.io/InstaNovo/license.md#creative-commons-attribution-noncommercial-sharealike-40-international))
+- **[How-to guides](https://instadeepai.github.io/InstaNovo/how-to/predicting)**:
+    - How to perform [predictions](https://instadeepai.github.io/InstaNovo/how-to/predicting#basic-prediction) with InstaNovo with iterative refinement of InstaNovo+, or how to [use each model separately](https://instadeepai.github.io/InstaNovo/how-to/predicting#advanced-prediction-scenarios).
+    - Guide for preparing your [own data](https://instadeepai.github.io/InstaNovo/how-to/using_custom_datasets) for use with InstaNovo and InstaNovo+.
+    - Details how to [train](https://instadeepai.github.io/InstaNovo/how-to/training) your own InstaNovo and InstaNovo+ models.
+-  **[Reference](https://instadeepai.github.io/InstaNovo/reference/cli)**:
+    - Overview of the `instanovo` [command-line interface](https://instadeepai.github.io/InstaNovo/reference/cli).
+    - List of the supported [post translational modifications](https://instadeepai.github.io/InstaNovo/reference/modifications).
+    - Description of the columns in the [prediction output CSV](https://instadeepai.github.io/InstaNovo/reference/prediction_output)
+    - Code [reference API](https://instadeepai.github.io/InstaNovo/API/summary)
+- **[Explanation](https://instadeepai.github.io/InstaNovo/explanation/performance)**:
+    - Explains our [performance metrics](https://instadeepai.github.io/InstaNovo/explanation/performance#performance-metrics) and [benchmarking results](https://instadeepai.github.io/InstaNovo/explanation/performance#benchmarks)
+    - A detailed explanation of the [`SpectrumDataFrame`](https://instadeepai.github.io/InstaNovo/explanation/spectrum_data_frame) class and its features.
+- **[Blog](https://instadeepai.github.io/InstaNovo/blog/introducing-the-next-generation-of-instanovo-models)**:
+    - [Introducing the next generation of InstaNovo models](https://instadeepai.github.io/InstaNovo/blog/introducing-the-next-generation-of-instanovo-models)
+    - [Introducing InstaNovo-P](https://instadeepai.github.io/InstaNovo/blog/introducing-instanovo-p-a-de-novo-sequencing-model-for-phosphoproteomics)
+    - [Winnow: calibrated confidence and FDR control for _de novo_ sequencing](https://instadeepai.github.io/InstaNovo/blog/calibrated-confidence-and-fdr-control-for-de-novo-sequencing)
+- **[For Developers](https://instadeepai.github.io/InstaNovo/development/setup)**:
+    - How to set up a [development environment](https://instadeepai.github.io/InstaNovo/development/setup#setting-up-with-uv).
+    - How to run the [tests](https://instadeepai.github.io/InstaNovo/development/setup#testing) and [lint](https://instadeepai.github.io/InstaNovo/development/setup#linting) the code.
+    - View the [test coverage](https://instadeepai.github.io/InstaNovo/development/coverage) and [test report](https://instadeepai.github.io/InstaNovo/development/allure).
+- **[How to Cite](https://instadeepai.github.io/InstaNovo/citation)**:
+    - Bibtex references for our [peer-reviewed publication](https://instadeepai.github.io/InstaNovo/citation#instanovo-instanovo) on InstaNovo and InstaNovo+ and our preprints on [InstaNovo-P](https://instadeepai.github.io/InstaNovo/citation#instanovo-p), [InstaNexus](https://instadeepai.github.io/InstaNovo/citation#instanexus) and [Winnow](https://instadeepai.github.io/InstaNovo/citation#winnow).
+- **[License](https://instadeepai.github.io/InstaNovo/license)**:
+    - Code is licensed under the [Apache License, Version 2.0](https://instadeepai.github.io/InstaNovo/license#apache-license)
+    - The model checkpoints are licensed under Creative Commons Non-Commercial ([CC BY-NC-SA 4.0](https://instadeepai.github.io/InstaNovo/license#creative-commons-attribution-noncommercial-sharealike-40-international))
 
 **Developed by:**
 
