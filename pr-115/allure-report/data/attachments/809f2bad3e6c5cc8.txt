@@ -1,1 +1,0 @@
-INFO     instanovo.utils.s3:s3.py:87 Downloading bucket/source.txt to /tmp/tmprky7afvk/source.txt
