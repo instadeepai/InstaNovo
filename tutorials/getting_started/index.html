@@ -1491,10 +1491,7 @@
 <p>If you are on a machine without a GPU, or on macOS, you can install the CPU-only version:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;instanovo[cpu]&quot;</span>
 </code></pre></div>
-<p>InstaNovo now has support for Metal Performance Shaders (MPS) for Apple silicon devices. See
-https://developer.apple.com/documentation/metalperformanceshaders for more information on MPS. If
-you would like to use InstaNovo with MPS, please set 'mps' to True in the configuration files
-(<a href="instanovo/configs/">instanovo/configs/</a>) and set the environment variable:</p>
+<p>InstaNovo now has support for <a href="https://developer.apple.com/documentation/metalperformanceshaders">Metal Performance Shaders</a> (MPS) for Apple silicon devices. If you would like to use InstaNovo with MPS, please set 'mps' to True in the configuration files (<a href="instanovo/configs/">instanovo/configs/</a>) and set the environment variable:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nv">PYTORCH_ENABLE_MPS_FALLBACK</span><span class="o">=</span><span class="m">1</span>
 </code></pre></div>
 <p>This allows the CPU to be used for functionality not yet supported on MPS. Note <code>torch&lt;2.8.0</code> is required if running on MPS.</p>
