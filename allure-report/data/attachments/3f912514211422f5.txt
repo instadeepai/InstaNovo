@@ -1,5 +1,0 @@
-INFO     instanovo.scripts.convert_to_sdf:convert_to_sdf.py:53 Loading /__w/InstaNovo/InstaNovo/tests/instanovo_test_resources/example_data/example.mgf
-INFO     instanovo.scripts.convert_to_sdf:convert_to_sdf.py:63 Loaded 3 rows
-INFO     instanovo.scripts.convert_to_sdf:convert_to_sdf.py:65 Filtering max_charge <= 2
-INFO     instanovo.scripts.convert_to_sdf:convert_to_sdf.py:68 Saving 2 rows to /tmp/tmpv9582wpf/output
-INFO     instanovo.scripts.convert_to_sdf:convert_to_sdf.py:76 Saving complete.
