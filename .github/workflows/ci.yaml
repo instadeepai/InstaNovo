@@ -203,7 +203,7 @@ jobs:
 
       - name: Upload coverage results
         if: matrix.python-version == '3.13'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: coverage-results-py3.13
           path: |
@@ -213,7 +213,7 @@ jobs:
 
       - name: Upload Allure results
         if: matrix.python-version == '3.13'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: allure-results-py${{ matrix.python-version }}
           path: allure_results
