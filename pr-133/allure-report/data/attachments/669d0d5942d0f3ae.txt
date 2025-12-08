@@ -1,0 +1,1 @@
+ERROR    root:get_zenodo_record.py:50 Failed to download the Zenodo record: Network error
