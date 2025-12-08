@@ -277,13 +277,13 @@ jobs:
             --min-pct-diff 10" /dev/null
 
       - name: Download coverage results
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v6
         with:
           name: coverage-results-py3.13
           path: .
 
       - name: Download Allure results
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v6
         with:
           name: allure-results-py3.13
           path: allure_results
