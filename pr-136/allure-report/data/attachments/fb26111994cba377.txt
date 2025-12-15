@@ -1,0 +1,4 @@
+INFO     instanovo.common.utils:utils.py:238 Checking for Neptune API token under A_TEST_EMAIL__NEPTUNE_API_TOKEN.
+INFO     instanovo.common.utils:utils.py:244 Neptune credentials for user A_TEST_EMAIL not found.
+INFO     instanovo.common.utils:utils.py:238 Checking for Neptune API token under A_TEST_EMAIL__NEPTUNE_API_TOKEN.
+INFO     instanovo.common.utils:utils.py:242 Set token for A_TEST_EMAIL.

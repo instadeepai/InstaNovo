@@ -1,0 +1,3 @@
+INFO     instanovo.inference.knapsack:knapsack.py:134 Scaling masses.
+INFO     instanovo.inference.knapsack:knapsack.py:150 Initializing chart.
+INFO     instanovo.inference.knapsack:knapsack.py:163 Performing search.
