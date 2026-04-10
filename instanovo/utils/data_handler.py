@@ -1455,10 +1455,19 @@ class SpectrumDataFrame:
         }
 
         # Include ms_level column if present (from MS1+MS2 extraction)
-        if "ms_level" in data:
+        if "ms_level" in data and data["ms_level"]:
             columns["ms_level"] = pl.Series(data["ms_level"], dtype=pl.Int32)
 
+        # Include experiment_name if present
+        if "experiment_name" in data and data["experiment_name"]:
+            columns["experiment_name"] = pl.Series(data["experiment_name"], dtype=pl.Utf8)
+
         df = pl.DataFrame(columns)
+
+        # Construct spectrum_id from experiment_name:scan_number if not already present
+        if "experiment_name" in df.columns and "spectrum_id" not in df.columns:
+            df = df.with_columns((pl.col("experiment_name") + ":" + pl.col("scan_number").cast(pl.Utf8)).alias("spectrum_id"))
+
         return df
 
     @staticmethod

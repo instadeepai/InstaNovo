@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import Any
 
 from pyteomics import mgf, mzml, mzxml
@@ -7,12 +8,14 @@ from pyteomics.auxiliary import cvquery
 # Unused
 def read_mgf(file_path: str) -> dict[str, list[Any]]:
     """Read an mgf file and return a data dict."""
+    experiment_name = Path(file_path).stem
     data = _initialize_data_dict()
 
     with mgf.read(file_path, index_by_scans=True) as reader:
         for spectrum in reader:
             data["ms_level"].append(2)  # MGF files contain MS2 spectra only
             data["scan_number"].append(spectrum.get("params", {}).get("title", ""))
+            data["experiment_name"].append(experiment_name)
             data["sequence"].append(spectrum.get("params", {}).get("seq", ""))
             data["precursor_mz"].append(spectrum.get("params", {}).get("pepmass", [0])[0])
             data["precursor_charge"].append(spectrum.get("params", {}).get("charge", [0])[0])
@@ -37,6 +40,7 @@ def read_mzml(
     if ms_levels is None:
         ms_levels = [2]
 
+    experiment_name = Path(file_path).stem
     data = _initialize_data_dict()
 
     ms_vocab = {
@@ -58,6 +62,7 @@ def read_mzml(
 
             data["ms_level"].append(int(current_ms_level))
             data["scan_number"].append(spectrum.get("id", ""))
+            data["experiment_name"].append(experiment_name)
             data["retention_time"].append(spectrum_dict.get(ms_vocab["retention_time"]))
             data["mz_array"].append(list(spectrum_dict.get(ms_vocab["mz_array"])))
             data["intensity_array"].append(list(spectrum_dict.get(ms_vocab["intensity_array"])))
@@ -89,6 +94,7 @@ def read_mzxml(file_path: str, ms_levels: list[int] | None = None) -> dict[str, 
     if ms_levels is None:
         ms_levels = [2]
 
+    experiment_name = Path(file_path).stem
     data = _initialize_data_dict()
 
     with mzxml.read(file_path) as reader:
@@ -99,6 +105,7 @@ def read_mzxml(file_path: str, ms_levels: list[int] | None = None) -> dict[str, 
 
             data["ms_level"].append(int(current_ms_level))
             data["scan_number"].append(spectrum.get("num", ""))
+            data["experiment_name"].append(experiment_name)
             data["retention_time"].append(spectrum.get("retentionTime"))
             data["mz_array"].append(list(spectrum.get("m/z array")))
             data["intensity_array"].append(list(spectrum.get("intensity array")))
@@ -120,6 +127,7 @@ def _initialize_data_dict() -> dict[str, list[Any]]:
     return {
         "ms_level": [],
         "scan_number": [],
+        "experiment_name": [],
         "sequence": [],
         "precursor_mz": [],
         "precursor_charge": [],
