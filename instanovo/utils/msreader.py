@@ -11,6 +11,7 @@ def read_mgf(file_path: str) -> dict[str, list[Any]]:
 
     with mgf.read(file_path, index_by_scans=True) as reader:
         for spectrum in reader:
+            data["ms_level"].append(2)  # MGF files contain MS2 spectra only
             data["scan_number"].append(spectrum.get("params", {}).get("title", ""))
             data["sequence"].append(spectrum.get("params", {}).get("seq", ""))
             data["precursor_mz"].append(spectrum.get("params", {}).get("pepmass", [0])[0])
@@ -24,8 +25,18 @@ def read_mgf(file_path: str) -> dict[str, list[Any]]:
 
 def read_mzml(
     file_path: str,
+    ms_levels: list[int] | None = None,
 ) -> dict[str, list[Any]]:
-    """Read an mzml file and return a data dict."""
+    """Read an mzml file and return a data dict.
+
+    Args:
+        file_path: Path to the mzML file.
+        ms_levels: List of MS levels to extract. Default [2] for backward compatibility.
+            Use [1, 2] to extract both MS1 and MS2 scans.
+    """
+    if ms_levels is None:
+        ms_levels = [2]
+
     data = _initialize_data_dict()
 
     ms_vocab = {
@@ -41,46 +52,73 @@ def read_mzml(
     with mzml.read(file_path) as reader:
         for spectrum in reader:
             spectrum_dict = cvquery(spectrum)
-            if spectrum_dict.get(ms_vocab["ms_level"]) == 2:  # Ensure it's an MS2 spectrum
-                data["scan_number"].append(spectrum.get("id", ""))
+            current_ms_level = spectrum_dict.get(ms_vocab["ms_level"])
+            if current_ms_level not in ms_levels:
+                continue
 
+            data["ms_level"].append(int(current_ms_level))
+            data["scan_number"].append(spectrum.get("id", ""))
+            data["retention_time"].append(spectrum_dict.get(ms_vocab["retention_time"]))
+            data["mz_array"].append(list(spectrum_dict.get(ms_vocab["mz_array"])))
+            data["intensity_array"].append(list(spectrum_dict.get(ms_vocab["intensity_array"])))
+
+            if current_ms_level == 2:
                 data["sequence"].append(spectrum_dict.get(ms_vocab["sequence"], ""))
-
-                # Find the first matching precursor mz term
                 pre_mz_key = next(
                     (key for key in ms_vocab["precursor_mz"] if key in spectrum_dict),
                     "",
                 )
                 data["precursor_mz"].append(spectrum_dict.get(pre_mz_key, 0))
                 data["precursor_charge"].append(spectrum_dict.get(ms_vocab["precursor_charge"], 0))
-                data["retention_time"].append(spectrum_dict.get(ms_vocab["retention_time"]))
-                data["mz_array"].append(list(spectrum_dict.get(ms_vocab["mz_array"])))
-                data["intensity_array"].append(list(spectrum_dict.get(ms_vocab["intensity_array"])))
+            else:
+                # MS1 scans: precursor info not applicable
+                data["sequence"].append("")
+                data["precursor_mz"].append(None)
+                data["precursor_charge"].append(None)
 
     return data
 
 
-def read_mzxml(file_path: str) -> dict[str, list[Any]]:
-    """Read an mzxml file and return a data dict."""
+def read_mzxml(file_path: str, ms_levels: list[int] | None = None) -> dict[str, list[Any]]:
+    """Read an mzxml file and return a data dict.
+
+    Args:
+        file_path: Path to the mzXML file.
+        ms_levels: List of MS levels to extract. Default [2] for backward compatibility.
+    """
+    if ms_levels is None:
+        ms_levels = [2]
+
     data = _initialize_data_dict()
 
     with mzxml.read(file_path) as reader:
         for spectrum in reader:
-            if spectrum.get("msLevel", 0) == 2:  # Ensure it's an MS2 spectrum
-                data["scan_number"].append(spectrum.get("num", ""))
+            current_ms_level = spectrum.get("msLevel", 0)
+            if current_ms_level not in ms_levels:
+                continue
+
+            data["ms_level"].append(int(current_ms_level))
+            data["scan_number"].append(spectrum.get("num", ""))
+            data["retention_time"].append(spectrum.get("retentionTime"))
+            data["mz_array"].append(list(spectrum.get("m/z array")))
+            data["intensity_array"].append(list(spectrum.get("intensity array")))
+
+            if current_ms_level == 2:
                 data["sequence"].append(spectrum.get("peptide", ""))
                 precursor = spectrum.get("precursorMz", [{}])[0]
                 data["precursor_mz"].append(precursor.get("precursorMz", 0))
                 data["precursor_charge"].append(precursor.get("precursorCharge", 0))
-                data["retention_time"].append(spectrum.get("retentionTime"))
-                data["mz_array"].append(list(spectrum.get("m/z array")))
-                data["intensity_array"].append(list(spectrum.get("intensity array")))
+            else:
+                data["sequence"].append("")
+                data["precursor_mz"].append(None)
+                data["precursor_charge"].append(None)
 
     return data
 
 
 def _initialize_data_dict() -> dict[str, list[Any]]:
     return {
+        "ms_level": [],
         "scan_number": [],
         "sequence": [],
         "precursor_mz": [],

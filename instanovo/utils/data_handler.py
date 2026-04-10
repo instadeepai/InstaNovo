@@ -1243,33 +1243,32 @@ class SpectrumDataFrame:
         return SpectrumDataFrame._df_from_dict(read_mzxml(source))
 
     @classmethod
-    def load_mzml(cls, source: str) -> "SpectrumDataFrame":
+    def load_mzml(cls, source: str, ms_levels: list[int] | None = None) -> "SpectrumDataFrame":
         """Load a SpectrumDataFrame from an mzML file.
 
         Args:
             source (str): Path to the mzML file.
+            ms_levels (list[int] | None): MS levels to extract. Default [2] for backward
+                compatibility. Use [1, 2] to extract both MS1 and MS2 scans.
 
         Returns:
             SpectrumDataFrame: The loaded SpectrumDataFrame.
         """
-        # spectra = list(load_from_mzml(source))
-        # return cls.from_matchms(spectra)
-        df = SpectrumDataFrame._df_from_dict(read_mzml(source))
+        df = SpectrumDataFrame._df_from_dict(read_mzml(source, ms_levels=ms_levels))
         return cls.from_polars(df)
 
     @staticmethod
-    def _df_from_mzml(source: str) -> pl.DataFrame:
-        """Load a polars DataFrame from an MGF file.
+    def _df_from_mzml(source: str, ms_levels: list[int] | None = None) -> pl.DataFrame:
+        """Load a polars DataFrame from an mzML file.
 
         Args:
-            source (str): Path to the MGF file.
+            source (str): Path to the mzML file.
+            ms_levels (list[int] | None): MS levels to extract.
 
         Returns:
             pl.DataFrame: The loaded polars DataFrame.
         """
-        # spectra = list(load_from_mzml(source))
-        # return SpectrumDataFrame._df_from_matchms(spectra)
-        return SpectrumDataFrame._df_from_dict(read_mzml(source))
+        return SpectrumDataFrame._df_from_dict(read_mzml(source, ms_levels=ms_levels))
 
     @classmethod
     def from_huggingface(
