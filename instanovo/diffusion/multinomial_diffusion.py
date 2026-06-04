@@ -234,7 +234,8 @@ class InstaNovoPlus(nn.Module):
         else:
             # Load model from checkpoint file
             try:
-                model_data = torch.load(path, map_location=torch.device("cpu"), weights_only=False)
+                _whitelist_torch_omegaconf()
+                model_data = torch.load(path, map_location=torch.device("cpu"), weights_only=True)
             except Exception as e:
                 raise ValueError(f"Failed to load model from {path}: {str(e)}") from e
 
@@ -573,3 +574,36 @@ class DiffusionLoss(nn.Module):
         denoising_loss = self.kl_divergence(log_posterior, log_dist)
         loss = torch.where(t == 0, nll_loss, denoising_loss)
         return loss
+
+
+def _whitelist_torch_omegaconf() -> None:
+    """Whitelist specific classes so checkpoints can be loaded with ``weights_only=True``.
+
+    The single-file InstaNovo+ checkpoint stores its config as an OmegaConf
+    ``DictConfig``, which embeds a handful of non-tensor classes. Loading with
+    ``weights_only=True`` uses PyTorch's restricted unpickler, which refuses
+    unknown globals. We explicitly allow-list only the known-safe OmegaConf
+    classes (and the builtins they reference) so we keep the protection against
+    arbitrary code execution from untrusted checkpoints.
+    """
+    from collections import defaultdict
+    from typing import Any
+
+    from omegaconf.base import ContainerMetadata, Metadata
+    from omegaconf.listconfig import ListConfig
+    from omegaconf.nodes import AnyNode
+
+    torch.serialization.add_safe_globals(
+        [
+            DictConfig,
+            ContainerMetadata,
+            Metadata,
+            ListConfig,
+            AnyNode,
+            Any,  # Only used for type hinting in omegaconf.
+            defaultdict,
+            dict,
+            list,
+            int,
+        ]
+    )
