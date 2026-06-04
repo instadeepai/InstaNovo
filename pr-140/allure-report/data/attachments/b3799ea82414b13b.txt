@@ -1,0 +1,1 @@
+INFO     instanovo.scripts.update_ipc_format:update_ipc_format.py:25 Processing /tmp/pytest-of-root/pytest-0/test_update_ipc_format0/source.ipc.
