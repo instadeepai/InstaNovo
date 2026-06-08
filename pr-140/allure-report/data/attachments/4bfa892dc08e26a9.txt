@@ -1,1 +1,0 @@
-INFO     instanovo.utils.device_handler:device_handler.py:124 MPS is set to True, forcing fp32. Note that performance on MPS may differ to performance on CUDA.

@@ -1,1 +1,0 @@
-[12/15/25 06:18:06] INFO     Uploading source.txt to bucket/target.txt                                                                                                         
