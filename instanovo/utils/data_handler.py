@@ -1243,33 +1243,32 @@ class SpectrumDataFrame:
         return SpectrumDataFrame._df_from_dict(read_mzxml(source))
 
     @classmethod
-    def load_mzml(cls, source: str) -> "SpectrumDataFrame":
+    def load_mzml(cls, source: str, ms_levels: list[int] | None = None) -> "SpectrumDataFrame":
         """Load a SpectrumDataFrame from an mzML file.
 
         Args:
             source (str): Path to the mzML file.
+            ms_levels (list[int] | None): MS levels to extract. Default [2] for backward
+                compatibility. Use [1, 2] to extract both MS1 and MS2 scans.
 
         Returns:
             SpectrumDataFrame: The loaded SpectrumDataFrame.
         """
-        # spectra = list(load_from_mzml(source))
-        # return cls.from_matchms(spectra)
-        df = SpectrumDataFrame._df_from_dict(read_mzml(source))
+        df = SpectrumDataFrame._df_from_dict(read_mzml(source, ms_levels=ms_levels))
         return cls.from_polars(df)
 
     @staticmethod
-    def _df_from_mzml(source: str) -> pl.DataFrame:
-        """Load a polars DataFrame from an MGF file.
+    def _df_from_mzml(source: str, ms_levels: list[int] | None = None) -> pl.DataFrame:
+        """Load a polars DataFrame from an mzML file.
 
         Args:
-            source (str): Path to the MGF file.
+            source (str): Path to the mzML file.
+            ms_levels (list[int] | None): MS levels to extract.
 
         Returns:
             pl.DataFrame: The loaded polars DataFrame.
         """
-        # spectra = list(load_from_mzml(source))
-        # return SpectrumDataFrame._df_from_matchms(spectra)
-        return SpectrumDataFrame._df_from_dict(read_mzml(source))
+        return SpectrumDataFrame._df_from_dict(read_mzml(source, ms_levels=ms_levels))
 
     @classmethod
     def from_huggingface(
@@ -1427,25 +1426,48 @@ class SpectrumDataFrame:
 
     @staticmethod
     def _df_from_dict(data: dict[str, Any]) -> pl.DataFrame:
-        df = pl.DataFrame(
-            {
-                "scan_number": pl.Series(
-                    [SpectrumDataFrame._parse_scan_number(str(x), i) for i, x in enumerate(data["scan_number"])],
-                    dtype=pl.Int64,
-                ),
-                ANNOTATED_COLUMN: pl.Series(data["sequence"], dtype=pl.Utf8),
-                # Calculate precursor mass
-                MSColumns.PRECURSOR_MASS.value: pl.Series(
-                    np.array(data["precursor_mz"]) * np.array(data["precursor_charge"]) - np.array(data["precursor_charge"]) * PROTON_MASS_AMU,
-                    dtype=MS_TYPES[MSColumns.PRECURSOR_MASS],
-                ),
-                MSColumns.PRECURSOR_MZ.value: pl.Series(data["precursor_mz"], dtype=MS_TYPES[MSColumns.PRECURSOR_MZ]),
-                MSColumns.PRECURSOR_CHARGE.value: pl.Series(data["precursor_charge"], dtype=MS_TYPES[MSColumns.PRECURSOR_CHARGE]),
-                MSColumns.RETENTION_TIME.value: pl.Series(data["retention_time"], dtype=MS_TYPES[MSColumns.RETENTION_TIME]),
-                MSColumns.MZ_ARRAY.value: pl.Series(data["mz_array"], dtype=MS_TYPES[MSColumns.MZ_ARRAY]),
-                MSColumns.INTENSITY_ARRAY.value: pl.Series(data["intensity_array"], dtype=MS_TYPES[MSColumns.INTENSITY_ARRAY]),
-            }
-        )
+        # Build precursor columns, handling None values from MS1 scans
+        precursor_mz_raw = data["precursor_mz"]
+        precursor_charge_raw = data["precursor_charge"]
+
+        # Compute precursor mass: mz * charge - charge * proton_mass
+        # None values (MS1 rows) stay as None
+        precursor_mass = [
+            (mz * charge - charge * PROTON_MASS_AMU) if (mz is not None and charge is not None) else None
+            for mz, charge in zip(precursor_mz_raw, precursor_charge_raw, strict=False)
+        ]
+
+        columns: dict[str, Any] = {
+            "scan_number": pl.Series(
+                [SpectrumDataFrame._parse_scan_number(str(x), i) for i, x in enumerate(data["scan_number"])],
+                dtype=pl.Int64,
+            ),
+            ANNOTATED_COLUMN: pl.Series(data["sequence"], dtype=pl.Utf8),
+            MSColumns.PRECURSOR_MASS.value: pl.Series(precursor_mass, dtype=MS_TYPES[MSColumns.PRECURSOR_MASS]),
+            MSColumns.PRECURSOR_MZ.value: pl.Series(precursor_mz_raw, dtype=MS_TYPES[MSColumns.PRECURSOR_MZ]),
+            MSColumns.PRECURSOR_CHARGE.value: pl.Series(
+                [int(x) if x is not None else None for x in precursor_charge_raw],
+                dtype=MS_TYPES[MSColumns.PRECURSOR_CHARGE],
+            ),
+            MSColumns.RETENTION_TIME.value: pl.Series(data["retention_time"], dtype=MS_TYPES[MSColumns.RETENTION_TIME]),
+            MSColumns.MZ_ARRAY.value: pl.Series(data["mz_array"], dtype=MS_TYPES[MSColumns.MZ_ARRAY]),
+            MSColumns.INTENSITY_ARRAY.value: pl.Series(data["intensity_array"], dtype=MS_TYPES[MSColumns.INTENSITY_ARRAY]),
+        }
+
+        # Include ms_level column if present (from MS1+MS2 extraction)
+        if "ms_level" in data and data["ms_level"]:
+            columns["ms_level"] = pl.Series(data["ms_level"], dtype=pl.Int32)
+
+        # Include experiment_name if present
+        if "experiment_name" in data and data["experiment_name"]:
+            columns["experiment_name"] = pl.Series(data["experiment_name"], dtype=pl.Utf8)
+
+        df = pl.DataFrame(columns)
+
+        # Construct spectrum_id from experiment_name:scan_number if not already present
+        if "experiment_name" in df.columns and "spectrum_id" not in df.columns:
+            df = df.with_columns((pl.col("experiment_name") + ":" + pl.col("scan_number").cast(pl.Utf8)).alias("spectrum_id"))
+
         return df
 
     @staticmethod

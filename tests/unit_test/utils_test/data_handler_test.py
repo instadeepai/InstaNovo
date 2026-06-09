@@ -356,6 +356,7 @@ def test_mzml_to_parquet(dir_paths: tuple[str, str], tmp_path: Any) -> None:
             "retention_time": [nan],
             "mz_array": [array([10.0, 20.0, 30.0, 40.0])],
             "intensity_array": [array([1.0, 1.5, 1.0, 1.5])],
+            "ms_level": pd.array([2], dtype="int32"),
             "experiment_name": ["example"],
             "spectrum_id": ["example:1"],
         }
@@ -443,6 +444,7 @@ def test_mzxml_to_parquet(dir_paths: tuple[str, str], tmp_path: Any) -> None:
             "retention_time": [nan],
             "mz_array": [array([10.0, 30.0])],
             "intensity_array": [array([20.0, 40.0])],
+            "ms_level": pd.array([2], dtype="int32"),
             "experiment_name": ["example"],
             "spectrum_id": ["example:1"],
         }
