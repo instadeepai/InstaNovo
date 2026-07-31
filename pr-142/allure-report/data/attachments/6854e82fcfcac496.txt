@@ -1,0 +1,1 @@
+[07/31/26 08:22:28] WARNING  CUDA is not available, setting force_cpu to True.                                                                                                 
